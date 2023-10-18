@@ -1,0 +1,7 @@
+This directory has been copied and modified from https://github.com/coder/coder and modified by Gage Technologies
+Coder is a badass platform and you should check it out. Also if you
+are a Go programmer, you should thoroughly read and understand the design
+decisions, coding conventions and organization of Coder. Coder has some
+beautiful code, super clean conventions and a great monorepo design!
+
+Forked from main@cc694a55bcdf7cf031ace2aab95356cee9e61d84

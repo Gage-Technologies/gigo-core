@@ -1,0 +1,6 @@
+src/go.sum
+Dockerfile
+
+.idea
+.vscode
+.fleet

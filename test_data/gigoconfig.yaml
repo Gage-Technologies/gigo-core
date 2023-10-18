@@ -1,0 +1,78 @@
+# version of configuration format
+version: 0.1
+
+# resources that need to be allocated for the env
+resources:
+  cpu: 4
+  mem: 6
+  disk: 50
+  # FUTURE FEATURE - add support for GPU allocation
+  gpu:
+    count: 1
+    class: p4
+
+# base container that will operate as the OS
+base_container: codercom/enterprise-base:ubuntu
+
+# working directory that the source code will be cloned to
+working_directory: /home/gigo/codebase
+
+# environment variables for the env
+environment:
+  GOPRIVATE: github.com/gage-technologies
+
+# configuration of the vscode editor
+vscode:
+  # enable/disable vscode editor - default to enabled
+  enabled: true
+  # extensions that need to be installed in the editor
+  extensions:
+    - ms-python
+    - gigo
+
+# add support for forwarding a port to a URL
+port_forward:
+  - 3000
+
+# containers that will be executed within the dev container - in docker compose format
+containers:
+  version: "3.2"
+  services:
+
+    redis:
+      image: "redis:alpine"
+
+      command: redis-server --requirepass password
+
+      ports:
+        - "6379:6379"
+
+      volumes:
+        - /home/gigo/.gigo/containers/redis-data:/var/lib/redis
+        - /home/gigo/.gigo/containers/redis.conf:/usr/local/etc/redis/redis.conf
+
+      environment:
+        - REDIS_REPLICATION_MODE=master
+
+      networks:
+        node_net:
+          ipv4_address: 172.28.1.4
+
+  # networking for the Redis container
+  networks:
+    node_net:
+      ipam:
+        driver: default
+        config:
+          - subnet: 172.28.0.0/16
+
+# optional shell executions that are performed in order from top to bottom
+exec:
+  - name: Echo Run Test
+    init: false
+    command: |
+      echo "test shell exec" > /tmp/shell-exec-test
+  - name: Echo Init Test
+    init: true
+    command: |
+      echo "test shell exec init" > /tmp/shell-exec-test-init

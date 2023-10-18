@@ -1,0 +1,115 @@
+version: "3.7"
+
+networks:
+  gigo:
+    external: false
+
+services:
+  gigo-dev-tidb:
+    image: gigodev/tidb-playground:latest
+    restart: always
+    networks:
+      - gigo
+#    ports:
+#      - "4000:4000"
+#      - "10080:10080"
+#      - "2379:2379"
+
+  gigo-dev-git:
+    image: gitea/gitea:latest
+    command: "/bin/bash /custom-entrypoint.sh"
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__install__DISABLE_REGISTRATION=true
+      - GITEA__install__DEFAULT_ALLOW_CREATE_ORGANIZATION=false
+    volumes:
+      - ./data/gitea/app.ini:/data/gitea/conf/app.ini
+      - ./data/gitea/entrypoint.sh:/custom-entrypoint.sh
+    restart: always
+    networks:
+      - gigo
+    # ports:
+    #   - "4214:3000"
+
+  gigo-dev-nats:
+    image: nats:latest
+    command: "-js"
+    restart: always
+    networks:
+      - gigo
+#    ports:
+#      - "4222:4222"
+#      - "8222:8222"
+#      - "6222:6222"
+
+  gigo-dev-minio:
+    image: quay.io/minio/minio:latest
+    entrypoint: /bin/sh
+    command: /custom-entrypoint.sh
+    restart: always
+    environment:
+      - MINIO_ROOT_USER=gigo-dev
+      - MINIO_ROOT_PASSWORD=gigo-dev
+    volumes:
+      - ./data/minio/entrypoint.sh:/custom-entrypoint.sh
+      - ./data/minio/initData:/tmp/initData
+    networks:
+      - gigo
+    # ports:
+    #   - "9101"
+    #   - "9000"
+
+  gigo-dev-meili:
+    image: getmeili/meilisearch:latest
+    command: meilisearch --env=development
+    restart: always
+    environment:
+      - MEILI_MASTER_KEY=gigo-dev
+    networks:
+      - gigo
+#    ports:
+#      - "7700:7700"
+#      - "7701:7701"
+
+  gigo-dev-redis:
+    image: redis/redis-stack:latest
+    restart: always
+    environment:
+      - REDIS_ARGS=--requirepass gigo-dev
+    networks:
+      - gigo
+#    ports:
+#      - "6379:6379"
+
+  gigo-dev-etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    restart: always
+    networks:
+      - gigo
+#    ports:
+#      - "2379:2379"
+
+  gigo-dev-runner:
+    image: gigodev/gimg:go-ubuntu
+    restart: always
+    volumes:
+      - ./runner.sh:/runner.sh
+    env_file:
+      - .env
+    networks:
+      - gigo
+    depends_on:
+      - gigo-dev-git
+      - gigo-dev-nats
+      - gigo-dev-minio
+      - gigo-dev-meili
+      - gigo-dev-redis
+      - gigo-dev-etcd
+    command: /bin/bash /runner.sh
+    
