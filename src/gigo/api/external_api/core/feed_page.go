@@ -3,7 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core/query_models"
+	"gigo-core/gigo/api/external_api/core/query_models"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/kisielk/sqlstruct"

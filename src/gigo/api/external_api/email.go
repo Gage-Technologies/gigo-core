@@ -2,14 +2,15 @@ package external_api
 
 import (
 	"encoding/json"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
+	"gigo-core/gigo/api/external_api/core"
+	"net/http"
+	"reflect"
+
 	"github.com/gage-technologies/gigo-lib/network"
 	"github.com/gorilla/mux"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"net/http"
-	"reflect"
 )
 
 func (s *HTTPServer) VerifyEmailToken(w http.ResponseWriter, r *http.Request) {

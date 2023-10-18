@@ -2,19 +2,20 @@ package external_api
 
 import (
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
-	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/gage-technologies/gigo-lib/network"
-	"github.com/gorilla/mux"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"gigo-core/gigo/api/external_api/core"
 	"io"
 	"net/http"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
+	"github.com/gage-technologies/gigo-lib/network"
+	"github.com/gorilla/mux"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var gitImagePathCleaner = regexp.MustCompile("^/static/git/a|p/[0-9]+/")

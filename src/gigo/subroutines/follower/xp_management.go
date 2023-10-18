@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"time"
+
 	"github.com/go-redis/redis/v8"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"time"
+
+	"gigo-core/gigo/api/external_api/core"
 
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/mq"

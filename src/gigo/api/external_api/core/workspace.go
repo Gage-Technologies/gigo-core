@@ -8,11 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/openvsx"
-	"github.com/gage-technologies/gigo-lib/storage"
-	"github.com/go-redis/redis/v8"
-	"go.opentelemetry.io/otel"
-	"golang.org/x/mod/semver"
 	"io"
 	"net/http"
 	"net/url"
@@ -21,8 +16,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gage-technologies/gigo-lib/openvsx"
+	"github.com/gage-technologies/gigo-lib/storage"
+	"github.com/go-redis/redis/v8"
+	"go.opentelemetry.io/otel"
+	"golang.org/x/mod/semver"
+
+	"gigo-core/gigo/utils"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/utils"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"

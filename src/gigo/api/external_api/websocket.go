@@ -4,20 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/ws"
+	"gigo-core/gigo/api/external_api/ws"
+	"net/http"
+	"runtime/debug"
+	"strconv"
+	"sync/atomic"
+	"time"
+
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/network"
 	"github.com/go-playground/validator"
 	"github.com/sourcegraph/conc/pool"
 	"go.opentelemetry.io/otel"
-	"net/http"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
-	"runtime/debug"
-	"strconv"
-	"sync/atomic"
-	"time"
 )
 
 const (

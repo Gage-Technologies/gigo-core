@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/utils"
+	"gigo-core/gigo/utils"
+	"strings"
+	"time"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"
@@ -15,8 +18,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"strings"
-	"time"
 )
 
 const updateWorkspaceExpirationForNet = `

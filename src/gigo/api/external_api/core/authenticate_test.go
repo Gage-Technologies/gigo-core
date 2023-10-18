@@ -2,13 +2,15 @@ package core
 
 import (
 	"context"
-	config2 "github.com/gage-technologies/gigo-lib/config"
 	"reflect"
 	"strings"
 	"testing"
 
+	config2 "github.com/gage-technologies/gigo-lib/config"
+
+	_ "gigo-core/gigo/config"
+
 	"github.com/bwmarrin/snowflake"
-	_ "github.com/gage-technologies/GIGO/src/gigo/config"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"

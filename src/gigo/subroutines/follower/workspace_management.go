@@ -16,12 +16,14 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/gage-technologies/GIGO/src/gigo/streak"
-	"github.com/gage-technologies/GIGO/src/gigo/utils"
+	"gigo-core/gigo/streak"
+	"gigo-core/gigo/utils"
+
 	"github.com/go-redis/redis/v8"
 
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
-	"github.com/gage-technologies/GIGO/src/gigo/api/ws"
+	"gigo-core/gigo/api/external_api/core"
+	"gigo-core/gigo/api/ws"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"

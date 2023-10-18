@@ -2,12 +2,13 @@ package external_api
 
 import (
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
-	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/gage-technologies/gigo-lib/network"
+	"gigo-core/gigo/api/external_api/core"
 	"net/http"
 	"reflect"
 	"strconv"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
+	"github.com/gage-technologies/gigo-lib/network"
 )
 
 func (s *HTTPServer) GenerateProjectImage(w http.ResponseWriter, r *http.Request) {

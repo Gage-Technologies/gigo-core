@@ -3,8 +3,11 @@ package follower
 import (
 	"context"
 	"fmt"
+	"gigo-core/gigo/streak"
+	"strings"
+	"time"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/streak"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"
@@ -18,8 +21,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"strings"
-	"time"
 )
 
 const queryExpiredUserStats = `

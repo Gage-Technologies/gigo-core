@@ -3,14 +3,16 @@ package api
 import (
 	"context"
 	"fmt"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"net"
 	"net/http"
 	"time"
 
-	"github.com/gage-technologies/GIGO/src/coder/api/core"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	"gigo-core/coder/api/core"
+
 	"github.com/gage-technologies/gigo-lib/network"
 	"nhooyr.io/websocket"
 )

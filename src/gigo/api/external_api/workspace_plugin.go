@@ -12,8 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/ws"
+	"gigo-core/gigo/api/external_api/core"
+	"gigo-core/gigo/api/external_api/ws"
+
 	"github.com/gage-technologies/gigo-lib/db/models"
 	models2 "github.com/gage-technologies/gigo-lib/mq/models"
 	"github.com/gage-technologies/gigo-lib/mq/streams"

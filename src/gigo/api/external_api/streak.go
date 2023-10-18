@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	"gigo-core/gigo/api/external_api/core"
+
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/network"
 	"github.com/go-redsync/redsync/v4"

@@ -3,17 +3,18 @@ package external_api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
+	"gigo-core/gigo/api/external_api/core"
+	"io"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/gage-technologies/gigo-lib/network"
 	"github.com/stripe/stripe-go/v74"
 	"github.com/stripe/stripe-go/v74/webhook"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"io"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 func (s *HTTPServer) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {

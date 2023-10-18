@@ -29,13 +29,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gigo-core/gigo/streak"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/streak"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/oauth2/v2"
 
-	utils2 "github.com/gage-technologies/GIGO/src/gigo/utils"
-	utils3 "github.com/gage-technologies/GIGO/src/gigo/utils"
+	utils2 "gigo-core/gigo/utils"
+	utils3 "gigo-core/gigo/utils"
+	"net/http"
+	"net/mail"
+	"strconv"
+	"time"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"
@@ -49,10 +55,6 @@ import (
 	"github.com/jinzhu/now"
 	"github.com/kisielk/sqlstruct"
 	"go.opentelemetry.io/otel"
-	"net/http"
-	"net/mail"
-	"strconv"
-	"time"
 )
 
 func CreateEphemeral(ctx context.Context, tidb *ti.Database, storageEngine storage.Storage, meili *search.MeiliSearchEngine, sf *snowflake.Node,

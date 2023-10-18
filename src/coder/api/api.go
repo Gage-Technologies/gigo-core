@@ -4,10 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"gigo-core/gigo/config"
+	"gigo-core/gigo/derper"
+	"gigo-core/gigo/streak"
+	"net/http"
+	"net/url"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/config"
-	"github.com/gage-technologies/GIGO/src/gigo/derper"
-	"github.com/gage-technologies/GIGO/src/gigo/streak"
 	"github.com/gage-technologies/gigo-lib/cluster"
 	"github.com/gage-technologies/gigo-lib/coder/tailnet"
 	"github.com/gage-technologies/gigo-lib/coder/wsconncache"
@@ -19,12 +26,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	"go.opentelemetry.io/otel"
-	"net/http"
-	"net/url"
-	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (

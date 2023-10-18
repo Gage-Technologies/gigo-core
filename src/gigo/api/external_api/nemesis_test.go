@@ -5,17 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
-	config2 "github.com/gage-technologies/gigo-lib/config"
-	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/gage-technologies/gigo-lib/logging"
-	"github.com/gage-technologies/gigo-lib/mq"
+	"gigo-core/gigo/api/external_api/core"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/bwmarrin/snowflake"
+	config2 "github.com/gage-technologies/gigo-lib/config"
+	"github.com/gage-technologies/gigo-lib/db/models"
+	"github.com/gage-technologies/gigo-lib/logging"
+	"github.com/gage-technologies/gigo-lib/mq"
 )
 
 func TestHTTPServer_DeclareNemesis(t *testing.T) {

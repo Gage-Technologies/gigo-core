@@ -7,14 +7,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
+	"gigo-core/gigo/api/external_api/core"
+	"io"
+	"net/http"
+
 	"github.com/gage-technologies/gigo-lib/network"
 	"github.com/gage-technologies/gigo-lib/types"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"io"
-	"net/http"
 )
 
 // TODO: needs testing

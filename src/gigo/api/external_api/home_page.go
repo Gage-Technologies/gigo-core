@@ -1,13 +1,15 @@
 package external_api
 
 import (
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"net/http"
 	"strconv"
 
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	"gigo-core/gigo/api/external_api/core"
+
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/network"
 )

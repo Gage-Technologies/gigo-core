@@ -27,18 +27,19 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
-	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/gage-technologies/gigo-lib/network"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"gigo-core/gigo/api/external_api/core"
 	"net"
 	"net/http"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"time"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
+	"github.com/gage-technologies/gigo-lib/network"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (s *HTTPServer) CreateEphemeral(w http.ResponseWriter, r *http.Request) {

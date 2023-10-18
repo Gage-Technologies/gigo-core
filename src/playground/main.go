@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/config"
+	"gigo-core/gigo/config"
+	"strings"
+
 	"github.com/gage-technologies/gigo-lib/workspace_config"
 	"gopkg.in/yaml.v3"
-	"strings"
 )
 
 const d = `

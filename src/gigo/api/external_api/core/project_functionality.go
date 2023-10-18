@@ -18,8 +18,9 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 
+	"gigo-core/gigo/utils"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/utils"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"

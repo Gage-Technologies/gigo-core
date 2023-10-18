@@ -6,16 +6,18 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	"gigo-core/gigo/api/external_api/core"
+
 	"github.com/gage-technologies/gigo-lib/db/models"
 	models2 "github.com/gage-technologies/gigo-lib/mq/models"
 	"github.com/gage-technologies/gigo-lib/mq/streams"

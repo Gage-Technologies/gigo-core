@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"gigo-core/gigo/api/external_api/core/query_models"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core/query_models"
 	"github.com/gage-technologies/gigo-lib/config"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"

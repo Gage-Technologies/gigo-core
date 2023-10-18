@@ -3,18 +3,19 @@ package external_api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core"
+	"gigo-core/gigo/api/external_api/core"
+	"net/http"
+	"path/filepath"
+	"reflect"
+	"strconv"
+	"time"
+
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/network"
 	_ "github.com/gage-technologies/gigo-lib/utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"net/http"
-	"path/filepath"
-	"reflect"
-	"strconv"
-	"time"
 )
 
 func (s *HTTPServer) CreateNewUser(w http.ResponseWriter, r *http.Request) {

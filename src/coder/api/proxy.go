@@ -11,7 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gage-technologies/GIGO/src/coder/api/core"
+	"gigo-core/coder/api/core"
+
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/network"

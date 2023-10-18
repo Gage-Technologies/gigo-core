@@ -10,7 +10,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gage-technologies/GIGO/src/gigo/streak"
+	"gigo-core/gigo/streak"
+
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/go-redis/redis/v8"
 	"github.com/jinzhu/now"
@@ -24,9 +25,10 @@ import (
 	"strings"
 	"time"
 
+	"gigo-core/gigo/api/external_api/core/query_models"
+	utils3 "gigo-core/gigo/utils"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core/query_models"
-	utils3 "github.com/gage-technologies/GIGO/src/gigo/utils"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"

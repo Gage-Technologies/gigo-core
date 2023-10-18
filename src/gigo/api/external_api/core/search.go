@@ -3,19 +3,20 @@ package core
 import (
 	"context"
 	"fmt"
+	"gigo-core/gigo/api/external_api/core/query_models"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core/query_models"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/kisielk/sqlstruct"
 	"go.opentelemetry.io/otel"
-	"reflect"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // TODO: needs testing

@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	proto "github.com/gage-technologies/GIGO/src/protos/ws"
+	proto "gigo-core/protos/ws"
+
 	"github.com/gage-technologies/drpc-lib/muxconn"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/google/uuid"

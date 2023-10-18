@@ -3,12 +3,13 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/gage-technologies/GIGO/src/gigo/api/external_api/core/query_models"
-	ti "github.com/gage-technologies/gigo-lib/db"
-	"github.com/gage-technologies/gigo-lib/db/models"
+	"gigo-core/gigo/api/external_api/core/query_models"
 	"strconv"
 	"testing"
 	"time"
+
+	ti "github.com/gage-technologies/gigo-lib/db"
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestPastWeekActive(t *testing.T) {

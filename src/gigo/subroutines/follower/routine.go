@@ -2,13 +2,15 @@ package follower
 
 import (
 	"context"
+
 	"github.com/go-redis/redis/v8"
 
+	"gigo-core/gigo/api/ws"
+	"gigo-core/gigo/config"
+	"gigo-core/gigo/streak"
+	"gigo-core/gigo/utils"
+
 	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/GIGO/src/gigo/api/ws"
-	"github.com/gage-technologies/GIGO/src/gigo/config"
-	"github.com/gage-technologies/GIGO/src/gigo/streak"
-	"github.com/gage-technologies/GIGO/src/gigo/utils"
 	"github.com/gage-technologies/gigo-lib/cluster"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/git"

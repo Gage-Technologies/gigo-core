@@ -1,4 +1,4 @@
-module github.com/gage-technologies/GIGO/src
+module gigo-core
 
 go 1.20
 
@@ -25,7 +25,7 @@ require (
 
 require (
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20231018105310-ecb1b13ec137
+	github.com/gage-technologies/gigo-lib v0.0.0-20231018203739-560f09a8410d
 )
 
 require (
