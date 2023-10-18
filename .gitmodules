@@ -1,0 +1,3 @@
+[submodule "src/ws-protos"]
+	path = src/ws-protos
+	url = https://github.com/gage-technologies/gigo-ws-protos.git
