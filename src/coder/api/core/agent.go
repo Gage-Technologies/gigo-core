@@ -37,6 +37,7 @@ type InitializeAgentOptions struct {
 	DERPMap        *tailcfg.DERPMap
 	GitUseTLS      bool
 	RegistryCaches []config.RegistryCacheConfig
+	IsVNC          bool
 }
 
 type UpdateAgentStatsOptions struct {
@@ -231,7 +232,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 	}
 
 	// set the workspace as initialized
-	_, err = opts.DB.ExecContext(ctx, &span, &callerName, "update workspaces set last_state_update = ? where _id = ?", time.Now(), opts.WorkspaceId)
+	_, err = opts.DB.ExecContext(ctx, &span, &callerName, "update workspaces set last_state_update = ?, is_vnc = ? where _id = ?", time.Now(), opts.IsVNC, opts.WorkspaceId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set workspace as 'initialized': %v", err)
 	}

@@ -127,6 +127,17 @@ func (api *WorkspaceAPI) InitializeAgent(rw http.ResponseWriter, r *http.Request
 		return
 	}
 
+	var req agentsdk.InitializeWorkspaceAgentRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		api.HandleError(rw, "failed to unmarshall request body", r.URL.Path,
+			"PostWorkspaceAgentState", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "agent",
+			fmt.Sprintf("%d-%d-%d", agentId.(int64), workspaceId.(int64), ownerId.(int64)),
+			http.StatusBadRequest, "invalid request body", err)
+		return
+	}
+
 	// retrieve latest version of the cluster derp map
 	derpMap, err := GetClusterDerpMap(api.ClusterNode)
 	if err != nil {
@@ -151,6 +162,7 @@ func (api *WorkspaceAPI) InitializeAgent(rw http.ResponseWriter, r *http.Request
 		DERPMap:        derpMap,
 		GitUseTLS:      api.GitUseTLS,
 		RegistryCaches: api.RegistryCaches,
+		IsVNC:          req.IsVNC,
 	})
 	if err != nil {
 		if err.Error() == "workspace not found" {

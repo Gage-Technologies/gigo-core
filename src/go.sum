@@ -556,14 +556,10 @@ github.com/gabriel-vasile/mimetype v1.3.1/go.mod h1:fA8fi6KUiG7MgQQ+mEWotXoEOvmx
 github.com/gabriel-vasile/mimetype v1.4.0/go.mod h1:fA8fi6KUiG7MgQQ+mEWotXoEOvmxRtOJlERCzSmRvr8=
 github.com/gage-technologies/drpc-lib v0.0.0-20230222154330-0a639616debe h1:eXU7JUmV9TFdMOyK5Hly37x+/qv89lRhrNmPz8PhOEU=
 github.com/gage-technologies/drpc-lib v0.0.0-20230222154330-0a639616debe/go.mod h1:Ze6k8kZi3D8Rt3nwx9DDhVBDyWGcV0ZD3EgOwu8sNEM=
-github.com/gage-technologies/gigo-lib v0.0.0-20231010192758-b75119961bc0 h1:T0JzXNgnBlRp5TumSXtqMloCxdm2Fu1x1jJ9R7jJ1DQ=
-github.com/gage-technologies/gigo-lib v0.0.0-20231010192758-b75119961bc0/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
-github.com/gage-technologies/gigo-lib v0.0.0-20231017213741-7dc600c22b10 h1:io1K3Ips3KhN0Q3YB6KS0KjDw1lAJOQGxT+6V9dvroA=
-github.com/gage-technologies/gigo-lib v0.0.0-20231017213741-7dc600c22b10/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
-github.com/gage-technologies/gigo-lib v0.0.0-20231018105310-ecb1b13ec137 h1:d7dsx+EioUBg+14QhFOR9TuLn/TCksGduvee7AOta1Q=
-github.com/gage-technologies/gigo-lib v0.0.0-20231018105310-ecb1b13ec137/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
 github.com/gage-technologies/gigo-lib v0.0.0-20231018203739-560f09a8410d h1:8yCtaQODWQ+FE43MCdvvnrt6HDRRdyLRgHOxJlpcaR0=
 github.com/gage-technologies/gigo-lib v0.0.0-20231018203739-560f09a8410d/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
+github.com/gage-technologies/gigo-lib v0.0.0-20231020191537-8d83a9519063 h1:rG0HXOKvXuxk7oz686j/7N9S4HfaLyn8UQ4eFT2VYfs=
+github.com/gage-technologies/gigo-lib v0.0.0-20231020191537-8d83a9519063/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
 github.com/gage-technologies/gitea-go/gitea v0.16.0 h1:w0eOZn9HMR7acXzaJlvZ4BoPZfH76OOibm+U1cTB28I=
 github.com/gage-technologies/gitea-go/gitea v0.16.0/go.mod h1:nMhiMA2jCA/JHqGWtn6zsc1A34LILhMaJWpG8orDdzo=
 github.com/gage-technologies/go-logrus-elasticsearch v0.0.0-20210908162149-c64f8e07bb9e h1:ui469cZfaOayIzw7jhRD+eoTHxwIk0JupCpjUiVmAao=
