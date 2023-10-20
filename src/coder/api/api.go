@@ -192,7 +192,7 @@ func (api *WorkspaceAPI) LinkAPI(r *mux.Router) {
 	// routes for agent->core communication
 	internalWsRouter := r.PathPrefix("/internal/v1/ws").Subrouter()
 	internalWsRouter.Use(api.authenticateAgent)
-	internalWsRouter.HandleFunc("/initialize", api.InitializeAgent).Methods("GET")
+	internalWsRouter.HandleFunc("/initialize", api.InitializeAgent).Methods("POST")
 	internalWsRouter.HandleFunc("/coordinate", api.WorkspaceAgentCoordinate).Methods("GET")
 	internalWsRouter.HandleFunc("/state", api.PostWorkspaceAgentState).Methods("POST")
 	internalWsRouter.HandleFunc("/version", api.PostWorkspaceAgentVersion).Methods("POST")
