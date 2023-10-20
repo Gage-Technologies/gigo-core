@@ -14,7 +14,7 @@ docker:
 	docker build \
 		--build-arg "GH_BUILD_TOKEN=${GITHUB_BUILD_TOKEN}" \
 		--build-arg "GH_USER_NAME=${GITHUB_USER_NAME}" \
-		-t ${DOCKER_IMAGE} .
+		-t ${DOCKER_IMAGE} ${ROOT_DIR}/
 
 docker-push:
 	docker push ${DOCKER_IMAGE}
