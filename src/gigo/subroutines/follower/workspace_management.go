@@ -225,8 +225,16 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 			)
 		}
 
+		// we always ack because each workspace is either successfully created or failed on a on-shot basis
+		// we may someday change this to perform a retry on failures but for now we just want to get rid of the
+		// workspace and allow the user to create a new one
+		err = msg.Ack()
+		if err != nil {
+			logger.Errorf("(workspace: %d) failed to ack create workspace message: %v", nodeId, err)
+		}
+
 		// defer cancel
-		cancel()
+		defer cancel()
 
 		// skip if we succeeded
 		if !failed {
@@ -365,12 +373,6 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 
 	// mark failed as false so we don't trigger the cleanup function
 	failed = false
-
-	// acknowledge that the workspace is now created
-	err = msg.Ack()
-	if err != nil {
-		logger.Errorf("(workspace: %d) failed to ack create workspace message: %v", nodeId, err)
-	}
 }
 
 // asyncStartWorkspace
