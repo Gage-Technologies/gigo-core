@@ -34,8 +34,11 @@ func GenerateProjectImage(storageEngine storage.Storage, rdb redis.UniversalClie
 		return nil, fmt.Errorf("failed to increment count in Redis: %v", err)
 	}
 
-	// check if the user has already generated 3 images
-	if count >= 3 {
+	// set the timeout for the key to 5 minutes
+	_ = rdb.Expire(context.Background(), redisKey, time.Minute*5).Err()
+
+	// check if the user has already generated 10 images
+	if count >= 10 {
 		return map[string]interface{}{"message": "User has already reached the generation limit"}, nil
 	}
 
