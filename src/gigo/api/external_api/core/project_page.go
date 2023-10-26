@@ -305,34 +305,9 @@ func GetProjectCode(ctx context.Context, vcsClient *git.VCSClient, repo int64, r
 		return map[string]interface{}{"message": "Unable to get project contents"}, err
 	}
 
-	fmt.Sprintf("we are in the beginning")
-
-	backupContent := "This cannot be displayed here."
-
 	for i := range project {
 		if project[i].Type == "file" {
-			file, _, err := vcsClient.GiteaClient.GetContents(repositories.Owner.UserName, repositories.Name, ref, project[i].Path)
-			if err != nil {
-				return map[string]interface{}{"message": "Unable to get project contents"}, err
-			}
-
-			//fileSize := .000001 * file.Size
-			if file.Size <= 64 * 1024 {
-				rawDecodedText, err := base64.StdEncoding.DecodeString(*file.Content)
-				if err != nil {
-					return map[string]interface{}{"message": "Unable to decode contents"}, err
-				}
-
-				if isBinary(rawDecodedText) {
-					project[i].Content = &backupContent
-				} else {
-					finalText := string(rawDecodedText)
-
-					project[i].Content = &finalText
-				}
-			} else {
-				project[i].Content = &backupContent
-			}
+			project[i].Content = nil
 		}
 	}
 
