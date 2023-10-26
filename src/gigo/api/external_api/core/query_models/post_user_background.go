@@ -27,6 +27,7 @@ type PostUserBackground struct {
 	TopReply                *int64                       `json:"top_reply,omitempty" sql:"top_reply"`
 	Coffee                  uint64                       `json:"coffee" sql:"coffee"`
 	Tags                    []int64                      `json:"tags" sql:"tags"`
+	TagStrings              []string                     `json:"tag_strings" sql:"tag_strings"`
 	PostType                models.ChallengeType         `json:"post_type" sql:"post_type"`
 	Views                   int64                        `json:"views" sql:"views"`
 	Completions             int64                        `json:"completions" sql:"completions"`
@@ -109,6 +110,7 @@ type PostUserBackgroundFrontend struct {
 	Visibility              models.PostVisibility        `json:"visibility"`
 	VisibilityString        string                       `json:"visibility_string"`
 	Tags                    []string                     `json:"tags"`
+	TagStrings              []string                     `json:"tag_strings"`
 	Thumbnail               string                       `json:"thumbnail"`
 	ChallengeCost           *string                      `json:"challenge_cost"`
 	WorkspaceConfig         string                       `json:"workspace_config"`
@@ -160,7 +162,7 @@ func PostUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, rows 
 	}
 
 	// query tag link table to get tab ids
-	tagRows, err := db.QueryContext(ctx, &span, &callerName, "select tag_id from post_tags where post_id = ?", postSQL.ID)
+	tagRows, err := db.QueryContext(ctx, &span, &callerName, "select pt.tag_id, t.value from post_tags pt join tag t on pt.tag_id = t._id where pt.post_id = ?", postSQL.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tag link table for tag ids: %v", err)
 	}
@@ -170,15 +172,18 @@ func PostUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, rows 
 
 	// create slice to hold tag ids
 	tags := make([]int64, 0)
+	tagValues := make([]string, 0)
 
 	// iterate cursor scanning tag ids and saving the to the slice created above
 	for tagRows.Next() {
 		var tag int64
-		err = tagRows.Scan(&tag)
+		var value string
+		err = tagRows.Scan(&tag, &value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan tag id from link tbale cursor: %v", err)
 		}
 		tags = append(tags, tag)
+		tagValues = append(tagValues, value)
 	}
 
 	// query lang link table to get lang ids
@@ -236,6 +241,7 @@ func PostUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, rows 
 		Published:               postSQL.Published,
 		Visibility:              postSQL.Visibility,
 		Tags:                    tags,
+		TagStrings:              tagValues,
 		ChallengeCost:           postSQL.ChallengeCost,
 		StripePriceId:           postSQL.StripePriceId,
 		WorkspaceConfig:         postSQL.WorkspaceConfig,
@@ -265,10 +271,14 @@ func (i *PostUserBackground) ToFrontend() (*PostUserBackgroundFrontend, error) {
 
 	// create slice to hold tag ids in string form
 	tags := make([]string, 0)
+	tagValues := make([]string, 0)
 
 	// iterate tag ids formatting them to string format and saving them to the above slice
-	for b := range i.Tags {
+	for _, b := range i.Tags {
 		tags = append(tags, fmt.Sprintf("%d", b))
+	}
+	for _, b := range i.TagStrings {
+		tagValues = append(tagValues, b)
 	}
 
 	// conditionally format top reply id into string
@@ -348,6 +358,7 @@ func (i *PostUserBackground) ToFrontend() (*PostUserBackgroundFrontend, error) {
 		Visibility:              i.Visibility,
 		VisibilityString:        i.Visibility.String(),
 		Tags:                    tags,
+		TagStrings:              tagValues,
 		ChallengeCost:           i.ChallengeCost,
 		WorkspaceConfig:         fmt.Sprintf("%d", i.WorkspaceConfig),
 		WorkspaceConfigRevision: i.WorkspaceConfigRevision,
