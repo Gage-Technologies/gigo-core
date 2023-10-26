@@ -761,7 +761,7 @@ func (s *HTTPServer) EditProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.EditProject(ctx, s.tiDB, attemptId, s.storageEngine, thumbnailTempPath, title, challenge, tierType, s.meili, addTags, removeTags)
+	res, err := core.EditProject(ctx, s.tiDB, attemptId, s.storageEngine, thumbnailTempPath, title, challenge, tierType, s.meili, addTags, removeTags, s.sf)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})

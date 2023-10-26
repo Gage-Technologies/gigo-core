@@ -575,7 +575,9 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 		}
 	}
 
-	if addedTags != nil {
+	if addedTags != nil && len(addedTags) > 0 {
+		newTags := make([]interface{}, 0)
+		//ask about adding tags to meili
 		// iterate over the tags creating new tag structs for tags that do not already exist and adding ids to the slice created above
 		for _, tag := range addedTags {
 			// conditionally create a new id and insert tag into database if it does not already exist
@@ -601,8 +603,36 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 				}
 			}
 
-			// append tag id to tag ids slice
-			tagIds = append(tagIds, tag.ID)
+			// increment tag column usage_count in database
+			_, err = tx.ExecContext(ctx, &callerName, "insert ignore into post_tags(post_id, tag_id) values(?, ?)", id, tag.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
+			}
+		}
+		// conditionally attempt to insert the tags into the search engine to make it discoverable
+		if len(newTags) > 0 {
+			err = meili.AddDocuments("tags", newTags...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to add new tags to search engine: %v", err)
+			}
+		}
+	}
+
+	if removedTags != nil && len(removedTags) > 0 {
+		//ask about adding tags to meili
+		// iterate over the tags creating new tag structs for tags that do not already exist and adding ids to the slice created above
+		for _, tag := range removedTags {
+			// increment tag column usage_count in database
+			_, err = tx.ExecContext(ctx, &callerName, "update tag set usage_count = usage_count - 1 where _id =?", tag.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
+			}
+
+			// increment tag column usage_count in database
+			_, err = tx.ExecContext(ctx, &callerName, "delete from post_tags where post_id = ? and tag_id = ?", id, tag.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to remove tag usage count: %v", err)
+			}
 		}
 	}
 
