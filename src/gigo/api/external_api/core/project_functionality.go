@@ -494,7 +494,7 @@ func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 
 }
 
-func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine storage.Storage, thumbnailPath *string, title *string, challengeType *models.ChallengeType, tier *models.TierType, meili *search.MeiliSearchEngine) (map[string]interface{}, error) {
+func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine storage.Storage, thumbnailPath *string, title *string, challengeType *models.ChallengeType, tier *models.TierType, meili *search.MeiliSearchEngine, addedTags []*models.Tag, removedTags []*models.Tag, sf *snowflake.Node) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-project")
 	callerName := "EditProject"
 
@@ -572,6 +572,37 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 		err = meili.UpdateDocuments("posts", map[string]interface{}{"_id": id, "post_type": title})
 		if err != nil {
 			return nil, fmt.Errorf("failed to update post challenge type in meilisearch: %v", err)
+		}
+	}
+
+	if addedTags != nil {
+		// iterate over the tags creating new tag structs for tags that do not already exist and adding ids to the slice created above
+		for _, tag := range addedTags {
+			// conditionally create a new id and insert tag into database if it does not already exist
+			if tag.ID == -1 {
+				// generate new tag id
+				tag.ID = sf.Generate().Int64()
+
+				// iterate statements inserting the new tag into the database
+				for _, statement := range tag.ToSQLNative() {
+					_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+					if err != nil {
+						return nil, fmt.Errorf("failed to perform tag insertion: %v", err)
+					}
+				}
+
+				// add tag to new tags for search engine insertion
+				newTags = append(newTags, tag.ToSearch())
+			} else {
+				// increment tag column usage_count in database
+				_, err = tx.ExecContext(ctx, &callerName, "update tag set usage_count = usage_count + 1 where _id =?", tag.ID)
+				if err != nil {
+					return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
+				}
+			}
+
+			// append tag id to tag ids slice
+			tagIds = append(tagIds, tag.ID)
 		}
 	}
 

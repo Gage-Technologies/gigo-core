@@ -615,6 +615,144 @@ func (s *HTTPServer) EditProject(w http.ResponseWriter, r *http.Request) {
 		tierType = &tierTypes
 	}
 
+	// attempt to load parameter from body
+	removeTagsType := reflect.Map
+	removeTagsI, ok := s.loadValue(w, r, reqJson, "EditProject", "remove_tags", reflect.Slice, &removeTagsType, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	// create a slice to hold tags loaded from the http parameter
+	removeTags := make([]*models.Tag, 0)
+
+	if removeTagsI != nil {
+		// iterate through tagsI asserting each value as a map and create a new tag
+		for _, removeTagI := range removeTagsI.([]interface{}) {
+			removeTag := removeTagI.(map[string]interface{})
+
+			// load id from tag map
+			idI, ok := removeTag["_id"]
+			if !ok {
+				s.handleError(w, "missing tag id", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"internal server error occurred", fmt.Errorf("missing tag id"))
+				return
+			}
+
+			// assert id as string and parse into int64
+			idS, ok := idI.(string)
+			if !ok {
+				s.handleError(w, fmt.Sprintf("invalid tag id type: %v", reflect.TypeOf(idS)), r.URL.Path,
+					"CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"invalid tag id type - should be string", nil)
+				return
+			}
+
+			id, err := strconv.ParseInt(idS, 10, 64)
+			if !ok {
+				s.handleError(w, "failed to parse tag id as int64", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+					"internal server error occurred", err)
+				return
+			}
+
+			// load value from tag map
+			valS, ok := removeTag["value"]
+			if !ok {
+				s.handleError(w, "missing tag value", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"internal server error occurred", nil)
+				return
+			}
+
+			// assert val as string
+			val, ok := valS.(string)
+			if !ok {
+				s.handleError(w, fmt.Sprintf("invalid tag value type: %v", reflect.TypeOf(valS)), r.URL.Path,
+					"CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"invalid tag value type - should be string", nil,
+				)
+				return
+			}
+
+			removeTags = append(removeTags, models.CreateTag(id, val))
+		}
+	}
+
+	// attempt to load parameter from body
+	addTagsType := reflect.Map
+	addTagsI, ok := s.loadValue(w, r, reqJson, "EditProject", "add_tags", reflect.Slice, &addTagsType, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	// create a slice to hold tags loaded from the http parameter
+	addTags := make([]*models.Tag, 0)
+
+	if addTagsI != nil {
+		// iterate through tagsI asserting each value as a map and create a new tag
+		for _, addTagI := range addTagsI.([]interface{}) {
+			addTag := addTagI.(map[string]interface{})
+
+			// load id from tag map
+			idI, ok := addTag["_id"]
+			if !ok {
+				s.handleError(w, "missing tag id", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"internal server error occurred", fmt.Errorf("missing tag id"))
+				return
+			}
+
+			// assert id as string and parse into int64
+			idS, ok := idI.(string)
+			if !ok {
+				s.handleError(w, fmt.Sprintf("invalid tag id type: %v", reflect.TypeOf(idS)), r.URL.Path,
+					"CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"invalid tag id type - should be string", nil)
+				return
+			}
+
+			id, err := strconv.ParseInt(idS, 10, 64)
+			if !ok {
+				s.handleError(w, "failed to parse tag id as int64", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+					"internal server error occurred", err)
+				return
+			}
+
+			// load value from tag map
+			valS, ok := addTag["value"]
+			if !ok {
+				s.handleError(w, "missing tag value", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"internal server error occurred", nil)
+				return
+			}
+
+			// assert val as string
+			val, ok := valS.(string)
+			if !ok {
+				s.handleError(w, fmt.Sprintf("invalid tag value type: %v", reflect.TypeOf(valS)), r.URL.Path,
+					"CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"invalid tag value type - should be string", nil,
+				)
+				return
+			}
+
+			addTags = append(addTags, models.CreateTag(id, val))
+		}
+	}
+
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
@@ -623,7 +761,7 @@ func (s *HTTPServer) EditProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.EditProject(ctx, s.tiDB, attemptId, s.storageEngine, thumbnailTempPath, title, challenge, tierType, s.meili)
+	res, err := core.EditProject(ctx, s.tiDB, attemptId, s.storageEngine, thumbnailTempPath, title, challenge, tierType, s.meili, addTags, removeTags)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
