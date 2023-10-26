@@ -317,7 +317,7 @@ func GetProjectCode(ctx context.Context, vcsClient *git.VCSClient, repo int64, r
 			}
 
 			//fileSize := .000001 * file.Size
-			if file.Size <= 50000000 {
+			if file.Size <= 64 * 1024 {
 				rawDecodedText, err := base64.StdEncoding.DecodeString(*file.Content)
 				if err != nil {
 					return map[string]interface{}{"message": "Unable to decode contents"}, err
@@ -357,13 +357,14 @@ func GetProjectFile(ctx context.Context, vcsClient *git.VCSClient, repo int64, r
 
 	fmt.Sprintf("the validity is: %v      the file name is: %v", valid, file.Name)
 
-	if file.Size <= 50000000 {
-		rawDecodedText, err := base64.StdEncoding.DecodeString(filePath)
+	if file.Size <= 64 * 1024 {
+		rawDecodedText, err := base64.StdEncoding.DecodeString(*file.Content)
 		if err != nil {
 			return map[string]interface{}{"message": "Unable to decode contents"}, err
 		}
 
 		if isBinary(rawDecodedText) {
+			backupContent = "This file is binary content and connot be displayed here."
 			file.Content = &backupContent
 		} else {
 			finalText := string(rawDecodedText)
@@ -371,6 +372,7 @@ func GetProjectFile(ctx context.Context, vcsClient *git.VCSClient, repo int64, r
 			file.Content = &finalText
 		}
 	} else {
+		backupContent = "This file is too large to be displayed here."
 		file.Content = &backupContent
 	}
 
@@ -403,7 +405,7 @@ func GetProjectDirectories(ctx context.Context, vcsClient *git.VCSClient, repo i
 			//fmt.Sprintf("the validity is: %v      the file name is: %v", valid, file.Name)
 
 			//fileSize := .000001 * file.Size
-			if file.Size <= 50000000 {
+			if file.Size <= 64 * 1024 {
 				rawDecodedText, err := base64.StdEncoding.DecodeString(*file.Content)
 				if err != nil {
 					return map[string]interface{}{"message": "Unable to decode contents"}, err
