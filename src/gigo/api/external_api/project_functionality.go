@@ -493,6 +493,160 @@ func (s *HTTPServer) CreateProject(w http.ResponseWriter, r *http.Request) {
 	s.jsonResponse(r, w, res, r.URL.Path, "CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
 
+func (s *HTTPServer) EditProject(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-project-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "CreateProject", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// read request body into byte slice
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, "failed to read request body", r.URL.Path, "CreateProject", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		return
+	}
+
+	// create a new buffer for the response and re-assign to the request body
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// create variables for json payload and temp image file
+	var reqJson map[string]interface{}
+	var thumbnailTempPath *string
+
+	// handle gen images by loading json otherwise receive upload
+	if _, err := jsonparser.GetString(body, "upload_id"); err == nil {
+		// receive upload part and handle file assemble
+		reqJson = s.receiveUpload(w, r, "EditProject", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+		if reqJson == nil {
+			return
+		}
+
+		// attempt to load parameter from body
+		uploadId, ok := s.loadValue(w, r, reqJson, "EditProject", "upload_id", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
+		if !ok {
+			return
+		}
+
+		if uploadId != nil {
+			gens := filepath.Join("temp", uploadId.(string))
+			thumbnailTempPath = &gens
+			// defer removal of thumbnail temp file
+			defer s.storageEngine.DeleteFile(*thumbnailTempPath)
+		}
+	} else {
+		// attempt to load JSON from request body
+		reqJson = s.jsonRequest(w, r, "EditProject", true, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+		if reqJson == nil {
+			return
+		}
+
+		// attempt to load gen_image_id from body
+		genImageId, ok := s.loadValue(w, r, reqJson, "EditProject", "gen_image_id", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
+		if !ok {
+			return
+		}
+		if genImageId != nil {
+			path := fmt.Sprintf("temp_proj_images/%v/%v.jpg", callingUser.(*models.User).ID, genImageId.(string))
+			thumbnailTempPath = &path
+		}
+	}
+
+	// attempt to load parameter from body
+	id, ok := s.loadValue(w, r, reqJson, "EditProject", "id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if id == nil || !ok {
+		return
+	}
+
+	// parse post id to integer
+	attemptId, err := strconv.ParseInt(id.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse post id string to integer: %s", id.(string)), r.URL.Path, "AttemptInformation", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// attempt to load parameter from body
+	titleI, ok := s.loadValue(w, r, reqJson, "EditProject", "title", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	var title *string
+	if titleI != nil {
+		c := titleI.(string)
+		title = &c
+	}
+
+	// attempt to load parameter from body
+	challengeType, ok := s.loadValue(w, r, reqJson, "EditProject", "challenge_type", reflect.Float64, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	var challenge *models.ChallengeType
+	if challengeType != nil {
+		challenges := models.ChallengeType(challengeType.(float64))
+		challenge = &challenges
+	}
+
+	// attempt to load parameter from body
+	tier, ok := s.loadValue(w, r, reqJson, "EditProject", "tier", reflect.Float64, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	var tierType *models.TierType
+	if tier != nil {
+		tierTypes := models.TierType(tier.(float64))
+		tierType = &tierTypes
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "EditProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.EditProject(ctx, s.tiDB, attemptId, s.storageEngine, thumbnailTempPath, title, challenge, tierType, s.meili)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "EditProject core failed", r.URL.Path, "EditProject", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"edit-project",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingId),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "EditProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
 func (s *HTTPServer) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "delete-project-http")
 	defer parentSpan.End()
