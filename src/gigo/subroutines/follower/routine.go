@@ -16,12 +16,13 @@ import (
 	"github.com/gage-technologies/gigo-lib/git"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/mq"
+	"github.com/gage-technologies/gigo-lib/storage"
 	"github.com/sourcegraph/conc/pool"
 )
 
 func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.WorkspaceClient, vcsClient *git.VCSClient,
 	js *mq.JetstreamClient, workerPool *pool.Pool, streakEngine *streak.StreakEngine, sf *snowflake.Node,
-	wsStatusUpdater *utils.WorkspaceStatusUpdater, rdb redis.UniversalClient, logger logging.Logger) cluster.FollowerRoutine {
+	wsStatusUpdater *utils.WorkspaceStatusUpdater, rdb redis.UniversalClient, storageEngine storage.Storage, logger logging.Logger) cluster.FollowerRoutine {
 	// we log fatal for all setup operation in this function
 	// because the system cannot launch if these do not complete
 	// therefore killing the process for a failure is the simplest
@@ -29,6 +30,8 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 
 	// create integer to track execution count
 	execCount := 0
+
+	// connect the 
 
 	// this function will be executed approximately once every second.
 	// when defining routine logic that will execute on interval
@@ -47,6 +50,7 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 		// execute once every ~2s
 		if execCount%2 == 0 {
 			RemoveExpiredSessionKeys(ctx, nodeId, tiDB, js, logger)
+			GenerateSiteMap(ctx, tiDB, js, storageEngine, nodeId, cfg.HTTPServerConfig.Hostname, logger)
 		}
 
 		// execute workspace management operations every second

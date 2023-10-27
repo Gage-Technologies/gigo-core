@@ -384,7 +384,7 @@ func main() {
 			// but could theoretically be set manually if deployed by hand
 			os.Getenv("GIGO_POD_IP"),
 			leader.Routine(nodeID, cfg, tiDB, js, rdb, wsStatusUpdater, routineLogger),
-			follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, routineLogger),
+			follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, routineLogger),
 			// we use a 1s tick for the cluster routines
 			time.Second,
 			clusterLogger,
@@ -409,7 +409,7 @@ func main() {
 				Password:  cfg.EtcdConfig.Password,
 			},
 			LeaderRoutine:   leader.Routine(nodeID, cfg, tiDB, js, rdb, wsStatusUpdater, routineLogger),
-			FollowerRoutine: follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, routineLogger),
+			FollowerRoutine: follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, routineLogger),
 			// we use a 1s tick for the cluster routines
 			RoutineTick: time.Second,
 			Logger:      clusterLogger,

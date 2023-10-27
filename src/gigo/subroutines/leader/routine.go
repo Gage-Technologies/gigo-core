@@ -31,6 +31,20 @@ func publishSessionKeyCleanup(nodeId int64, js *mq.JetstreamClient, logger loggi
 	}
 }
 
+func publishSitemapGeneration(nodeId int64, js *mq.JetstreamClient, logger logging.Logger) {
+	_, err := js.PublishAsync(
+		streams.SubjectMiscSitemapGenerate,
+		// the message content isn't used so this is more of
+		// a way to debug the pipeline. we include the leader
+		// id that issued the message and the unix ts from when
+		// the message was issued
+		[]byte(fmt.Sprintf("%d-%d", nodeId, time.Now().Unix())),
+	)
+	if err != nil {
+		logger.Errorf("(leader: %d) failed to publish sitemap generation message: %v", nodeId, err)
+	}
+}
+
 func publishStreakExpirationCleanup(nodeId int64, js *mq.JetstreamClient, logger logging.Logger) {
 	_, err := js.PublishAsync(
 		streams.SubjectStreakExpiration,
@@ -90,6 +104,7 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, js *mq.Jetstre
 
 	// create time variable to track the last execution of the user stats routine
 	lastUserStatsExec := time.Unix(0, 0)
+	lastSiteMapGenExec := time.Unix(0, 0)
 	// lastNemesisExec := time.Unix(0, 0)
 
 	// this function will be executed approximately once every second.
@@ -144,6 +159,16 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, js *mq.Jetstre
 
 			publishHandlePremiumWeeklyFreeze(nodeId, js, logger)
 			publishUserFreePremium(nodeId, js, logger)
+		}
+
+		// execute at midnight
+		if timeNow.Hour() == 0 && timeNow.Minute() == 0 && timeNow.Second() < 10 &&
+			timeNowTrimmedSec.Unix() != lastSiteMapGenExec.Unix() {
+			// update last execution time
+			lastSiteMapGenExec = timeNowTrimmedSec
+			logger.Infof("(leader: %d) executing site map generation operations", nodeId)
+
+			publishSitemapGeneration(nodeId, js, logger)
 		}
 
 		// timeNow = time.Now()

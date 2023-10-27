@@ -98,6 +98,8 @@ var publicRoutes = []*regexp.Regexp{
 	// permit access to static files
 	regexp.MustCompile("^/static/ext/.*$"),
 	regexp.MustCompile("^/static/ui/.*$"),
+	//permit access to the sitemap
+	regexp.MustCompile("^/sitemap/sitemap.xml$"),
 
 	// TODO: REMOVE THIS!!!! SUPER INSECURE!!!!
 	// regexp.MustCompile("^/debug"),
@@ -1672,6 +1674,7 @@ func (s *HTTPServer) linkAPI() {
 
 	// /////////////////////////////////////////// Root
 	s.router.HandleFunc("/api/ping", s.ping).Methods("GET")
+	s.router.HandleFunc("/sitemap/sitemap.xml", s.GetSitemap).Methods("GET")
 	s.router.HandleFunc("/api/ws", s.MasterWebSocket).Methods("GET")
 	s.router.HandleFunc("/api/home/active", s.ActiveProjectsHome).Methods("POST")
 	s.router.HandleFunc("/api/home/recommended", s.RecommendedProjectsHome).Methods("POST")
