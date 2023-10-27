@@ -44,7 +44,7 @@ func LaunchNemesisListener(ctx context.Context, db *ti.Database, sf *snowflake.N
 			FilterSubject: streams.SubjectNemesisStatChange,
 		})
 		if err != nil {
-			logger.Errorf("(nemesis_stat_change: %d) failed to create session key consumer: %v", nodeId, err)
+			logger.Errorf("(nemesis_stat_change: %d) failed to create nemesis consumer: %v", nodeId, err)
 			return
 		}
 	}

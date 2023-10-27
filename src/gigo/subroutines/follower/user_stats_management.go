@@ -41,22 +41,22 @@ func LaunchUserStatsManagementRoutine(ctx context.Context, db *ti.Database, stre
 
 	// logger.Errorf("(user_stats_management: %d) starting LaunchUserStatsManagementRoutine", nodeId)
 	// create subscription for session key management
-	_, err := js.ConsumerInfo(streams.SubjectDayRollover, "gigo-core-follower-session-keys")
+	_, err := js.ConsumerInfo(streams.StreamStreakXP, "gigo-core-follower-streak-day-rollover")
 	if err != nil {
 		_, err = js.AddConsumer(streams.StreamStreakXP, &nats.ConsumerConfig{
-			Durable:       "gigo-core-follower-session-keys",
+			Durable:       "gigo-core-follower-streak-day-rollover",
 			AckPolicy:     nats.AckExplicitPolicy,
 			AckWait:       time.Second * 30,
 			FilterSubject: streams.SubjectDayRollover,
 		})
 		if err != nil {
-			logger.Errorf("(user_stats_management: %d) failed to create session key consumer: %v", nodeId, err)
+			logger.Errorf("(user_stats_management: %d) failed to create user stats rollover consumer: %v", nodeId, err)
 			return
 		}
 	}
-	sub, err := js.PullSubscribe(streams.SubjectDayRollover, "gigo-core-follower-session-keys", nats.AckExplicit())
+	sub, err := js.PullSubscribe(streams.SubjectDayRollover, "gigo-core-follower-streak-day-rollover", nats.AckExplicit())
 	if err != nil {
-		logger.Errorf("(user_stats_management: %d) failed to create session key subscription in user state management: %v", nodeId, err)
+		logger.Errorf("(user_stats_management: %d) failed to create user stats rollover consumer in user state management: %v", nodeId, err)
 		return
 	}
 	defer sub.Unsubscribe()
@@ -118,7 +118,7 @@ func LaunchPremiumWeeklyFreeze(ctx context.Context, db *ti.Database, workerPool 
 		})
 		logger.Info("premium weekly freeze consumer created")
 		if err != nil {
-			logger.Errorf("(user_stats_management: %d) failed to create session key consumer: %v", nodeId, err)
+			logger.Errorf("(user_stats_management: %d) failed to create streak freeze consumer: %v", nodeId, err)
 			return
 		}
 	}

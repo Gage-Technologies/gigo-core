@@ -21,22 +21,22 @@ func clearFreeUserWeeks(ctx context.Context, db *ti.Database, logger logging.Log
 	callerName := "clearFreeUserWeeks"
 
 	// create subscription for session key management
-	_, err := js.ConsumerInfo(streams.SubjectMiscSessionCleanKeys, "gigo-core-follower-session-keys")
+	_, err := js.ConsumerInfo(streams.SubjectMiscUserFreePremium, "gigo-core-follower-user-free-premium")
 	if err != nil {
 		_, err = js.AddConsumer(streams.StreamMisc, &nats.ConsumerConfig{
-			Durable:       "gigo-core-follower-session-keys",
+			Durable:       "gigo-core-follower-user-free-premium",
 			AckPolicy:     nats.AckExplicitPolicy,
 			AckWait:       time.Second * 30,
-			FilterSubject: streams.SubjectMiscSessionCleanKeys,
+			FilterSubject: streams.SubjectMiscUserFreePremium,
 		})
 		if err != nil {
-			logger.Errorf("(session_key: %d) failed to create session key consumer: %v", nodeId, err)
+			logger.Errorf("(session_key: %d) failed to create user free premium consumer: %v", nodeId, err)
 			return
 		}
 	}
-	sub, err := js.PullSubscribe(streams.SubjectMiscSessionCleanKeys, "gigo-core-follower-session-keys", nats.AckExplicit())
+	sub, err := js.PullSubscribe(streams.SubjectMiscUserFreePremium, "gigo-core-follower-user-free-premium", nats.AckExplicit())
 	if err != nil {
-		logger.Errorf("(session_key: %d) failed to create session key subscription: %v", nodeId, err)
+		logger.Errorf("(session_key: %d) failed to create user free premium subscription: %v", nodeId, err)
 		return
 	}
 	defer sub.Unsubscribe()
