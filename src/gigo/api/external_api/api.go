@@ -1742,6 +1742,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/project/shareLink", s.ShareLink).Methods("POST")
 	s.router.HandleFunc("/api/project/verifyLink", s.VerifyLink).Methods("POST")
 	s.router.HandleFunc("/api/project/editProject", s.EditProject).Methods("POST")
+	s.router.HandleFunc("/api/project/editAttempt", s.EditAttempt).Methods("POST")
 
 	// Ephemeral
 	s.router.HandleFunc("/api/ephemeral/createAccount", s.CreateAccountFromEphemeral).Methods("POST")

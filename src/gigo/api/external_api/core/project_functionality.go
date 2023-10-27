@@ -650,6 +650,162 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 	return map[string]interface{}{"message": "success"}, nil
 }
 
+func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine storage.Storage, thumbnailPath *string, title *string, challengeType *models.ChallengeType, tier *models.TierType, meili *search.MeiliSearchEngine, addedTags []*models.Tag, removedTags []*models.Tag, sf *snowflake.Node) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-attempt")
+	callerName := "EditAttempt"
+
+	// create transaction for image insertion
+	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create insert tx: %v", err)
+	}
+
+	// defer closure of tx
+	defer tx.Rollback()
+
+	if thumbnailPath != nil {
+		// get temp thumbnail file from storage
+		thumbnailTempFile, err := storageEngine.GetFile(*thumbnailPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
+		}
+		defer thumbnailTempFile.Close()
+
+		// sanitize thumbnail image
+		thumbnailBuffer := bytes.NewBuffer([]byte{})
+		err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer))
+		if err != nil {
+			return nil, fmt.Errorf("failed to prep thumbnail file: %v", err)
+		}
+
+		// write thumbnail to final location
+		idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", id)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash post id: %v", err)
+		}
+		err = storageEngine.CreateFile(
+			fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash),
+			thumbnailBuffer.Bytes(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write thumbnail to final location: %v", err)
+		}
+	}
+
+	if title != nil {
+		// update post description if user is the original owner
+		_, err := tx.ExecContext(ctx, &callerName, "update attempt set title = ?, embedded = ? where _id = ?", title, false, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to edit post title: %v", err)
+		}
+		// update post description in meilisearch
+		err = meili.UpdateDocuments("posts", map[string]interface{}{"_id": id, "title": title})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update post title in meilisearch: %v", err)
+		}
+	}
+
+	if tier != nil {
+		// update post description if user is the original owner
+		_, err := tx.ExecContext(ctx, &callerName, "update attempt set tier = ?, embedded = ? where _id = ?", tier, false, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to edit tier: %v", err)
+		}
+		// update post description in meilisearch
+		err = meili.UpdateDocuments("posts", map[string]interface{}{"_id": id, "tier": title})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update post tier in meilisearch: %v", err)
+		}
+	}
+
+	if challengeType != nil {
+		// update post description if user is the original owner
+		_, err := tx.ExecContext(ctx, &callerName, "update attempt set post_type = ?, embedded = ? where _id = ?", challengeType, false, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to edit challenge type: %v", err)
+		}
+		// update post description in meilisearch
+		err = meili.UpdateDocuments("posts", map[string]interface{}{"_id": id, "post_type": title})
+		if err != nil {
+			return nil, fmt.Errorf("failed to update post challenge type in meilisearch: %v", err)
+		}
+	}
+
+	if addedTags != nil && len(addedTags) > 0 {
+		newTags := make([]interface{}, 0)
+		// iterate over the tags creating new tag structs for tags that do not already exist and adding ids to the slice created above
+		for _, tag := range addedTags {
+			// conditionally create a new id and insert tag into database if it does not already exist
+			if tag.ID == -1 {
+				// generate new tag id
+				tag.ID = sf.Generate().Int64()
+
+				// iterate statements inserting the new tag into the database
+				for _, statement := range tag.ToSQLNative() {
+					_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+					if err != nil {
+						return nil, fmt.Errorf("failed to perform tag insertion: %v", err)
+					}
+				}
+
+				// add tag to new tags for search engine insertion
+				newTags = append(newTags, tag.ToSearch())
+			} else {
+				// increment tag column usage_count in database
+				_, err = tx.ExecContext(ctx, &callerName, "update tag set usage_count = usage_count + 1 where _id =?", tag.ID)
+				if err != nil {
+					return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
+				}
+			}
+
+			// increment tag column usage_count in database
+			_, err = tx.ExecContext(ctx, &callerName, "insert ignore into post_tags(post_id, tag_id) values(?, ?)", id, tag.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
+			}
+		}
+		// conditionally attempt to insert the tags into the search engine to make it discoverable
+		if len(newTags) > 0 {
+			err = meili.AddDocuments("tags", newTags...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to add new tags to search engine: %v", err)
+			}
+		}
+	}
+
+	if removedTags != nil && len(removedTags) > 0 {
+		// iterate over the tags creating new tag structs for tags that do not already exist and adding ids to the slice created above
+		for _, tag := range removedTags {
+			// increment tag column usage_count in database
+			_, err = tx.ExecContext(ctx, &callerName, "update tag set usage_count = usage_count - 1 where _id =?", tag.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
+			}
+
+			// increment tag column usage_count in database
+			_, err = tx.ExecContext(ctx, &callerName, "delete from post_tags where post_id = ? and tag_id = ?", id, tag.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to remove tag usage count: %v", err)
+			}
+		}
+	}
+
+	// increment tag column usage_count in database
+	_, err = tx.ExecContext(ctx, &callerName, "update attempt set updated_at = ? where _id =?", time.Now(), id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to increment updated at: %v", err)
+	}
+
+	// commit insertion transaction to database
+	err = tx.Commit(&callerName)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
+	}
+
+	return map[string]interface{}{"message": "success"}, nil
+}
+
 func DeleteProject(ctx context.Context, tidb *ti.Database, callingUser *models.User, meili *search.MeiliSearchEngine, projectID int64, logger logging.Logger) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "delete-project")

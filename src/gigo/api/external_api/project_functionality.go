@@ -494,7 +494,7 @@ func (s *HTTPServer) CreateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *HTTPServer) EditProject(w http.ResponseWriter, r *http.Request) {
-	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-project-http")
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "edit-project-http")
 	defer parentSpan.End()
 
 	// retrieve calling user from context
@@ -783,6 +783,298 @@ func (s *HTTPServer) EditProject(w http.ResponseWriter, r *http.Request) {
 
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "EditProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) EditAttempt(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "edit-attempt-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "CreateProject", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// read request body into byte slice
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, "failed to read request body", r.URL.Path, "CreateProject", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		return
+	}
+
+	// create a new buffer for the response and re-assign to the request body
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// create variables for json payload and temp image file
+	var reqJson map[string]interface{}
+	var thumbnailTempPath *string
+
+	// handle gen images by loading json otherwise receive upload
+	if _, err := jsonparser.GetString(body, "upload_id"); err == nil {
+		// receive upload part and handle file assemble
+		reqJson = s.receiveUpload(w, r, "EditAttempt", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+		if reqJson == nil {
+			return
+		}
+
+		// attempt to load parameter from body
+		uploadId, ok := s.loadValue(w, r, reqJson, "EditAttempt", "upload_id", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
+		if !ok {
+			return
+		}
+
+		if uploadId != nil {
+			gens := filepath.Join("temp", uploadId.(string))
+			thumbnailTempPath = &gens
+			// defer removal of thumbnail temp file
+			defer s.storageEngine.DeleteFile(*thumbnailTempPath)
+		}
+	} else {
+		// attempt to load JSON from request body
+		reqJson = s.jsonRequest(w, r, "EditAttempt", true, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+		if reqJson == nil {
+			return
+		}
+
+		// attempt to load gen_image_id from body
+		genImageId, ok := s.loadValue(w, r, reqJson, "EditAttempt", "gen_image_id", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
+		if !ok {
+			return
+		}
+		if genImageId != nil {
+			path := fmt.Sprintf("temp_proj_images/%v/%v.jpg", callingUser.(*models.User).ID, genImageId.(string))
+			thumbnailTempPath = &path
+		}
+	}
+
+	// attempt to load parameter from body
+	id, ok := s.loadValue(w, r, reqJson, "EditAttempt", "id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if id == nil || !ok {
+		return
+	}
+
+	// parse post id to integer
+	attemptId, err := strconv.ParseInt(id.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse post id string to integer: %s", id.(string)), r.URL.Path, "AttemptInformation", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// attempt to load parameter from body
+	titleI, ok := s.loadValue(w, r, reqJson, "EditAttempt", "title", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	var title *string
+	if titleI != nil {
+		c := titleI.(string)
+		title = &c
+	}
+
+	// attempt to load parameter from body
+	challengeType, ok := s.loadValue(w, r, reqJson, "EditAttempt", "challenge_type", reflect.Float64, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	var challenge *models.ChallengeType
+	if challengeType != nil {
+		challenges := models.ChallengeType(challengeType.(float64))
+		challenge = &challenges
+	}
+
+	// attempt to load parameter from body
+	tier, ok := s.loadValue(w, r, reqJson, "EditAttempt", "tier", reflect.Float64, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	var tierType *models.TierType
+	if tier != nil {
+		tierTypes := models.TierType(tier.(float64))
+		tierType = &tierTypes
+	}
+
+	// attempt to load parameter from body
+	removeTagsType := reflect.Map
+	removeTagsI, ok := s.loadValue(w, r, reqJson, "EditAttempt", "remove_tags", reflect.Slice, &removeTagsType, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	// create a slice to hold tags loaded from the http parameter
+	removeTags := make([]*models.Tag, 0)
+
+	if removeTagsI != nil {
+		// iterate through tagsI asserting each value as a map and create a new tag
+		for _, removeTagI := range removeTagsI.([]interface{}) {
+			removeTag := removeTagI.(map[string]interface{})
+
+			// load id from tag map
+			idI, ok := removeTag["_id"]
+			if !ok {
+				s.handleError(w, "missing tag id", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"internal server error occurred", fmt.Errorf("missing tag id"))
+				return
+			}
+
+			// assert id as string and parse into int64
+			idS, ok := idI.(string)
+			if !ok {
+				s.handleError(w, fmt.Sprintf("invalid tag id type: %v", reflect.TypeOf(idS)), r.URL.Path,
+					"CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"invalid tag id type - should be string", nil)
+				return
+			}
+
+			id, err := strconv.ParseInt(idS, 10, 64)
+			if !ok {
+				s.handleError(w, "failed to parse tag id as int64", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+					"internal server error occurred", err)
+				return
+			}
+
+			// load value from tag map
+			valS, ok := removeTag["value"]
+			if !ok {
+				s.handleError(w, "missing tag value", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"internal server error occurred", nil)
+				return
+			}
+
+			// assert val as string
+			val, ok := valS.(string)
+			if !ok {
+				s.handleError(w, fmt.Sprintf("invalid tag value type: %v", reflect.TypeOf(valS)), r.URL.Path,
+					"CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"invalid tag value type - should be string", nil,
+				)
+				return
+			}
+
+			removeTags = append(removeTags, models.CreateTag(id, val))
+		}
+	}
+
+	// attempt to load parameter from body
+	addTagsType := reflect.Map
+	addTagsI, ok := s.loadValue(w, r, reqJson, "EditAttempt", "add_tags", reflect.Slice, &addTagsType, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	// create a slice to hold tags loaded from the http parameter
+	addTags := make([]*models.Tag, 0)
+
+	if addTagsI != nil {
+		// iterate through tagsI asserting each value as a map and create a new tag
+		for _, addTagI := range addTagsI.([]interface{}) {
+			addTag := addTagI.(map[string]interface{})
+
+			// load id from tag map
+			idI, ok := addTag["_id"]
+			if !ok {
+				s.handleError(w, "missing tag id", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"internal server error occurred", fmt.Errorf("missing tag id"))
+				return
+			}
+
+			// assert id as string and parse into int64
+			idS, ok := idI.(string)
+			if !ok {
+				s.handleError(w, fmt.Sprintf("invalid tag id type: %v", reflect.TypeOf(idS)), r.URL.Path,
+					"CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"invalid tag id type - should be string", nil)
+				return
+			}
+
+			id, err := strconv.ParseInt(idS, 10, 64)
+			if !ok {
+				s.handleError(w, "failed to parse tag id as int64", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+					"internal server error occurred", err)
+				return
+			}
+
+			// load value from tag map
+			valS, ok := addTag["value"]
+			if !ok {
+				s.handleError(w, "missing tag value", r.URL.Path, "CreateProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"internal server error occurred", nil)
+				return
+			}
+
+			// assert val as string
+			val, ok := valS.(string)
+			if !ok {
+				s.handleError(w, fmt.Sprintf("invalid tag value type: %v", reflect.TypeOf(valS)), r.URL.Path,
+					"CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+					"invalid tag value type - should be string", nil,
+				)
+				return
+			}
+
+			addTags = append(addTags, models.CreateTag(id, val))
+		}
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "EditAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.EditAttempt(ctx, s.tiDB, attemptId, s.storageEngine, thumbnailTempPath, title, challenge, tierType, s.meili, addTags, removeTags, s.sf)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "EditAttempt core failed", r.URL.Path, "EditAttempt", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"edit-attempt",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingId),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "EditAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
 
 func (s *HTTPServer) DeleteProject(w http.ResponseWriter, r *http.Request) {
