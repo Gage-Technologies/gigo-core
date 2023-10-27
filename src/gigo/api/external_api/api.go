@@ -156,6 +156,8 @@ var cacheEndpoints = []*EndpointCache{
 		KeyFields:    []string{"post_id"},
 		UserKey:      true,
 		RefreshOnHit: false,
+		// Add regex to match endpoints that will trigger cache invalidation here
+		InvalidateOn: regexp.MustCompile("^/api/project/editProject$"),
 	},
 	{
 		Path:         regexp.MustCompile("^/api/project/attempts$"),
@@ -164,6 +166,7 @@ var cacheEndpoints = []*EndpointCache{
 		KeyFields:    []string{"project_id", "skip", "limit"},
 		UserKey:      true,
 		RefreshOnHit: false,
+		InvalidateOn: regexp.MustCompile("^/api/project/editAttempt$"),
 	},
 	{
 		Path:         regexp.MustCompile("^/api/project/closedAttempts$"),
@@ -214,6 +217,7 @@ type EndpointCache struct {
 	KeyFields    []string
 	UserKey      bool
 	RefreshOnHit bool
+	InvalidateOn *regexp.Regexp
 }
 
 type CachedResponse struct {
@@ -611,6 +615,33 @@ func (s *HTTPServer) jsonResponse(r *http.Request, w http.ResponseWriter, res ma
 			// we can only log since we've already written to the response
 			s.logger.Errorf("failed to save json response to redis: %v", err)
 			return
+		}
+	}
+
+	// handle cache invalidations
+	for _, ep := range cacheEndpoints {
+		// skip if the cache endpoint doesn't have an invalidation endpoint
+		if ep.InvalidateOn == nil {
+			continue
+		}
+
+		// check to see if the endpoint matches
+		if ep.InvalidateOn.MatchString(r.URL.Path) {
+			// get the cache key
+			key := fmt.Sprintf("httpcache:%s", r.URL.Path)
+			if ep.Method != "" {
+				key = fmt.Sprintf("%s:%s", r.URL.Path, r.Method)
+			}
+			if ep.UserKey {
+				key = fmt.Sprintf("%s:%s", key, userId)
+			}
+
+			// invalidate the cache
+			err := s.rdb.Del(r.Context(), key).Err()
+			if err != nil {
+				// we can only log since we've already written to the response
+				s.logger.Errorf("failed to invalidate cache: %v", err)
+			}
 		}
 	}
 
