@@ -577,7 +577,6 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 	if addedTags != nil && len(addedTags) > 0 {
 		newTags := make([]interface{}, 0)
-		//ask about adding tags to meili
 		// iterate over the tags creating new tag structs for tags that do not already exist and adding ids to the slice created above
 		for _, tag := range addedTags {
 			// conditionally create a new id and insert tag into database if it does not already exist
@@ -619,7 +618,6 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 	}
 
 	if removedTags != nil && len(removedTags) > 0 {
-		//ask about adding tags to meili
 		// iterate over the tags creating new tag structs for tags that do not already exist and adding ids to the slice created above
 		for _, tag := range removedTags {
 			// increment tag column usage_count in database
@@ -634,6 +632,12 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 				return nil, fmt.Errorf("failed to remove tag usage count: %v", err)
 			}
 		}
+	}
+
+	// increment tag column usage_count in database
+	_, err = tx.ExecContext(ctx, &callerName, "update post set updated_at = ? where _id =?", time.Now(), id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to increment updated at: %v", err)
 	}
 
 	// commit insertion transaction to database
