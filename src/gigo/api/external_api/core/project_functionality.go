@@ -694,7 +694,7 @@ func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 	if title != nil {
 		// update post description if user is the original owner
-		_, err := tx.ExecContext(ctx, &callerName, "update attempt set post_title = ?, embedded = ? where _id = ?", title, false, id)
+		_, err := tx.ExecContext(ctx, &callerName, "update attempt set post_title = ? where _id = ?", title, id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to edit post title: %v", err)
 		}
@@ -723,11 +723,6 @@ func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 		_, err := tx.ExecContext(ctx, &callerName, "update attempt set post_type = ?, embedded = ? where _id = ?", challengeType, false, id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to edit challenge type: %v", err)
-		}
-		// update post description in meilisearch
-		err = meili.UpdateDocuments("posts", map[string]interface{}{"_id": id, "post_type": title})
-		if err != nil {
-			return nil, fmt.Errorf("failed to update post challenge type in meilisearch: %v", err)
 		}
 	}
 
