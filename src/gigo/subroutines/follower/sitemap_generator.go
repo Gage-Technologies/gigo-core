@@ -85,6 +85,61 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 		return
 	}
 
+	err = sm.Add(&smg.SitemapLoc{
+		Loc:        "/about",
+		LastMod:    &n,
+		ChangeFreq: smg.Weekly,
+		Priority:   0.4,
+	})
+	if err != nil {
+		logger.Errorf("(sitemap_gen: %d) unable to add about to the sitemap: %v", nodeId, err)
+		return
+	}
+
+	err = sm.Add(&smg.SitemapLoc{
+		Loc:        "/documentation",
+		LastMod:    &n,
+		ChangeFreq: smg.Weekly,
+		Priority:   0.4,
+	})
+	if err != nil {
+		logger.Errorf("(sitemap_gen: %d) unable to add dcos to the sitemap: %v", nodeId, err)
+		return
+	}
+
+	err = sm.Add(&smg.SitemapLoc{
+		Loc:        "/premium",
+		LastMod:    &n,
+		ChangeFreq: smg.Weekly,
+		Priority:   0.4,
+	})
+	if err != nil {
+		logger.Errorf("(sitemap_gen: %d) unable to add premium to the sitemap: %v", nodeId, err)
+		return
+	}
+
+	err = sm.Add(&smg.SitemapLoc{
+		Loc:        "/buyingExclusive",
+		LastMod:    &n,
+		ChangeFreq: smg.Weekly,
+		Priority:   0.4,
+	})
+	if err != nil {
+		logger.Errorf("(sitemap_gen: %d) unable to add buyingExclusive to the sitemap: %v", nodeId, err)
+		return
+	}
+
+	err = sm.Add(&smg.SitemapLoc{
+		Loc:        "/aboutExclusive",
+		LastMod:    &n,
+		ChangeFreq: smg.Weekly,
+		Priority:   0.4,
+	})
+	if err != nil {
+		logger.Errorf("(sitemap_gen: %d) unable to add buyingExclusive to the sitemap: %v", nodeId, err)
+		return
+	}
+
 	// query for all posts that are not deleted, unpublished or private
 	res, err := db.Query(
 		ctx, &parentSpan, &callerName,

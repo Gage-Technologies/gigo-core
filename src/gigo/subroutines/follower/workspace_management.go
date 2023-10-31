@@ -652,7 +652,8 @@ func asyncStopWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceC
 //	Handles the destruction of an existing workspace via the remote provisioner
 //	system (gigo-ws) and updates the database directly on completion or failure
 func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, vcsClient *git.VCSClient,
-	wsStatusUpdater *utils.WorkspaceStatusUpdater, js *mq.JetstreamClient, msg *nats.Msg, logger logging.Logger) {
+	wsStatusUpdater *utils.WorkspaceStatusUpdater, js *mq.JetstreamClient, rdb redis.UniversalClient, msg *nats.Msg, 
+	logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-destroy-workspace-routine")
 	callerName := "asyncDestroyWorkspace"
 
@@ -724,6 +725,12 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 			nodeId, destroyWsMsg.ID, err,
 		))
 	}
+
+	// remove any ephemeral users associated with the workspace
+	err = core.DeleteEphemeral(ctx, tidb, vcsClient, rdb, []int64{destroyWsMsg.ID})
+	if err != nil {
+		logger.Error(fmt.Errorf("(workspace: %d) failed to delete ephemeral workspaces: %v", nodeId, err))
+	}
 }
 
 // asyncRemoveDestroyed
@@ -732,7 +739,7 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 //	 destroyed for more than 24 hours. Unlike all the other helper functions for
 //	 workspaces this function performs a bulk operations on all workspaces that
 //	 have been destroyed for more than 24 hours.
-func asyncRemoveDestroyed(nodeId int64, tidb *ti.Database, vcsClient *git.VCSClient, msg *nats.Msg, rdb redis.UniversalClient, logger logging.Logger) {
+func asyncRemoveDestroyed(nodeId int64, tidb *ti.Database, vcsClient *git.VCSClient, msg *nats.Msg, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-remove-destroyed-routine")
 	callerName := "asyncRemoveDestroyed"
 
@@ -815,11 +822,6 @@ func asyncRemoveDestroyed(nodeId int64, tidb *ti.Database, vcsClient *git.VCSCli
 		}
 	}
 
-	err = core.DeleteEphemeral(ctx, tidb, vcsClient, rdb, wsIds)
-	if err != nil {
-		logger.Error(fmt.Errorf("(workspace: %d) failed to delete ephemeral workspaces: %v", nodeId, err))
-	}
-
 	return
 }
 
@@ -893,7 +895,7 @@ func WorkspaceManagementOperations(ctx context.Context, nodeId int64, tidb *ti.D
 		"workspace",
 		logger,
 		func(msg *nats.Msg) {
-			asyncDestroyWorkspace(nodeId, tidb, wsClient, vcsClient, wsStatusUpdater, js, msg, logger)
+			asyncDestroyWorkspace(nodeId, tidb, wsClient, vcsClient, wsStatusUpdater, js, rdb, msg, logger)
 		},
 	)
 
@@ -909,7 +911,7 @@ func WorkspaceManagementOperations(ctx context.Context, nodeId int64, tidb *ti.D
 		"workspace",
 		logger,
 		func(msg *nats.Msg) {
-			asyncRemoveDestroyed(nodeId, tidb, vcsClient, msg, rdb, logger)
+			asyncRemoveDestroyed(nodeId, tidb, vcsClient, msg, logger)
 		},
 	)
 
