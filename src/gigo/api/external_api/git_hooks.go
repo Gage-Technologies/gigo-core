@@ -87,7 +87,7 @@ func (s *HTTPServer) GiteaWebhookPush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	err = core.GiteaWebhookPush(ctx, s.tiDB, s.vscClient, s.sf, &push)
+	err = core.GiteaWebhookPush(ctx, s.tiDB, s.vscClient, s.sf, s.wg, s.logger, &push)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", nil)
