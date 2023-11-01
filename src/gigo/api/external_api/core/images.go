@@ -67,7 +67,7 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 		}
 
 		// query for the post to validate its availability
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "select author_id, closed from attempt where _id = ? limit 1", id)
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "select author_id from attempt where _id = ? limit 1", id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query post: %v", err)
 		}
@@ -81,17 +81,16 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 
 		// create variables to hold values from cursor
 		var authorID int64
-		var closed bool
 
 		// attempt to decode res into variables
-		err = res.Scan(&authorID, &closed)
+		err = res.Scan(&authorID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan values from cursor: %v", err)
 		}
 
-		if closed != true && (callingUser == nil || authorID != callingUser.ID) {
-			return nil, fmt.Errorf("not found")
-		}
+		//if closed != true && (callingUser == nil || authorID != callingUser.ID) {
+		//	return nil, fmt.Errorf("not found")
+		//}
 
 		// write thumbnail to final location
 		idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", id)))
