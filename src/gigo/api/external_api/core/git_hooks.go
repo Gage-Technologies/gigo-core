@@ -52,6 +52,7 @@ func handleTutorialMod(ctx context.Context, wg *conc.WaitGroup, db *ti.Database,
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "gitea-webhook-push-handle-mod-tutorial")
 	defer span.End()
 	callingName := "handleTutorialMod"
+	logger.Debugf("(git webhook) handling tutorial modification: %q", req.Repository.FullName)
 
 	// extract the code source id from the req
 	id, err := strconv.ParseInt(req.Repository.Name, 10, 64)
@@ -67,6 +68,7 @@ func handleTutorialMod(ctx context.Context, wg *conc.WaitGroup, db *ti.Database,
 	if err != nil {
 		// return early if not found
 		if err == sql.ErrNoRows {
+			logger.Debugf("(git webhook) repo is not a post: %q", req.Repository.FullName)
 			return nil
 		}
 		return fmt.Errorf("failed to check for post: %w", err)
@@ -101,6 +103,7 @@ func handleTutorialMod(ctx context.Context, wg *conc.WaitGroup, db *ti.Database,
 
 	// exit quietly if nothing has been modified
 	if !modified {
+		logger.Debugf("(git webhook) no tutorials mod: %q", req.Repository.FullName)
 		return nil
 	}
 
@@ -109,6 +112,7 @@ func handleTutorialMod(ctx context.Context, wg *conc.WaitGroup, db *ti.Database,
 		ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "gitea-webhook-push-handle-mod-tutorial-internal")
 		defer span.End()
 		callingName := "handleTutorialMod-internal"
+		logger.Debugf("(git webhook) launching tutorial mod internal handler: %q", req.Repository.FullName)
 
 		// retrieve the list of tutorials in the repo's tutorial directory
 		files, _, err := vcsClient.GiteaClient.ListContents(
