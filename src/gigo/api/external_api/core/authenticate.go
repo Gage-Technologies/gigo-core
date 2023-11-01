@@ -317,7 +317,7 @@ func LoginWithGithub(ctx context.Context, tidb *ti.Database, storageEngine stora
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "login-with-github-core")
 	callerName := "LoginWithGithub"
 
-	userInfo, err := GetGithubId(externalAuth, githubSecret)
+	userInfo, _, err := GetGithubId(externalAuth, githubSecret)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get github user info: %v", err)
 	}
@@ -335,7 +335,7 @@ func LoginWithGithub(ctx context.Context, tidb *ti.Database, storageEngine stora
 	if err != nil {
 		return map[string]interface{}{
 			"message": "github account not linked to any users",
-		}, "", fmt.Errorf("no user with this google account exists\n")
+		}, "", fmt.Errorf("no user with this github account exists\n")
 	}
 
 	// defer closure of rows
@@ -362,36 +362,8 @@ func LoginWithGithub(ctx context.Context, tidb *ti.Database, storageEngine stora
 
 	userId := user.ID
 
-	accountValid := false
-
-	if user.StripeAccount != nil {
-		accountValid = true
-	}
-
-	// parse the tutorials from bytes to a model
-	var tutorials models.UserTutorial
-	if len(user.Tutorials) > 0 {
-		if err := json.Unmarshal(user.Tutorials, &tutorials); err != nil {
-			return nil, "", fmt.Errorf("failed to unmarshal tutorials: %v", err)
-		}
-	} else {
-		tutorials = models.DefaultUserTutorial
-	}
-
 	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 0, 5, map[string]interface{}{
-		"user_status":         user.UserStatus,
-		"email":               user.Email,
-		"phone":               user.Phone,
-		"user_name":           user.UserName,
-		"thumbnail":           fmt.Sprintf("/static/user/pfp/%v", user.ID),
-		"loginWithGithub":     "true",
-		"color_palette":       user.ColorPalette,
-		"render_in_front":     user.RenderInFront,
-		"name":                user.Name,
-		"exclusive_account":   accountValid,
-		"exclusive_agreement": user.ExclusiveAgreement,
-		"tutorials":           tutorials,
-		"tier":                user.Tier,
+		"loginWithGithub": "true",
 	})
 	if err != nil {
 		return nil, "", err
@@ -408,6 +380,7 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 	callingUser *models.User, password string, ip string, logger logging.Logger) (map[string]interface{}, string, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "confirm-github-login-core")
 	defer span.End()
+	callerName := "ConfirmGithubLogin"
 
 	// validate password is correct
 	valid, err := utils.CheckPassword(password, callingUser.Password)
@@ -434,6 +407,45 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 		accountValid = true
 	}
 
+	// query for user with passed credentials
+	res, err := tidb.QueryContext(ctx, &span, &callerName,
+		"select color_palette, render_in_front, name, tutorials from users u left join rewards r on r._id = u.avatar_reward where user_name = ? limit 1", callingUser.UserName,
+	)
+	if err != nil {
+		return map[string]interface{}{
+			"message": "github account not linked to any users",
+		}, "", fmt.Errorf("no user with this github account exists\n")
+	}
+
+	// defer closure of rows
+	defer res.Close()
+
+	// create variable to decode res into
+	var user query_models.UserBackground
+
+	// load row into first position
+	ok := res.Next()
+	// return error for missing row
+	if !ok {
+		return map[string]interface{}{"message": "User not found"}, "", err
+	}
+
+	// decode row results
+	err = sqlstruct.Scan(&user, res)
+	if err != nil {
+		return map[string]interface{}{"message": "User not found"}, "", err
+	}
+
+	// parse the tutorials from bytes to a model
+	var tutorials models.UserTutorial
+	if len(user.Tutorials) > 0 {
+		if err := json.Unmarshal(user.Tutorials, &tutorials); err != nil {
+			return nil, "", fmt.Errorf("failed to unmarshal tutorials: %v", err)
+		}
+	} else {
+		tutorials = models.DefaultUserTutorial
+	}
+
 	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*30, 0, map[string]interface{}{
 		"user_status":         callingUser.UserStatus,
 		"email":               callingUser.Email,
@@ -442,6 +454,12 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 		"thumbnail":           fmt.Sprintf("/static/user/pfp/%v", callingUser.ID),
 		"exclusive_content":   accountValid,
 		"exclusive_agreement": callingUser.ExclusiveAgreement,
+		"color_palette":       user.ColorPalette,
+		"render_in_front":     user.RenderInFront,
+		"name":                user.Name,
+		"exclusive_account":   accountValid,
+		"tutorials":           tutorials,
+		"tier":                callingUser.Tier,
 	})
 	if err != nil {
 		return nil, "", err

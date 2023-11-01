@@ -519,22 +519,22 @@ func (s *HTTPServer) UserProfilePage(w http.ResponseWriter, r *http.Request) {
 	var client *int64
 	if rawClient != nil {
 		// parse post id to integer
-		attemptId, err := strconv.ParseInt(rawClient.(string), 10, 64)
+		clientID, err := strconv.ParseInt(rawClient.(string), 10, 64)
 		if err != nil {
 			// handle error internally
-			s.handleError(w, fmt.Sprintf("failed to parse post id string to integer: %s", rawClient.(string)), r.URL.Path, "ProjectAttemptInformation", r.Method, r.Context().Value(CtxKeyRequestID),
+			s.handleError(w, fmt.Sprintf("failed to parse client id string to integer: %s", rawClient.(string)), r.URL.Path, "UserProfilePage", r.Method, r.Context().Value(CtxKeyRequestID),
 				network.GetRequestIP(r), callingUsername, callingId, http.StatusInternalServerError, "internal server error occurred", err)
 			// exit
 			return
 		}
 
-		client = &attemptId
+		client = &clientID
 	}
 
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
-		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GenerateUserOtpUri", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUsername, callingId, http.StatusOK)
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "UserProfilePage", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUsername, callingId, http.StatusOK)
 		return
 	}
 	// execute core function logic
@@ -1249,9 +1249,9 @@ func (s *HTTPServer) CreateNewGithubUser(w http.ResponseWriter, r *http.Request)
 	}
 
 	// execute core function logic
-	res, err := core.CreateNewGithubUser(ctx, s.tiDB, s.meili, s.sf, s.streakEngine, s.domain, externalAuth.(string),
+	res, token, err := core.CreateNewGithubUser(ctx, s.tiDB, s.meili, s.sf, s.streakEngine, s.domain, externalAuth.(string),
 		password.(string), s.vscClient, *workspaceSettings, timeZoneI.(string), avatarSetting, s.githubSecret,
-		thumbnailTempPath, s.storageEngine, s.mailGunKey, s.mailGunDomain, s.initialRecUrl, referral, s.logger)
+		thumbnailTempPath, s.storageEngine, s.mailGunKey, s.mailGunDomain, s.initialRecUrl, referral, network.GetRequestIP(r), s.logger)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
@@ -1260,6 +1260,33 @@ func (s *HTTPServer) CreateNewGithubUser(w http.ResponseWriter, r *http.Request)
 			network.GetRequestIP(r), "", "", http.StatusInternalServerError, responseMessage, err)
 		// exit
 		return
+	}
+
+	// conditionally set cookie with insecure settings
+	if s.developmentMode {
+		// set cookie in response if the token was created
+		http.SetCookie(w, &http.Cookie{
+			Name:     "gigoAuthToken",
+			Value:    token,
+			Expires:  time.Now().Add(time.Hour * 24 * 30),
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			Secure:   false,
+			Domain:   fmt.Sprintf(".%s", s.domain),
+		})
+	} else {
+		// set cookie in response if the token was created
+		http.SetCookie(w, &http.Cookie{
+			Name:     "gigoAuthToken",
+			Value:    token,
+			Expires:  time.Now().Add(time.Hour * 24 * 30),
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+			Secure:   true,
+			Domain:   fmt.Sprintf(".%s", s.domain),
+		})
 	}
 
 	parentSpan.AddEvent(

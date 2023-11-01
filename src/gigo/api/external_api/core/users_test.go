@@ -938,9 +938,9 @@ func TestDeleteUserAccount(t *testing.T) {
 // }
 
 func TestGetGithubId(t *testing.T) {
-	user, err := GetGithubId("863da75fe6c0d89d544b", "")
+	user, _, err := GetGithubId("", "")
 	if err != nil {
-		return
+
 	}
 
 	m := make(map[string]interface{})

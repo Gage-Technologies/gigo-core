@@ -737,7 +737,7 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-github-user-core")
 	callerName := "CreateNewGithubUser"
 
-	userInfo, err := GetGithubId(externalAuth, githubSecret)
+	userInfo, gitMail, err := GetGithubId(externalAuth, githubSecret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get github user info: %v", err)
 	}
@@ -772,13 +772,10 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 		}, errors.New("duplicate github user in user creation")
 	}
 
-	// generate the user's GIGO id
-	genID := snowflakeNode.Generate().Int64()
-
 	// handle if user does not have an email on their GitHub profile
 	var email string
 	if m["email"] == nil {
-		email = fmt.Sprintf("no-email-%d", genID)
+		email = gitMail
 	} else {
 		email = m["email"].(string)
 	}

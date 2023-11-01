@@ -1767,7 +1767,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	return map[string]interface{}{"message": "Google User Added.", "user": user}, nil
 }
 
-func GetGithubId(githubCode string, githubSecret string) ([]byte, error) {
+func GetGithubId(githubCode string, githubSecret string) ([]byte, string, error) {
 
 	clientId := "9ac1616be22aebfdeb3e"
 
@@ -1781,7 +1781,7 @@ func GetGithubId(githubCode string, githubSecret string) ([]byte, error) {
 	// create the request
 	requestJSON, err := json.Marshal(requestBodyMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request JSON: %v", err)
+		return nil, "", fmt.Errorf("failed to marshal request JSON: %v", err)
 	}
 
 	// create the request to send to GitHub's api
@@ -1791,7 +1791,7 @@ func GetGithubId(githubCode string, githubSecret string) ([]byte, error) {
 		bytes.NewBuffer(requestJSON),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
+		return nil, "", fmt.Errorf("failed to create request: %v", err)
 	}
 
 	// make sure request has correct format
@@ -1801,13 +1801,13 @@ func GetGithubId(githubCode string, githubSecret string) ([]byte, error) {
 	// execute the request
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %v", err)
+		return nil, "", fmt.Errorf("failed to execute request: %v", err)
 	}
 
 	// read the response body from GitHub
 	resBody, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
+		return nil, "", fmt.Errorf("failed to read response body: %v", err)
 	}
 
 	// hold the user's access token
@@ -1821,7 +1821,7 @@ func GetGithubId(githubCode string, githubSecret string) ([]byte, error) {
 	var githubRes githubAccessTokenResponse
 	err = json.Unmarshal(resBody, &githubRes)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// create the new request to send the access token for user information
@@ -1831,7 +1831,7 @@ func GetGithubId(githubCode string, githubSecret string) ([]byte, error) {
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create user request: %v", err)
+		return nil, "", fmt.Errorf("failed to create user request: %v", err)
 	}
 
 	authorizationHeaderValue := fmt.Sprintf("token %s", githubRes.AccessToken)
@@ -1840,25 +1840,70 @@ func GetGithubId(githubCode string, githubSecret string) ([]byte, error) {
 	// execute the request for user info
 	userRes, err := http.DefaultClient.Do(userReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute user request: %v", err)
+		return nil, "", fmt.Errorf("failed to execute user request: %v", err)
+	}
+
+	// Create a new request to fetch email addresses
+	emailReq, err := http.NewRequest(
+		"GET",
+		"https://api.github.com/user/emails",
+		nil,
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create email request: %v", err)
+	}
+
+	emailReq.Header.Set("Authorization", authorizationHeaderValue)
+
+	emailRes, err := http.DefaultClient.Do(emailReq)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to execute email request: %v", err)
+	}
+
+	// Read the email response body
+	emailResBody, err := ioutil.ReadAll(emailRes.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// For debugging: print the email response body
+	fmt.Println("Email Response:", string(emailResBody))
+
+	// Assuming it's an array based on your struct; if it's not, this will need to change
+	var emails []struct {
+		Email    string `json:"email"`
+		Primary  bool   `json:"primary"`
+		Verified bool   `json:"verified"`
+	}
+
+	if err := json.Unmarshal(emailResBody, &emails); err != nil {
+		return nil, "", fmt.Errorf("failed to unmarshal email response: %v", err)
+	}
+
+	primaryEmail := ""
+	for _, email := range emails {
+		if email.Primary {
+			primaryEmail = email.Email
+			break
+		}
 	}
 
 	// read the response body from GitHub and store as []byte
 	userResBody, err := ioutil.ReadAll(userRes.Body)
 
-	return userResBody, nil
+	return userResBody, primaryEmail, nil
 }
 
 func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, snowflakeNode *snowflake.Node, streakEngine *streak.StreakEngine,
 	domain string, externalAuth string, password string, vcsClient *git.VCSClient, starterUserInfo models.UserStart,
 	timezone string, avatarSetting models.AvatarSettings, githubSecret string, thumbnailPath string,
-	storageEngine storage.Storage, mgKey string, mgDomain string, initialRecUrl string, referralUser *string, logger logging.Logger) (map[string]interface{}, error) {
+	storageEngine storage.Storage, mgKey string, mgDomain string, initialRecUrl string, referralUser *string, ip string, logger logging.Logger) (map[string]interface{}, string, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-github-user-core")
 	callerName := "CreateNewGithubUser"
 
-	userInfo, err := GetGithubId(externalAuth, githubSecret)
+	userInfo, gitMail, err := GetGithubId(externalAuth, githubSecret)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get github user info: %v", err)
+		return nil, "", fmt.Errorf("failed to get github user info: %v", err)
 	}
 
 	m := make(map[string]interface{})
@@ -1868,7 +1913,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	}
 
 	if m["message"] == "Bad credentials" {
-		return nil, fmt.Errorf("bad credentials: user's github token has expired or isn't valid")
+		return nil, "", fmt.Errorf("bad credentials: user's github token has expired or isn't valid")
 	}
 
 	userId := int64(m["id"].(float64))
@@ -1879,7 +1924,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// query users to ensure user does not exist with this github id
 	response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, strconv.FormatInt(userId, 10))
 	if err != nil {
-		return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
+		return nil, "", fmt.Errorf("failed to query for duplicate username: %v", err)
 	}
 
 	// ensure the closure of the rows
@@ -1888,7 +1933,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	if response.Next() {
 		return map[string]interface{}{
 			"message": "that user already linked their github",
-		}, errors.New("duplicate github user in user creation")
+		}, "", errors.New("duplicate github user in user creation")
 	}
 
 	// generate the user's GIGO id
@@ -1897,7 +1942,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// handle if user does not have an email on their GitHub profile
 	var email string
 	if m["email"] == nil {
-		email = fmt.Sprintf("no-email-%d", genID)
+		email = gitMail
 	} else {
 		email = m["email"].(string)
 	}
@@ -1934,7 +1979,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// query users to ensure username does not already exist
 	response, err = tidb.QueryContext(ctx, &span, &callerName, nameQuery, m["login"].(string))
 	if err != nil {
-		return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
+		return nil, "", fmt.Errorf("failed to query for duplicate username: %v", err)
 	}
 
 	// ensure the closure of the rows
@@ -1971,7 +2016,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	if password == "" || len(password) < 5 {
 		return map[string]interface{}{
 			"message": "password is too short for user creation",
-		}, errors.New("password missing or too short for user creation")
+		}, "", errors.New("password missing or too short for user creation")
 	}
 
 	// load the timezone to ensure it is valid
@@ -1979,7 +2024,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	if err != nil {
 		return map[string]interface{}{
 			"message": "invalid timezone",
-		}, fmt.Errorf("failed to load user timezone: %v", err)
+		}, "", fmt.Errorf("failed to load user timezone: %v", err)
 	}
 
 	// TODO: download avatar and store locally
@@ -1988,19 +2033,19 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		password, email, "N/A", models.UserStatusBasic, "", nil,
 		nil, name, "", -1, strconv.FormatInt(userId, 10), starterUserInfo, timezone, avatarSetting, 0)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// decrypt user service password
 	servicePassword, err := session.DecryptServicePassword(newUser.EncryptedServiceKey, []byte(password))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt user password: %v", err)
+		return nil, "", fmt.Errorf("failed to decrypt user password: %v", err)
 	}
 
 	// create a new git user
 	gitUser, err := vcsClient.CreateUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), m["login"].(string), fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
 	if err != nil {
-		return map[string]interface{}{"message": "unable to create gitea user"}, err
+		return map[string]interface{}{"message": "unable to create gitea user"}, "", err
 	}
 
 	// update new user with git user
@@ -2025,13 +2070,13 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// retrieve the insert command for the life cycle
 	insertStatement, err := newUser.ToSQLNative()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load insert statement for new user creation: %v", err)
+		return nil, "", fmt.Errorf("failed to load insert statement for new user creation: %v", err)
 	}
 
 	// open transaction for insertion
 	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
+		return nil, "", fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
 	}
 
 	// executed insert for source image group
@@ -2040,7 +2085,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		if err != nil {
 			// roll transaction back
 			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to insert new user: %v", err)
+			return nil, "", fmt.Errorf("failed to insert new user: %v", err)
 		}
 	}
 
@@ -2052,39 +2097,39 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	if err != nil {
 		// roll transaction back
 		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to initialize user stats: %v", err)
+		return nil, "", fmt.Errorf("failed to initialize user stats: %v", err)
 	}
 
 	// format user to frontend
 	user, err := newUser.ToFrontend()
 	if err != nil {
-		return nil, fmt.Errorf("failed to format new user: %v", err)
+		return nil, "", fmt.Errorf("failed to format new user: %v", err)
 	}
 
 	// write thumbnail to final location
 	idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", newUser.ID)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to hash post id: %v", err)
+		return nil, "", fmt.Errorf("failed to hash post id: %v", err)
 	}
 	err = storageEngine.MoveFile(
 		thumbnailPath,
 		fmt.Sprintf("user/%s/%s/%s/profile-pic.svg", idHash[:3], idHash[3:6], idHash),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write thumbnail to final location: %v", err)
+		return nil, "", fmt.Errorf("failed to write thumbnail to final location: %v", err)
 	}
 
 	// attempt to insert user into search engine
 	err = meili.AddDocuments("users", newUser.ToSearch())
 	if err != nil {
-		return nil, fmt.Errorf("failed to insert new user into search engine: %v", err)
+		return nil, "", fmt.Errorf("failed to insert new user into search engine: %v", err)
 	}
 
 	if referralUser != nil {
 		// query to see if referred user is an actual user
 		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
 		if err != nil {
-			return nil, fmt.Errorf("failed to query referral user: %v", err)
+			return nil, "", fmt.Errorf("failed to query referral user: %v", err)
 		}
 
 		// defer closure of rows
@@ -2097,31 +2142,31 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		ok := res.Next()
 		// return error for missing row
 		if !ok {
-			return nil, fmt.Errorf("failed to find referral user: %v", err)
+			return nil, "", fmt.Errorf("failed to find referral user: %v", err)
 		}
 
 		// decode row results
 		err = sqlstruct.Scan(&userQuery, res)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
+			return nil, "", fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
 		_, err = CreateTrialSubscriptionReferral(ctx, email, tidb, tx, newUser.ID, name, " ")
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			return nil, "", fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
 
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
 			_, err = FreeMonthReferral(*userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
+				return nil, "", fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
 		}
 	} else {
 		_, err = CreateTrialSubscription(ctx, email, tidb, tx, newUser.ID, name, " ")
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			return nil, "", fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
 	}
 
@@ -2134,7 +2179,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	err = tx.Commit(&callerName)
 	if err != nil {
 		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
+		return nil, "", fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
 	}
 
 	// mark failed as false to block cleanup operation
@@ -2154,11 +2199,18 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		// send user sign up message after creation
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to send welcome message to user: %v", err)
+			return nil, "", fmt.Errorf("failed to send welcome message to user: %v", err)
 		}
 	}
 
-	return map[string]interface{}{"message": "Github User Added.", "user": user}, nil
+	token, err := utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", newUser.ID), ip, 0, 5, map[string]interface{}{
+		"loginWithGithub": "true",
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	return map[string]interface{}{"message": "Github User Added.", "user": user}, token, nil
 }
 
 func GetSubscription(ctx context.Context, callingUser *models.User) (map[string]interface{}, error) {
