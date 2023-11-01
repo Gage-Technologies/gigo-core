@@ -30,7 +30,7 @@ func TopRecommendation(ctx context.Context, tidb *ti.Database, callingUser *mode
 	callerName := "TopRecommendation"
 
 	// query attempt and projects with the user id as author id and sort by date last edited
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select p._id as _id, rp._id as recommended_id, p.created_at as created_at, p.updated_at as updated_at, score as similarity, title, author, author_id, repo_id, tier, coffee, post_type, views, completions, attempts, description from recommended_post rp join post p on p._id = rp.post_id where user_id = ? order by score desc limit 1", callingUser.ID)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select p._id as _id, rp._id as recommended_id, p.created_at as created_at, p.updated_at as updated_at, score as similarity, title, author, author_id, repo_id, tier, coffee, post_type, views, completions, attempts, description, p.estimated_tutorial_time as estimated_tutorial_time from recommended_post rp join post p on p._id = rp.post_id where user_id = ? order by score desc limit 1", callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core.    Error: %v", err)
 	}
@@ -102,7 +102,7 @@ func RecommendByAttempt(ctx context.Context, tidb *ti.Database, callingUser *mod
 	}
 
 	// query attempt and projects with the user id as author id and sort by date last edited
-	res1, err := tidb.QueryContext(ctx, &span, &callerName, "select p._id as _id, rp._id as recommended_id, p.created_at as created_at, p.updated_at as updated_at, score as similarity, title, p.author_id as author, p.repo_id as repo_id, p.tier as tier, p.coffee as coffee, post_type, views, completions, attempts, p.description as description from recommended_post rp join post p on p._id = rp.post_id left join attempt a on a.post_id = rp.post_id where a.author_id is null and rp.reference_id = ? order by score desc limit 15", topProject[0].RecommendedID)
+	res1, err := tidb.QueryContext(ctx, &span, &callerName, "select p._id as _id, rp._id as recommended_id, p.created_at as created_at, p.updated_at as updated_at, score as similarity, title, p.author_id as author, p.repo_id as repo_id, p.tier as tier, p.coffee as coffee, post_type, views, completions, attempts, p.description as description, p.estimated_tutorial_time as estimated_tutorial_time from recommended_post rp join post p on p._id = rp.post_id left join attempt a on a.post_id = rp.post_id where a.author_id is null and rp.reference_id = ? order by score desc limit 15", topProject[0].RecommendedID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core.    Error: %v", err)
 	}
@@ -129,7 +129,7 @@ func RecommendByAttempt(ctx context.Context, tidb *ti.Database, callingUser *mod
 	firstTitle := topProject[0].Title
 
 	// query attempt and projects with the user id as author id and sort by date last edited
-	res2, err := tidb.QueryContext(ctx, &span, &callerName, "select p._id as _id, rp._id as recommended_id, p.created_at as created_at, p.updated_at as updated_at, score as similarity, title, p.author_id as author, p.repo_id as repo_id, p.tier as tier, p.coffee as coffee, post_type, views, completions, attempts, p.description as description from recommended_post rp join post p on p._id = rp.post_id left join attempt a on a.post_id = rp.post_id where a.author_id is null and rp.reference_id = ? order by score desc limit 15", topProject[1].RecommendedID)
+	res2, err := tidb.QueryContext(ctx, &span, &callerName, "select p._id as _id, rp._id as recommended_id, p.created_at as created_at, p.updated_at as updated_at, score as similarity, title, p.author_id as author, p.repo_id as repo_id, p.tier as tier, p.coffee as coffee, post_type, views, completions, attempts, p.description as description,	p.estimated_tutorial_time as estimated_tutorial_time from recommended_post rp join post p on p._id = rp.post_id left join attempt a on a.post_id = rp.post_id where a.author_id is null and rp.reference_id = ? order by score desc limit 15", topProject[1].RecommendedID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core.    Error: %v", err)
 	}
@@ -456,7 +456,7 @@ func HarderRecommendation(ctx context.Context, tidb *ti.Database, callingUser *m
 	callerName := "HarderRecommendation"
 
 	// query attempt and projects with the user id as author id and sort by date last edited
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select p._id as _id, rp._id as recommended_id, p.created_at as created_at, p.updated_at as updated_at, score as similarity, title, author, author_id, repo_id, tier, coffee, post_type, views, completions, attempts, description from recommended_post rp join post p on p._id = rp.post_id where user_id = ? order by reference_tier desc, score desc limit 15", callingUser.ID)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select p._id as _id, rp._id as recommended_id, p.created_at as created_at, p.updated_at as updated_at, score as similarity, title, author, author_id, repo_id, tier, coffee, post_type, views, completions, attempts, description, p.estimated_tutorial_time as estimated_tutorial_time from recommended_post rp join post p on p._id = rp.post_id where user_id = ? order by reference_tier desc, score desc limit 15", callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core.    Error: %v", err)
 	}

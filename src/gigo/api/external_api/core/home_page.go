@@ -56,7 +56,8 @@ select
 	r.name as background_name,
 	r.color_palette as background_palette,
 	r.render_in_front as background_render,
-	u.user_status as user_status
+	u.user_status as user_status,
+	p.estimated_tutorial_time as estimated_tutorial_time
 from recommended_post rp 
 	join post p on p._id = rp.post_id 
 	join users u on u._id = p.author_id
@@ -91,7 +92,8 @@ select
 	r.name as background_name,
 	r.color_palette as background_palette,
 	r.render_in_front as background_render,
-	u.user_status as user_status
+	u.user_status as user_status,
+	p.estimated_tutorial_time as estimated_tutorial_time
 from post p 
 	join users u on u._id = p.author_id
 	left join rewards r on u.avatar_reward = r._id
@@ -122,7 +124,8 @@ select
     r.name as background_name,
     r.color_palette as background_palette,
     r.render_in_front as background_render,
-    u.user_status as user_status
+    u.user_status as user_status,
+	p.estimated_tutorial_time as estimated_tutorial_time
 from post p
          join users u on u._id = p.author_id
          left join rewards r on u.avatar_reward = r._id
