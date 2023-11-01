@@ -129,7 +129,7 @@ func (s *HTTPServer) AttemptInformation(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// execute core function logic
-	res, err := core.AttemptInformation(ctx, s.tiDB, s.vscClient, attemptId)
+	res, err := core.AttemptInformation(ctx, s.tiDB, s.vscClient, attemptId, s.storageEngine)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})

@@ -53,6 +53,9 @@ func (s *HTTPServer) SiteImages(w http.ResponseWriter, r *http.Request) {
 	// check if the called path is for a post
 	post := strings.HasPrefix(r.URL.Path, "/static/posts")
 
+	// check if the called path is for a post
+	attempt := strings.HasPrefix(r.URL.Path, "/static/attempts")
+
 	// parse id to int if all the characters are numerical
 	var username string
 	id, err := strconv.ParseInt(idString, 10, 64)
@@ -67,7 +70,7 @@ func (s *HTTPServer) SiteImages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	img, err := core.SiteImages(ctx, finalCallingUser, s.tiDB, id, username, post, s.storageEngine)
+	img, err := core.SiteImages(ctx, finalCallingUser, s.tiDB, id, username, post, attempt, s.storageEngine)
 	if err != nil {
 		if err.Error() == "not found" {
 			s.handleError(w, "SiteImages not found", r.URL.Path, "SiteImages", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -92,7 +95,7 @@ func (s *HTTPServer) SiteImages(w http.ResponseWriter, r *http.Request) {
 	defer img.Close()
 
 	// add headers
-	if post {
+	if post || attempt {
 		w.Header().Set("Content-Type", "image/jpeg")
 	} else {
 		w.Header().Set("Content-Type", "image/svg+xml")

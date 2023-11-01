@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
+	"github.com/gage-technologies/gigo-lib/storage"
+	utils2 "github.com/gage-technologies/gigo-lib/utils"
 	"io"
 
 	"go.opentelemetry.io/otel"
@@ -59,7 +61,47 @@ func ProjectAttemptInformation(ctx context.Context, tidb *ti.Database, vcsClient
 	}, nil
 }
 
-func AttemptInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, attemptId int64) (map[string]interface{}, error) {
+func getExistingFilePath(storageEngine storage.Storage, postId int64, attemptId int64) (string, error) {
+	// write thumbnail to final location
+	idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", attemptId)))
+	if err != nil {
+		fmt.Printf("failed on id hash: %v\n", err)
+		return fmt.Sprintf("/static/posts/t/%v", postId), nil
+	}
+
+	// write thumbnail to final location
+	idHashOriginal, err := utils2.HashData([]byte(fmt.Sprintf("%d", postId)))
+	if err != nil {
+		fmt.Printf("failed on original id hash: %v\n", err)
+		return fmt.Sprintf("/static/posts/t/%v", postId), nil
+	}
+
+	primaryPath := fmt.Sprintf("attempt/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash)
+
+	secondaryPath := fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHashOriginal[:3], idHashOriginal[3:6], idHashOriginal)
+
+	// Check primary path
+	existsPrimary, _, err := storageEngine.Exists(primaryPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to check existence of %s: %v", primaryPath, err)
+	}
+	if existsPrimary {
+		return fmt.Sprintf("/static/attempts/t/%v", attemptId), nil
+	}
+
+	// Check secondary path
+	existsSecondary, _, err := storageEngine.Exists(secondaryPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to check existence of %s: %v", secondaryPath, err)
+	}
+	if existsSecondary {
+		return fmt.Sprintf("/static/posts/t/%v", postId), nil
+	}
+
+	return fmt.Sprintf("/static/posts/t/%v", postId), fmt.Errorf("neither %s nor %s exist", primaryPath, secondaryPath)
+}
+
+func AttemptInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, attemptId int64, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "attempt-information-core")
 	callerName := "AttemptInformation"
 	// query for all active projects for specified user
@@ -99,6 +141,13 @@ func AttemptInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.V
 
 	// format post to frontend
 	fp := attempt.ToFrontend()
+
+	thumbnail, err := getExistingFilePath(storageEngine, attempt.PostID, attempt.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve thumbnail: %v", err)
+	}
+
+	fp.Thumbnail = thumbnail
 
 	return map[string]interface{}{
 		"post":        fp,

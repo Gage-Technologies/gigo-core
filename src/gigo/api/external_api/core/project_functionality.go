@@ -684,7 +684,7 @@ func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 			return nil, fmt.Errorf("failed to hash post id: %v", err)
 		}
 		err = storageEngine.CreateFile(
-			fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash),
+			fmt.Sprintf("attempt/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash),
 			thumbnailBuffer.Bytes(),
 		)
 		if err != nil {
@@ -835,7 +835,7 @@ func DeleteProject(ctx context.Context, tidb *ti.Database, callingUser *models.U
 }
 
 func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, js *mq.JetstreamClient, rdb redis.UniversalClient, callingUser *models.User, userSession *models.UserSession,
-	sf *snowflake.Node, postId int64, parentAttempt *int64, logger logging.Logger) (map[string]interface{}, error) {
+	sf *snowflake.Node, postId int64, parentAttempt *int64, logger logging.Logger, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "start-attempt-core")
 	callerName := "StartAttempt"
 
@@ -852,6 +852,26 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	if existingAttemptId > 0 {
 		return map[string]interface{}{"message": "You have already started an attempt. Keep working on that one!", "attempt": fmt.Sprintf("%d", existingAttemptId)}, nil
 	}
+
+	//// write thumbnail to final location
+	//idHashOriginal, err := utils2.HashData([]byte(fmt.Sprintf("%d", postId)))
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to hash post id: %v", err)
+	//}
+	//
+	//// get temp thumbnail file from storage
+	//thumbnailTempFile, err := storageEngine.GetFile(fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHashOriginal[:3], idHashOriginal[3:6], idHashOriginal))
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
+	//}
+	//defer thumbnailTempFile.Close()
+	//
+	//// sanitize thumbnail image
+	//thumbnailBuffer := bytes.NewBuffer([]byte{})
+	//err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer))
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to prep thumbnail file: %v", err)
+	//}
 
 	// create variables to hold post data
 	var postTitle string
@@ -975,6 +995,23 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 			return nil, fmt.Errorf("failed to execute insertion statement for attempt: %v\n    query: %s\n    params: %v",
 				err, statement.Statement, statement.Values)
 		}
+	}
+	// write thumbnail to final location
+	idHashOriginal, err := utils2.HashData([]byte(fmt.Sprintf("%d", postId)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash post id: %v", err)
+	}
+
+	// write thumbnail to final location
+	idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", attempt.ID)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash post id: %v", err)
+	}
+
+	// get temp thumbnail file from storage
+	err = storageEngine.CopyFile(fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHashOriginal[:3], idHashOriginal[3:6], idHashOriginal), fmt.Sprintf("attempt/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
 	}
 
 	// increment tag column usage_count in database
@@ -1154,6 +1191,24 @@ func StartEAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSCli
 				err, statement.Statement, statement.Values)
 		}
 	}
+
+	//// write thumbnail to final location
+	//idHashOriginal, err := utils2.HashData([]byte(fmt.Sprintf("%d", postId)))
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to hash post id: %v", err)
+	//}
+	//
+	//// write thumbnail to final location
+	//idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", attempt.ID)))
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to hash post id: %v", err)
+	//}
+	//
+	//// get temp thumbnail file from storage
+	//err = storageEngine.CopyFile(fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHashOriginal[:3], idHashOriginal[3:6], idHashOriginal), fmt.Sprintf("attempt/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash))
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
+	//}
 
 	// increment tag column usage_count in database
 	_, err = tx.ExecContext(ctx, &callerName, "update post set attempts = attempts + 1 where _id = ?", postId)

@@ -1230,7 +1230,7 @@ func (s *HTTPServer) StartAttempt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.StartAttempt(ctx, s.tiDB, s.vscClient, s.jetstreamClient, s.rdb, callingUser.(*models.User), userSession.(*models.UserSession), s.sf, postId, parentAttempt, s.logger)
+	res, err := core.StartAttempt(ctx, s.tiDB, s.vscClient, s.jetstreamClient, s.rdb, callingUser.(*models.User), userSession.(*models.UserSession), s.sf, postId, parentAttempt, s.logger, s.storageEngine)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
