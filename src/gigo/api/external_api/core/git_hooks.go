@@ -208,7 +208,7 @@ func handleTutorialMod(ctx context.Context, wg *conc.WaitGroup, db *ti.Database,
 		// update the estimated time on the database
 		_, err = db.Exec(
 			ctx, &span, &callingName,
-			"update projects set estimated_tutorial_time = ? where _id = ?",
+			"update post set estimated_tutorial_time = ? where _id = ?",
 			duration, id,
 		)
 		if err != nil {
