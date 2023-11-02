@@ -205,7 +205,7 @@ func (s *HTTPServer) ValidateSession(w http.ResponseWriter, r *http.Request) {
 	userId := fmt.Sprintf("%v", callingUser.(*models.User).ID)
 
 	parentSpan.AddEvent(
-		"login",
+		"validate-session",
 		trace.WithAttributes(
 			attribute.Bool("success", true),
 			attribute.String("ip", network.GetRequestIP(r)),

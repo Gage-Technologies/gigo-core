@@ -19,6 +19,7 @@ import (
 
 func GetDiscussions(ctx context.Context, tidb *ti.Database, callingUser *models.User, postId int64, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-discussions-core")
+	defer span.End()
 	callerName := "GetDiscussions"
 
 	// query attempt and projects with the user id as author id and sort by date last edited
@@ -83,6 +84,7 @@ func GetDiscussions(ctx context.Context, tidb *ti.Database, callingUser *models.
 
 func GetDiscussionComments(ctx context.Context, tidb *ti.Database, callingUser *models.User, discussionId []int64, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-discussion-comments-core")
+	defer span.End()
 	callerName := "GetDiscussionComments"
 
 	// save length of id array to variable
@@ -178,6 +180,7 @@ func GetDiscussionComments(ctx context.Context, tidb *ti.Database, callingUser *
 
 func GetCommentThreads(ctx context.Context, tidb *ti.Database, callingUser *models.User, commentId []int64, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-comment-threads-core")
+	defer span.End()
 	callerName := "GetCommentThreads"
 
 	// save length of id array to variable
@@ -269,6 +272,7 @@ func GetCommentThreads(ctx context.Context, tidb *ti.Database, callingUser *mode
 
 func GetThreadReply(ctx context.Context, tidb *ti.Database, callingUser *models.User, threadId []int64, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-thread-reply-core")
+	defer span.End()
 	callerName := "GetThreadReply"
 
 	// save length of id array to variable
@@ -355,6 +359,7 @@ func GetThreadReply(ctx context.Context, tidb *ti.Database, callingUser *models.
 
 func CreateDiscussion(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, callingUser *models.User, sf *snowflake.Node, postId int64, title string, body string, tags []*models.Tag) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-discussion-core")
+	defer span.End()
 	callerName := "CreateDiscussion"
 
 	// create a new id for the discussion
@@ -479,6 +484,7 @@ func CreateDiscussion(ctx context.Context, tidb *ti.Database, meili *search.Meil
 
 func CreateComment(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, callingUser *models.User, sf *snowflake.Node, discussionId int64, body string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-comment-core")
+	defer span.End()
 	callerName := "CreateComment"
 
 	// create a new id for the comment
@@ -560,6 +566,7 @@ func CreateComment(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 
 func CreateThreadComment(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, callingUser *models.User, sf *snowflake.Node, commentId int64, body string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-thread-comment-core")
+	defer span.End()
 	callerName := "CreateThreadComment"
 
 	// create a new id for the comment
@@ -641,6 +648,7 @@ func CreateThreadComment(ctx context.Context, tidb *ti.Database, meili *search.M
 
 func CreateThreadReply(ctx context.Context, tidb *ti.Database, callingUser *models.User, sf *snowflake.Node, threadId int64, body string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-thread-reply-core")
+	defer span.End()
 	callerName := "CreateThreadReply"
 
 	// create a new id for the thread reply
@@ -700,6 +708,7 @@ func CreateThreadReply(ctx context.Context, tidb *ti.Database, callingUser *mode
 
 func EditDiscussions(ctx context.Context, tidb *ti.Database, callingUser *models.User, meili *search.MeiliSearchEngine, sf *snowflake.Node, discussionType string, id int64, title *string, body string, tags []*models.Tag) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-discussions-core")
+	defer span.End()
 	callerName := "EditDiscussions"
 
 	// ensure a body was provided
@@ -1051,6 +1060,7 @@ func EditDiscussions(ctx context.Context, tidb *ti.Database, callingUser *models
 func AddDiscussionCoffee(ctx context.Context, tidb *ti.Database, callingUser *models.User, sf *snowflake.Node, id int64, discussionType string) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "add-discussion-coffee-core")
+	defer span.End()
 	callerName := "AddDiscussionCoffee"
 
 	// create variable to hold query string
@@ -1114,6 +1124,7 @@ func AddDiscussionCoffee(ctx context.Context, tidb *ti.Database, callingUser *mo
 func RemoveDiscussionCoffee(ctx context.Context, tidb *ti.Database, callingUser *models.User, id int64, discussionType string) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "remove-discussion-coffee-core")
+	defer span.End()
 	callerName := "RemoveDiscussionCoffee"
 
 	// create variable to hold query string

@@ -21,6 +21,7 @@ import (
 //   - error, if any
 func CheckElapsedStreakTime(ctx context.Context, db *ti.Database, userID int64, userTimeZone string, logger logging.Logger) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "check-elapsed-streak-time")
+	defer span.End()
 	callerName := "CheckElapsedStreakTime"
 
 	logger.Debugf("CheckElapsedStreakTime: called for user %d", userID)
@@ -183,6 +184,7 @@ func CheckElapsedStreakTime(ctx context.Context, db *ti.Database, userID int64, 
 // UpdateStreak updates today's streak active variable to true
 func UpdateStreak(ctx context.Context, db *ti.Database, userID int64, streakNum int, longestStreak int, userTimeZone string) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-streak-core")
+	defer span.End()
 	callerName := "UpdateStreak"
 
 	locale, err := time.LoadLocation(userTimeZone)
@@ -208,6 +210,7 @@ func UpdateStreak(ctx context.Context, db *ti.Database, userID int64, streakNum 
 
 func GetUserStreaks(ctx context.Context, db *ti.Database, callingUser *models.User, logger logging.Logger) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-user-streaks-core")
+	defer span.End()
 	callerName := "GetUserStreaks"
 
 	userID := callingUser.ID
@@ -286,6 +289,7 @@ func GetUserStreaks(ctx context.Context, db *ti.Database, callingUser *models.Us
 
 func GetStreakFreezeCount(ctx context.Context, db *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-streak-freeze-count-core")
+	defer span.End()
 	callerName := "GetStreakFreezeCount"
 
 	// execute end of day query

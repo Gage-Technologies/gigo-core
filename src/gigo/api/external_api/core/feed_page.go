@@ -47,6 +47,7 @@ offset ?
 
 func FeedPage(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "feed-page-core")
+	defer span.End()
 	callerName := "FeedPage"
 
 	// query attempt and projects with the user id as author id and sort by date last edited

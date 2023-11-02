@@ -47,6 +47,7 @@ import (
 func workspaceInitializationFailure(ctx context.Context, tidb *ti.Database, wsStatusUpdater *utils.WorkspaceStatusUpdater, wsId int64,
 	step models.WorkspaceInitState, command string, status int, stdout string, stderr string) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "workspace-initialization-failure-routine")
+	defer span.End()
 	callerName := "WorkspaceInitializationFailure"
 
 	// create workspace init failure with the passed initFailureBytes
@@ -90,6 +91,7 @@ func workspaceInitializationFailure(ctx context.Context, tidb *ti.Database, wsSt
 //	account status.
 func boundWorkspaceAllocations(ctx context.Context, tidb *ti.Database, msg models2.CreateWorkspaceMsg) (models2.CreateWorkspaceMsg, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.Background(), "bound-workspace-allocations-routine")
+	defer span.End()
 	callerName := "BoundWorkspaceAllocations"
 
 	// query user status for the owner of the workspace
@@ -188,6 +190,7 @@ func dropAgentConnections(ctx context.Context, span *trace.Span, tidb *ti.Databa
 func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, wsStatusUpdater *utils.WorkspaceStatusUpdater,
 	js *mq.JetstreamClient, msg *nats.Msg, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-create-workspace-routine")
+	defer span.End()
 	callerName := "asyncCreateWorkspace"
 
 	// unmarshall create workspace request message
@@ -382,6 +385,7 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 func asyncStartWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, wsStatusUpdater *utils.WorkspaceStatusUpdater,
 	js *mq.JetstreamClient, msg *nats.Msg, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-start-workspace-routine")
+	defer span.End()
 	callerName := "asyncStartWorkspace"
 
 	// unmarshall start workspace request message
@@ -552,6 +556,7 @@ func asyncStartWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspace
 func asyncStopWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, js *mq.JetstreamClient,
 	streakEngine *streak.StreakEngine, wsStatusUpdater *utils.WorkspaceStatusUpdater, msg *nats.Msg, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-stop-workspace-routine")
+	defer span.End()
 	callerName := "asyncStopWorkspace"
 
 	// unmarshall stop workspace message
@@ -655,6 +660,7 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 	wsStatusUpdater *utils.WorkspaceStatusUpdater, js *mq.JetstreamClient, rdb redis.UniversalClient, msg *nats.Msg, 
 	logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-destroy-workspace-routine")
+	defer span.End()
 	callerName := "asyncDestroyWorkspace"
 
 	// unmarshall destroy workspace message
@@ -741,6 +747,7 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 //	 have been destroyed for more than 24 hours.
 func asyncRemoveDestroyed(nodeId int64, tidb *ti.Database, vcsClient *git.VCSClient, msg *nats.Msg, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-remove-destroyed-routine")
+	defer span.End()
 	callerName := "asyncRemoveDestroyed"
 
 	// always ack the message since the leader will retry if we fail

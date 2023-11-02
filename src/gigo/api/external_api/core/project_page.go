@@ -37,6 +37,7 @@ type TutorialContentFrontend struct {
 //			   - error
 func ProjectInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, callingUser *models.User, projectId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "project-information-core")
+	defer span.End()
 	callerName := "ProjectInformation"
 
 	var callerId int64
@@ -47,7 +48,7 @@ func ProjectInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.V
 
 	// query for all active projects for specified user
 	res, err := tidb.QueryContext(ctx, &span, &callerName,
-		"select p._id as _id, title, description, author, p.deleted as deleted, author_id, p.created_at as created_at, updated_at, repo_id, p.tier as tier, top_reply, p.coffee as coffee, post_type, views, completions, attempts, published, stripe_price_id,challenge_cost, workspace_config, p.workspace_settings, leads, embedded, r._id as reward_id, name, color_palette, render_in_front, exclusive_description from post p join users u on p.author_id = u._id left join rewards r on r._id = u.avatar_reward where p._id = ? and ((visibility = ? and author_id = ?) or visibility = ?) limit 1",
+		"select p._id as _id, title, description, author, p.deleted as deleted, author_id, p.created_at as created_at, updated_at, repo_id, p.tier as tier, top_reply, p.coffee as coffee, post_type, views, completions, attempts, published, stripe_price_id,challenge_cost, workspace_config, p.workspace_settings, leads, embedded, r._id as reward_id, name, color_palette, render_in_front, exclusive_description, estimated_tutorial_time from post p join users u on p.author_id = u._id left join rewards r on r._id = u.avatar_reward where p._id = ? and ((visibility = ? and author_id = ?) or visibility = ?) limit 1",
 		projectId, models.PrivateVisibility, callerId, models.PublicVisibility,
 	)
 	if err != nil {
@@ -247,6 +248,7 @@ func ProjectInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.V
 //			   - error
 func ProjectAttempts(ctx context.Context, tidb *ti.Database, projectId int64, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "project-attempts-core")
+	defer span.End()
 	callerName := "ProjectAttempts"
 
 	// query for all active projects for specified user
@@ -282,8 +284,14 @@ func ProjectAttempts(ctx context.Context, tidb *ti.Database, projectId int64, sk
 }
 
 func isBinary(data []byte) bool {
+	count := 0
 	for _, b := range data {
-		if b > 0x7f {
+		if b < 0x20 || b > 0x7E {
+			count++
+		}
+
+		// exit if greater than 25% of bytes are non-ascii
+		if count >= len(data)/4 {
 			return true
 		}
 	}
@@ -291,7 +299,7 @@ func isBinary(data []byte) bool {
 }
 
 func GetProjectCode(ctx context.Context, vcsClient *git.VCSClient, repo int64, ref string, filePath string) (map[string]interface{}, error) {
-	_, span := otel.Tracer("gigo-core").Start(ctx, "get-project-core")
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-project-core")
 	defer span.End()
 
 	fmt.Sprintf("we just started")
@@ -404,6 +412,7 @@ func GetProjectDirectories(ctx context.Context, vcsClient *git.VCSClient, repo i
 
 func GetClosedAttempts(ctx context.Context, tidb *ti.Database, projectId int64, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-closed-attempts-core")
+	defer span.End()
 	callerName := "GetClosedAttempts"
 
 	// query for all active projects for specified user

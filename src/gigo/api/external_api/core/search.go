@@ -135,6 +135,7 @@ func SearchPosts(
 ) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "search-posts-core")
+	defer span.End()
 	callerName := "SearchPosts"
 
 	// restrict skip and limit to max size
@@ -459,6 +460,7 @@ func SearchPosts(
 
 func SearchUsers(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, query string, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "search-users-core")
+	defer span.End()
 	callerName := "SearchUsers"
 
 	// restrict skip and limit to max size
@@ -794,6 +796,7 @@ func SearchComments(ctx context.Context, meili *search.MeiliSearchEngine, query 
 func SearchWorkspaceConfigs(ctx context.Context, db *ti.Database, meili *search.MeiliSearchEngine, query string,
 	languages []models.ProgrammingLanguage, tags []int64, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "search-workspace-configs-core")
+	defer span.End()
 	callerName := "SearchWorkspaceConfigs"
 
 	// restrict skip and limit to max size
@@ -1099,6 +1102,7 @@ where f.user_id = ? and lower(u.user_name) like ?
 
 func SearchFriends(ctx context.Context, db *ti.Database, callingUser *models.User, query string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "search-friends-core")
+	defer span.End()
 	callerName := "SearchFriends"
 
 	// prep the query for search
@@ -1156,6 +1160,7 @@ where cu.chat_id = ? and lower(u.user_name) like ?
 
 func SearchChatUsers(ctx context.Context, db *ti.Database, callingUser *models.User, chatId int64, query string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "search-chat-users-core")
+	defer span.End()
 	callerName := "SearchChatUsers"
 
 	// ensure that the user is a member of the chat

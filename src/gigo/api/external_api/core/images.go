@@ -17,6 +17,7 @@ import (
 
 func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database, id int64, username string, post bool, attempt bool, storageEngine storage.Storage) (io.ReadCloser, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "site-images-core")
+	defer span.End()
 	callerName := "SiteImages"
 
 	path := ""
@@ -132,6 +133,7 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 
 func GitImages(ctx context.Context, callingUser *models.User, tidb *ti.Database, id int64, post bool, path string, vcsClient *git.VCSClient) ([]byte, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "git-images-core")
+	defer span.End()
 	callerName := "GitImages"
 
 	// create value to hold author

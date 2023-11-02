@@ -65,6 +65,7 @@ where
 
 func stopExpired(ctx context.Context, nodeId int64, tidb *ti.Database, js *mq.JetstreamClient, wsStatusUpdater *utils.WorkspaceStatusUpdater, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "stop-expired-routine")
+	defer span.End()
 	callerName := "stopExpired"
 
 	// before we executed the expiration query update any workspaces with network activity
@@ -168,6 +169,7 @@ func stopExpired(ctx context.Context, nodeId int64, tidb *ti.Database, js *mq.Je
 
 func destroySuspended(ctx context.Context, nodeId int64, tidb *ti.Database, js *mq.JetstreamClient, wsStatusUpdater *utils.WorkspaceStatusUpdater, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "destroy-suspended-routine")
+	defer span.End()
 	callerName := "destroySuspended"
 
 	// query workspaces that have not been re-activated for 24 hrs

@@ -15,6 +15,7 @@ func CreateWorkspaceConfig(ctx context.Context, db *ti.Database, meili *search.M
 	callingUser *models.User, title string, description string, content string, tags []*models.Tag,
 	languages []models.ProgrammingLanguage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-workspace-config")
+	defer span.End()
 	callerName := "CreateWorkspaceConfig"
 
 	// create id for new workspace config
@@ -135,6 +136,7 @@ func UpdateWorkspaceConfig(ctx context.Context, db *ti.Database, meili *search.M
 	callingUser *models.User, id int64, description *string, content *string, tags []*models.Tag,
 	languages []models.ProgrammingLanguage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-workspace-config")
+	defer span.End()
 	callerName := "UpdateWorkspaceConfig"
 
 	// create slice to hold tag ids
@@ -287,6 +289,7 @@ func UpdateWorkspaceConfig(ctx context.Context, db *ti.Database, meili *search.M
 
 func GetWorkspaceConfig(ctx context.Context, db *ti.Database, _id int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-workspace-config")
+	defer span.End()
 	callerName := "GetWorkspaceConfig"
 
 	// query for existing config

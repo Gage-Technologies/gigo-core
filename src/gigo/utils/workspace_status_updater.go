@@ -49,6 +49,7 @@ func NewWorkspaceStatusUpdater(options WorkspaceStatusUpdaterOptions) *Workspace
 //	Helper function to retrieve a workspace from the database
 func (u *WorkspaceStatusUpdater) getWorkspace(ctx context.Context, id int64) (*models.Workspace, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-workspace-routine")
+	defer span.End()
 	callerName := "getWorkspace"
 
 	// query database for the workspace

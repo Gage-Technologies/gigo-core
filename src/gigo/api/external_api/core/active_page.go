@@ -96,6 +96,7 @@ func PastWeekActive(ctx context.Context, callingUser *models.User, tidb *ti.Data
 	weekEarlier := time.Now().AddDate(0, 0, -7)
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "past-week-active-core")
+	defer span.End()
 	callerName := "PastWeekActive"
 	// query attempt and projects with the user id as author id and sort by date last edited
 	res, err := tidb.QueryContext(ctx, &span, &callerName, queryPastWeekActive, callingUser.ID, weekEarlier, callingUser.ID, weekEarlier, limit, skip)
@@ -152,6 +153,7 @@ func PastWeekActive(ctx context.Context, callingUser *models.User, tidb *ti.Data
 
 func MostChallengingActive(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "most-challenging-active-http")
+	defer span.End()
 	callerName := "MostChallengingActive"
 
 	// query attempt and projects with the user id as author id and sort by date last edited
@@ -191,6 +193,7 @@ func MostChallengingActive(ctx context.Context, callingUser *models.User, tidb *
 
 func DontGiveUpActive(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "cont-give-up-active-core")
+	defer span.End()
 	callerName := "DontGiveUpActive"
 
 	weekEarlier := time.Now().AddDate(0, 0, -7)

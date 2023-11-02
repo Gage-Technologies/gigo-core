@@ -98,6 +98,7 @@ func LaunchNemesisListener(ctx context.Context, db *ti.Database, sf *snowflake.N
 
 func handleNemesisChanges(ctx context.Context, db *ti.Database, rdb redis.UniversalClient, sf *snowflake.Node, js *mq.JetstreamClient, logger logging.Logger) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "handle-nemesis-changes")
+	defer span.End()
 	callerName := "handle-nemesis-changes"
 
 	logger.Debugf("starting to handleNemesisChanges")

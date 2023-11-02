@@ -14,7 +14,6 @@ import (
 )
 
 func (s *HTTPServer) PastWeekActive(w http.ResponseWriter, r *http.Request) {
-
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "past-week-active-http")
 	defer parentSpan.End()
 

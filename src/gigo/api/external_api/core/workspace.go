@@ -1705,6 +1705,7 @@ func OpenVsxPullThroughCache(ctx context.Context, storageEngine storage.Storage,
 
 func DeleteEphemeral(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, rdb redis.UniversalClient, deleteIds []int64) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "delete-ephemeral")
+	defer span.End()
 	callerName := "deleteEphemeral"
 
 	ownerIds := make([]int64, 0)

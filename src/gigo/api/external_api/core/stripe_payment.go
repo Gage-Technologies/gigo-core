@@ -51,6 +51,7 @@ type Product struct {
 
 func CreateCustomer(ctx context.Context, callingUser *models.User, db *ti.Database) (*string, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-customer-core")
+	defer span.End()
 	callerName := "CreateCustomer"
 
 	name := callingUser.FirstName + " " + callingUser.LastName
@@ -86,6 +87,7 @@ func CreateCustomer(ctx context.Context, callingUser *models.User, db *ti.Databa
 
 func CreateProduct(ctx context.Context, cost int64, db *ti.Database, postId int64, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-product-core")
+	defer span.End()
 	callerName := "CreateProduct"
 
 	// create a stripe product using the post id as a name
@@ -136,6 +138,7 @@ func CreateProduct(ctx context.Context, cost int64, db *ti.Database, postId int6
 
 func GetProjectPriceId(ctx context.Context, postId int64, db *ti.Database) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-project-price-id-core")
+	defer span.End()
 	callerName := "GetProjectPriceId"
 
 	// query attempt and projects with the user id as author id and sort by date last edited
@@ -203,7 +206,7 @@ func UpdateClientPayment(ctx context.Context, callingUser *models.User, db *ti.D
 }
 
 func CreatePortalSession(ctx context.Context, callingUser *models.User) (map[string]interface{}, error) {
-	_, span := otel.Tracer("gigo-core").Start(ctx, "create-portal-session-core")
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-portal-session-core")
 	defer span.End()
 
 	if callingUser.StripeUser == nil {
@@ -336,6 +339,7 @@ func CreateTrialSubscriptionReferral(ctx context.Context, email string, db *ti.D
 
 func CancelSubscription(ctx context.Context, db *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "cancel-subscription-core")
+	defer span.End()
 	callerName := "CancelSubscription"
 
 	// //query attempt and projects with the user id as author id and sort by date last edited
@@ -389,6 +393,7 @@ func CancelSubscription(ctx context.Context, db *ti.Database, callingUser *model
 
 func CreateSubscription(ctx context.Context, stripeUser string, subscription string, db *ti.Database, id string, rdb redis.UniversalClient, timeZone string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-subscription")
+	defer span.End()
 	callerName := "CreateSubscription"
 
 	fmt.Println("made it to create subscription core: ", id)
@@ -483,7 +488,7 @@ func UpdateConnectedAccount(callingUser *models.User) (map[string]interface{}, e
 }
 
 func CreateConnectedAccount(ctx context.Context, callingUser *models.User, challenge bool) (map[string]interface{}, error) {
-	_, span := otel.Tracer("gigo-core").Start(ctx, "create-connected-account")
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-connected-account")
 	defer span.End()
 
 	params := &stripe.AccountParams{Type: stripe.String(string(stripe.AccountTypeExpress))}
@@ -537,6 +542,7 @@ func PayOutOnContentPurchase(accountId string, amount int64) (map[string]interfa
 func StripeCheckoutSession(ctx context.Context, priceId string, postId string, callingUser *models.User, db *ti.Database) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "stripe-checkout-session")
+	defer span.End()
 	callerName := "StripeCheckoutSession"
 
 	successUrl := "https://www.gigo.dev/success"
@@ -645,6 +651,7 @@ func StripePremiumMembershipSession(callingUser *models.User) (map[string]interf
 
 func FreeMonthUpdate(callingUser *models.User, tidb *ti.Database, ctx context.Context) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "free-mont-referral-core")
+	defer span.End()
 	callerName := "FreeMonthReferral"
 
 	var subscriptionID string
@@ -735,6 +742,7 @@ func FreeMonthUpdate(callingUser *models.User, tidb *ti.Database, ctx context.Co
 
 func FreeMonthReferral(subscriptionId string, userStatus int, referralUserId int64, tidb *ti.Database, ctx context.Context, logger logging.Logger, firstName string, lastName string, email string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "free-mont-referral-core")
+	defer span.End()
 	callerName := "FreeMonthReferral"
 
 	subscriptions, err := subscription.Get(subscriptionId, nil)

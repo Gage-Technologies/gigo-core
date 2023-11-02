@@ -47,6 +47,7 @@ func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	workspaceSettings *models.WorkspaceSettings, evaluation *string, projectCost *int64, logger logging.Logger, exclusiveDescription *string) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-project-core")
+	defer span.End()
 	callerName := "CreateProject"
 
 	if projectCost != nil && callingUser.StripeAccount == nil {
@@ -496,6 +497,7 @@ func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 
 func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine storage.Storage, thumbnailPath *string, title *string, challengeType *models.ChallengeType, tier *models.TierType, meili *search.MeiliSearchEngine, addedTags []*models.Tag, removedTags []*models.Tag, sf *snowflake.Node) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-project")
+	defer span.End()
 	callerName := "EditProject"
 
 	// create transaction for image insertion
@@ -652,6 +654,7 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine storage.Storage, thumbnailPath *string, title *string, challengeType *models.ChallengeType, tier *models.TierType, meili *search.MeiliSearchEngine, addedTags []*models.Tag, removedTags []*models.Tag, sf *snowflake.Node) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-attempt")
+	defer span.End()
 	callerName := "EditAttempt"
 
 	// create transaction for image insertion
@@ -804,6 +807,7 @@ func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 func DeleteProject(ctx context.Context, tidb *ti.Database, callingUser *models.User, meili *search.MeiliSearchEngine, projectID int64, logger logging.Logger) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "delete-project")
+	defer span.End()
 	callerName := "DeleteProject"
 
 	logger.Infof("attempting to delete project with id: %d from user: %v", projectID, callingUser.UserName)
@@ -837,6 +841,7 @@ func DeleteProject(ctx context.Context, tidb *ti.Database, callingUser *models.U
 func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, js *mq.JetstreamClient, rdb redis.UniversalClient, callingUser *models.User, userSession *models.UserSession,
 	sf *snowflake.Node, postId int64, parentAttempt *int64, logger logging.Logger, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "start-attempt-core")
+	defer span.End()
 	callerName := "StartAttempt"
 
 	// ensure this user doesn't have an attempt already
@@ -1052,6 +1057,7 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 func StartEAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, callingUser *models.User, userSession *models.UserSession,
 	sf *snowflake.Node, postId int64, parentAttempt *int64, logger logging.Logger) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "start-attempt-core")
+	defer span.End()
 	callerName := "StartAttempt"
 
 	// ensure this user doesn't have an attempt already
@@ -1233,6 +1239,7 @@ func StartEAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSCli
 
 func PublishProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, postId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "publish-project-core")
+	defer span.End()
 	callerName := "PublishProject"
 
 	// open tx to perform update on post
@@ -1265,7 +1272,7 @@ func PublishProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliS
 }
 
 func EditConfig(ctx context.Context, vcsClient *git.VCSClient, callingUser *models.User, repoId int64, content string, commit string) (map[string]interface{}, error) {
-	_, span := otel.Tracer("gigo-core").Start(ctx, "edit-config-core")
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-config-core")
 	defer span.End()
 
 	// validate that the config is in the right format
@@ -1393,7 +1400,7 @@ func EditConfig(ctx context.Context, vcsClient *git.VCSClient, callingUser *mode
 }
 
 func ConfirmEditConfig(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, wsStatusUpdater *utils.WorkspaceStatusUpdater, callingUser *models.User, projectID int64, logger logging.Logger) (map[string]interface{}, error) {
-	_, span := otel.Tracer("gigo-core").Start(ctx, "confirm-edit-config-core")
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "confirm-edit-config-core")
 	defer span.End()
 
 	callerName := "ConfirmEditConfig"
@@ -1462,7 +1469,7 @@ func ConfirmEditConfig(ctx context.Context, tidb *ti.Database, js *mq.JetstreamC
 
 func GetConfig(ctx context.Context, vcsClient *git.VCSClient, callingUser *models.User, repo int64, commit string) (map[string]interface{}, error) {
 
-	_, span := otel.Tracer("gigo-core").Start(ctx, "get-config-core")
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-config-core")
 	defer span.End()
 
 	// get repository name from repo id
@@ -1520,6 +1527,7 @@ func compareStructs(a, b interface{}) []string {
 
 func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, callingUser *models.User, attemptId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "close-attempt-core")
+	defer span.End()
 	callerName := "CloseAttempt"
 
 	// query for the attempt the user is trying to close
@@ -1585,6 +1593,7 @@ func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 
 func MarkSuccess(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, attemptId int64, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "mark-success-core")
+	defer span.End()
 	callerName := "MarkSuccess"
 
 	res, err := tidb.QueryContext(ctx, &span, &callerName, "select * from attempt where _id = ?", attemptId)

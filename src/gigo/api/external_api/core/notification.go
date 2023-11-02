@@ -19,6 +19,7 @@ import (
 func CreateNotification(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, sf *snowflake.Node, userId int64, message string, notificationType models.NotificationType, interactingUserId *int64) (*models.NotificationFrontend, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-notification-core")
+	defer span.End()
 	callerName := "CreateNotification"
 
 	// ensure message was passed
@@ -66,6 +67,7 @@ func CreateNotification(ctx context.Context, tidb *ti.Database, js *mq.Jetstream
 
 func AcknowledgeNotification(ctx context.Context, tidb *ti.Database, notificationId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "acknowledge-notification-core")
+	defer span.End()
 	callerName := "AcknowledgeNotification"
 
 	// execute delete for notification
@@ -79,6 +81,7 @@ func AcknowledgeNotification(ctx context.Context, tidb *ti.Database, notificatio
 
 func AcknowledgeUserNotificationGroup(ctx context.Context, tidb *ti.Database, callingUser *models.User, notificationType int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "acknowledge-user-notification-group-core")
+	defer span.End()
 	callerName := "AcknowledgeUserNotificationGroup"
 
 	// ensure calling user is not nil
@@ -97,6 +100,7 @@ func AcknowledgeUserNotificationGroup(ctx context.Context, tidb *ti.Database, ca
 
 func ClearUserNotifications(ctx context.Context, tidb *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "clear-user-notification-core")
+	defer span.End()
 	callerName := "ClearUserNotifications"
 
 	// ensure calling user is not nil
@@ -116,6 +120,7 @@ func ClearUserNotifications(ctx context.Context, tidb *ti.Database, callingUser 
 func GetUserNotifications(ctx context.Context, tidb *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-user-notification-core")
+	defer span.End()
 	callerName := "GetUserNotification"
 
 	// query notification table to collect unacknowledged notifications

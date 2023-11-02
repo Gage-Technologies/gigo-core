@@ -55,6 +55,7 @@ func NewStreakEngine(db *ti.Database, rdb redis.UniversalClient, snowflakeNode *
 //	err - error, nil on success
 func (s *StreakEngine) InitializeFirstUserStats(ctx context.Context, tx *ti.Tx, userID int64, beginningDayUser time.Time) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "initialize-first-user-stats-core")
+	defer span.End()
 	callerName := "InitializeFirstUserStats"
 
 	s.logger.Debugf("starting initialize user: %v stats in streak engine", userID)
@@ -107,6 +108,7 @@ func (s *StreakEngine) InitializeFirstUserStats(ctx context.Context, tx *ti.Tx, 
 //	err - error, nil on success
 func (s *StreakEngine) GetUsersLastStatsDay(ctx context.Context, userID int64) (*models.UserStats, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-users-last-stats-day-core")
+	defer span.End()
 	callerName := "GetUsersLastStatsDay"
 
 	s.logger.Debugf("starting get yesterday user: %v stats in streak engine", userID)
@@ -202,6 +204,7 @@ func (s *StreakEngine) GetUsersLastStatsDay(ctx context.Context, userID int64) (
 //	err - error, nil on success
 func (s *StreakEngine) UserStartWorkspace(ctx context.Context, userID int64) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "user-start-workspace-core")
+	defer span.End()
 	callerName := "UserStartWorkspace"
 
 	s.logger.Debugf("starting user: %v start workspace in streak engine", userID)
@@ -303,6 +306,7 @@ func (s *StreakEngine) UserStartWorkspace(ctx context.Context, userID int64) err
 //	err - error, nil on success
 func (s *StreakEngine) UserStopWorkspace(ctx context.Context, userID int64) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "user-stop-workspace-core")
+	defer span.End()
 	callerName := "UserStopWorkspace"
 
 	s.logger.Debugf("starting user: %v stop workspace in streak engine", userID)
@@ -374,6 +378,7 @@ func (s *StreakEngine) UpdateTimeStats(ctx context.Context, tx *ti.Tx, userID in
 	// create our own tx if one is not provided
 	if tx == nil {
 		ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-time-stats-core")
+		defer span.End()
 		tx, err = s.db.BeginTx(ctx, &span, &callerName, nil)
 		if err != nil {
 			return fmt.Errorf("error opening tx: %w", err)

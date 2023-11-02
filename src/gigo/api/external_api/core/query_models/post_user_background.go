@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"go.opentelemetry.io/otel"
 	"time"
+
+	"go.opentelemetry.io/otel"
 
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
@@ -49,6 +50,7 @@ type PostUserBackground struct {
 	Deleted                 bool                         `json:"deleted" sql:"deleted"`
 	HasAccess               *bool                        `json:"has_access" sql:"has_access"`
 	ExclusiveDescription    *string                      `json:"exclusive_description,omitempty" sql:"exclusive_description"`
+	EstimatedTutorialTime   *time.Duration               `json:"estimated_tutorial_time,omitempty" sql:"estimated_tutorial_time"`
 }
 
 type PostUserBackgroundSQL struct {
@@ -83,51 +85,54 @@ type PostUserBackgroundSQL struct {
 	Deleted                 bool                  `json:"deleted" sql:"deleted"`
 	HasAccess               *bool                 `json:"has_access" sql:"has_access"`
 	ExclusiveDescription    *string               `json:"exclusive_description,omitempty" sql:"exclusive_description"`
+	EstimatedTutorialTime   *time.Duration        `json:"estimated_tutorial_time,omitempty" sql:"estimated_tutorial_time"`
 }
 
 type PostUserBackgroundFrontend struct {
-	ID                      string                       `json:"_id"`
-	Title                   string                       `json:"title"`
-	Description             string                       `json:"description"`
-	Author                  string                       `json:"author"`
-	AuthorID                string                       `json:"author_id"`
-	CreatedAt               time.Time                    `json:"created_at"`
-	UpdatedAt               time.Time                    `json:"updated_at"`
-	RepoID                  string                       `json:"repo_id"`
-	Tier                    models.TierType              `json:"tier"`
-	TierString              string                       `json:"tier_string"`
-	Awards                  []string                     `json:"awards"`
-	TopReply                *string                      `json:"top_reply"`
-	Coffee                  uint64                       `json:"coffee"`
-	PostType                models.ChallengeType         `json:"post_type"`
-	PostTypeString          string                       `json:"post_type_string"`
-	Views                   int64                        `json:"views"`
-	Completions             int64                        `json:"completions"`
-	Attempts                int64                        `json:"attempts"`
-	Languages               []models.ProgrammingLanguage `json:"languages"`
-	LanguageStrings         []string                     `json:"languages_strings"`
-	Published               bool                         `json:"published"`
-	Visibility              models.PostVisibility        `json:"visibility"`
-	VisibilityString        string                       `json:"visibility_string"`
-	Tags                    []string                     `json:"tags"`
-	TagStrings              []string                     `json:"tag_strings"`
-	Thumbnail               string                       `json:"thumbnail"`
-	ChallengeCost           *string                      `json:"challenge_cost"`
-	WorkspaceConfig         string                       `json:"workspace_config"`
-	WorkspaceConfigRevision int                          `json:"workspace_config_revision"`
-	Leads                   bool                         `json:"leads" sql:"leads"`
-	RewardID                *string                      `json:"reward_id" sql:"reward_id"`
-	Name                    *string                      `json:"name" sql:"name"`
-	ColorPalette            *string                      `json:"color_palette" sql:"color_palette"`
-	RenderInFront           *bool                        `json:"render_in_front" sql:"render_in_front"`
-	Deleted                 bool                         `json:"deleted" sql:"deleted"`
-	HasAccess               *bool                        `json:"has_access" sql:"has_access"`
-	StripePriceId           *string                      `json:"stripe_price_id" sql:"stripe_price_id"`
-	ExclusiveDescription    *string                      `json:"exclusive_description,omitempty" sql:"exclusive_description"`
+	ID                          string                       `json:"_id"`
+	Title                       string                       `json:"title"`
+	Description                 string                       `json:"description"`
+	Author                      string                       `json:"author"`
+	AuthorID                    string                       `json:"author_id"`
+	CreatedAt                   time.Time                    `json:"created_at"`
+	UpdatedAt                   time.Time                    `json:"updated_at"`
+	RepoID                      string                       `json:"repo_id"`
+	Tier                        models.TierType              `json:"tier"`
+	TierString                  string                       `json:"tier_string"`
+	Awards                      []string                     `json:"awards"`
+	TopReply                    *string                      `json:"top_reply"`
+	Coffee                      uint64                       `json:"coffee"`
+	PostType                    models.ChallengeType         `json:"post_type"`
+	PostTypeString              string                       `json:"post_type_string"`
+	Views                       int64                        `json:"views"`
+	Completions                 int64                        `json:"completions"`
+	Attempts                    int64                        `json:"attempts"`
+	Languages                   []models.ProgrammingLanguage `json:"languages"`
+	LanguageStrings             []string                     `json:"languages_strings"`
+	Published                   bool                         `json:"published"`
+	Visibility                  models.PostVisibility        `json:"visibility"`
+	VisibilityString            string                       `json:"visibility_string"`
+	Tags                        []string                     `json:"tags"`
+	TagStrings                  []string                     `json:"tag_strings"`
+	Thumbnail                   string                       `json:"thumbnail"`
+	ChallengeCost               *string                      `json:"challenge_cost"`
+	WorkspaceConfig             string                       `json:"workspace_config"`
+	WorkspaceConfigRevision     int                          `json:"workspace_config_revision"`
+	Leads                       bool                         `json:"leads" sql:"leads"`
+	RewardID                    *string                      `json:"reward_id" sql:"reward_id"`
+	Name                        *string                      `json:"name" sql:"name"`
+	ColorPalette                *string                      `json:"color_palette" sql:"color_palette"`
+	RenderInFront               *bool                        `json:"render_in_front" sql:"render_in_front"`
+	Deleted                     bool                         `json:"deleted" sql:"deleted"`
+	HasAccess                   *bool                        `json:"has_access" sql:"has_access"`
+	StripePriceId               *string                      `json:"stripe_price_id" sql:"stripe_price_id"`
+	ExclusiveDescription        *string                      `json:"exclusive_description,omitempty" sql:"exclusive_description"`
+	EstimatedTutorialTimeMillis *int64                       `json:"estimated_tutorial_time_millis,omitempty" sql:"estimated_tutorial_time_millis"`
 }
 
 func PostUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, rows *sql.Rows) (*PostUserBackground, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "post-user-background-from-sql-native-core")
+	defer span.End()
 	callerName := "PostUserBackgroundFromSQLNative"
 
 	// create new post object to load into
@@ -255,6 +260,7 @@ func PostUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, rows 
 		RenderInFront:           postSQL.RenderInFront,
 		Deleted:                 postSQL.Deleted,
 		ExclusiveDescription:    postSQL.ExclusiveDescription,
+		EstimatedTutorialTime:   postSQL.EstimatedTutorialTime,
 	}
 
 	return post, nil
@@ -332,45 +338,52 @@ func (i *PostUserBackground) ToFrontend() (*PostUserBackgroundFrontend, error) {
 		exclusiveDescription = i.ExclusiveDescription
 	}
 
+	var tutorialMillis *int64
+	if i.EstimatedTutorialTime != nil {
+		millis := i.EstimatedTutorialTime.Milliseconds()
+		tutorialMillis = &millis
+	}
+
 	// create new post frontend
 	mf := &PostUserBackgroundFrontend{
-		ID:                      fmt.Sprintf("%d", i.ID),
-		Title:                   i.Title,
-		Description:             i.Description,
-		Author:                  i.Author,
-		AuthorID:                fmt.Sprintf("%d", i.AuthorID),
-		CreatedAt:               i.CreatedAt,
-		UpdatedAt:               i.UpdatedAt,
-		RepoID:                  fmt.Sprintf("%d", i.RepoID),
-		Tier:                    i.Tier,
-		TierString:              i.Tier.String(),
-		Awards:                  awards,
-		TopReply:                &topReply,
-		Coffee:                  i.Coffee,
-		PostType:                i.PostType,
-		PostTypeString:          i.PostType.String(),
-		Views:                   i.Views,
-		Attempts:                i.Attempts,
-		Completions:             i.Completions,
-		Languages:               i.Languages,
-		LanguageStrings:         langStrings,
-		Published:               i.Published,
-		Visibility:              i.Visibility,
-		VisibilityString:        i.Visibility.String(),
-		Tags:                    tags,
-		TagStrings:              tagValues,
-		ChallengeCost:           i.ChallengeCost,
-		WorkspaceConfig:         fmt.Sprintf("%d", i.WorkspaceConfig),
-		WorkspaceConfigRevision: i.WorkspaceConfigRevision,
-		Leads:                   i.Leads,
-		Thumbnail:               fmt.Sprintf("/static/posts/t/%v", i.ID),
-		RewardID:                rewardId,
-		Name:                    name,
-		ColorPalette:            colorPalette,
-		RenderInFront:           renderInFront,
-		Deleted:                 i.Deleted,
-		StripePriceId:           priceId,
-		ExclusiveDescription:    exclusiveDescription,
+		ID:                          fmt.Sprintf("%d", i.ID),
+		Title:                       i.Title,
+		Description:                 i.Description,
+		Author:                      i.Author,
+		AuthorID:                    fmt.Sprintf("%d", i.AuthorID),
+		CreatedAt:                   i.CreatedAt,
+		UpdatedAt:                   i.UpdatedAt,
+		RepoID:                      fmt.Sprintf("%d", i.RepoID),
+		Tier:                        i.Tier,
+		TierString:                  i.Tier.String(),
+		Awards:                      awards,
+		TopReply:                    &topReply,
+		Coffee:                      i.Coffee,
+		PostType:                    i.PostType,
+		PostTypeString:              i.PostType.String(),
+		Views:                       i.Views,
+		Attempts:                    i.Attempts,
+		Completions:                 i.Completions,
+		Languages:                   i.Languages,
+		LanguageStrings:             langStrings,
+		Published:                   i.Published,
+		Visibility:                  i.Visibility,
+		VisibilityString:            i.Visibility.String(),
+		Tags:                        tags,
+		TagStrings:                  tagValues,
+		ChallengeCost:               i.ChallengeCost,
+		WorkspaceConfig:             fmt.Sprintf("%d", i.WorkspaceConfig),
+		WorkspaceConfigRevision:     i.WorkspaceConfigRevision,
+		Leads:                       i.Leads,
+		Thumbnail:                   fmt.Sprintf("/static/posts/t/%v", i.ID),
+		RewardID:                    rewardId,
+		Name:                        name,
+		ColorPalette:                colorPalette,
+		RenderInFront:               renderInFront,
+		Deleted:                     i.Deleted,
+		StripePriceId:               priceId,
+		ExclusiveDescription:        exclusiveDescription,
+		EstimatedTutorialTimeMillis: tutorialMillis,
 	}
 
 	return mf, nil

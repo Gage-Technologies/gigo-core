@@ -94,6 +94,7 @@ type AttemptUserBackgroundFrontend struct {
 
 func AttemptUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, rows *sql.Rows) (*AttemptUserBackground, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "attempt-user-background-from-sql-native-core")
+	defer span.End()
 	callerName := "AttemptUserBackgroundFromSQLNative"
 
 	// create new attempt object to load into

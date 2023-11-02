@@ -34,8 +34,14 @@ type Config struct {
 }
 
 func isBinary(data []byte) bool {
+	count := 0
 	for _, b := range data {
-		if b > 0x7f {
+		if b < 0x20 || b > 0x7E {
+			count++
+		}
+
+		// exit if greater than 25% of bytes are non-ascii
+		if count >= len(data)/4 {
 			return true
 		}
 	}
@@ -54,6 +60,8 @@ func updatePost(db *ti.Database, vcsClient *git.VCSClient, author int64, id int6
 		fmt.Printf("failed to get contents of tutorial dir: %v\n", err)
 		return
 	}
+
+	fmt.Println("file count: ", len(files))
 
 	// create a duration to hold the time estimates
 	duration := time.Duration(0)
@@ -91,13 +99,12 @@ func updatePost(db *ti.Database, vcsClient *git.VCSClient, author int64, id int6
 		// decode the raw text from base64
 		rawDecodedText, err := base64.StdEncoding.DecodeString(*file.Content)
 		if err != nil {
-			fmt.Printf("failed to decode contents: %v\n", err)
 			continue
 		}
 
 		// check if the decoded text is binary
 		if isBinary(rawDecodedText) {
-			return
+			continue
 		}
 
 		// count the words in the file
@@ -133,6 +140,8 @@ func updatePost(db *ti.Database, vcsClient *git.VCSClient, author int64, id int6
 			duration += timeCostPerLargeWord
 		}
 	}
+
+	fmt.Println("duration: ", duration.String())
 
 	// update the estimated time on the database
 	_, err = db.DB.Exec(

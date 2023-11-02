@@ -12,6 +12,7 @@ import (
 
 func GiveRandomAward(ctx context.Context, db *ti.Database, userId int64, logger logging.Logger) (*models.RewardsFrontend, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "give-random-award-core")
+	defer span.End()
 	callerName := "GiveRandomAward"
 
 	var reward models.RewardsSQL
@@ -55,6 +56,7 @@ func GiveRandomAward(ctx context.Context, db *ti.Database, userId int64, logger 
 
 func GetUserRewardsInventory(ctx context.Context, db *ti.Database, userId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-user-rewards-inventory-core")
+	defer span.End()
 	callerName := "GetUserRewardsInventory"
 
 	res, err := db.QueryContext(ctx, &span, &callerName, "select r._id, r.color_palette, r.render_in_front, r.name from user_rewards_inventory uri join rewards r on uri.reward_id = r._id where uri.user_id = ?", userId)
@@ -81,6 +83,7 @@ func GetUserRewardsInventory(ctx context.Context, db *ti.Database, userId int64)
 
 func SetUserReward(ctx context.Context, db *ti.Database, userId int64, rewardId *int64) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "set-user-reward-core")
+	defer span.End()
 	callerName := "SetUserReward"
 
 	if rewardId == nil {

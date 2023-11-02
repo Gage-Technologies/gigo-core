@@ -46,6 +46,7 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 	password string, ip string, logger logging.Logger) (map[string]interface{}, string, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "login-core")
+	defer span.End()
 	callerName := "Login"
 
 	// query for user with passed credentials
@@ -161,6 +162,7 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, storageEngine storage.Storage, domain string,
 	externalAuth string, password string, ip string, logger logging.Logger) (map[string]interface{}, string, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "login-with-google-core")
+	defer span.End()
 	callerName := "LoginWithGoogle"
 
 	var googleId string
@@ -315,6 +317,7 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 
 func LoginWithGithub(ctx context.Context, tidb *ti.Database, storageEngine storage.Storage, externalAuth string, ip string, githubSecret string) (map[string]interface{}, string, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "login-with-github-core")
+	defer span.End()
 	callerName := "LoginWithGithub"
 
 	userInfo, _, err := GetGithubId(externalAuth, githubSecret)
@@ -506,6 +509,7 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 
 func ReferralUserInfo(ctx context.Context, tidb *ti.Database, username string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "referral-user-info-core")
+	defer span.End()
 	callerName := "ReferralUserInfo"
 
 	// query for important user information for their profile page

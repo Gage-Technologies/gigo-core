@@ -39,6 +39,7 @@ func AddXP(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 	var oldLevel models.LevelType
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "add-xp-core")
+	defer span.End()
 
 	callerName := "AddXP"
 
@@ -348,6 +349,7 @@ func GetXP(ctx context.Context, tidb *ti.Database, userID int64) (map[string]int
 	var oldLevel models.LevelType
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "add-xp-core")
+	defer span.End()
 
 	callerName := "GetXP"
 
@@ -368,6 +370,7 @@ func GetXP(ctx context.Context, tidb *ti.Database, userID int64) (map[string]int
 
 func LevelUpLoot(ctx context.Context, db *ti.Database, sf *snowflake.Node, userID int64, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "level-up-loot-core")
+	defer span.End()
 	callerName := "LevelUpLoot"
 
 	num := rand.Intn(1000)
@@ -489,6 +492,7 @@ func (i *XP) ToFrontend() *XPFrontend {
 
 func GetXPBoostCount(ctx context.Context, callingUser *models.User, db *ti.Database) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-xp-boost-count-core")
+	defer span.End()
 	callerName := "GetXPBoostCount"
 
 	// execute end of day query
@@ -517,6 +521,7 @@ func GetXPBoostCount(ctx context.Context, callingUser *models.User, db *ti.Datab
 
 func StartXPBoost(ctx context.Context, callingUser *models.User, db *ti.Database, xpId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "start-xp-boost-core")
+	defer span.End()
 	callerName := "StartXPBoost"
 
 	// open tx to execute insertions

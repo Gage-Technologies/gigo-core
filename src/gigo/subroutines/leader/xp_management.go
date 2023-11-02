@@ -16,6 +16,7 @@ import (
 
 func addStreakXP(ctx context.Context, nodeId int64, tidb *ti.Database, js *mq.JetstreamClient, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "add-streak-xp-routine")
+	defer span.End()
 	callerName := "addStreakXP"
 	// query for user's streaks that have reached the XP threshold of every 10 days
 	stk, err := tidb.QueryContext(ctx, &span, &callerName, "select us._id, us.user_id from user_stats us left join stats_xp sx on us._id = sx.stats_id where us.current_streak % 10 = 0 and sx.expiration is null")

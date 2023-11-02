@@ -10,6 +10,7 @@ import (
 
 func PopularPageFeed(ctx context.Context, skip int, limit int, tidb *ti.Database) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "popular-page-feed-core")
+	defer span.End()
 	callerName := "PopularPageFeed"
 
 	res, err := tidb.QueryContext(ctx, &span, &callerName, "select * from post order by coffee desc, attempts desc limit ? offset ?", limit, skip)

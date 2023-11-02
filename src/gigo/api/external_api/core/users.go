@@ -57,6 +57,7 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	storageEngine storage.Storage, avatarSettings models.AvatarSettings, filter *utils3.PasswordFilter, forcePass bool, initialRecUrl string,
 	logger logging.Logger, mgKey string, mgDomain string, referralUser *string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-user-core")
+	defer span.End()
 	callerName := "CreateNewUser"
 
 	// require that username be present for all users
@@ -340,6 +341,7 @@ func CreateNewEUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliS
 	id := snowflakeNode.Generate().Int64()
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-user-core")
+	defer span.End()
 	callerName := "CreateNewUser"
 
 	var userName string
@@ -507,6 +509,7 @@ func CreateNewEUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliS
 func ValidateUserInfo(ctx context.Context, tidb *ti.Database, userName string, password string, email string, phone string, timezone string,
 	filter *utils3.PasswordFilter, forcePass bool) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "validate-user-info-core")
+	defer span.End()
 	callerName := "ValidateUserInfo"
 
 	// require that username be present for all users
@@ -604,6 +607,7 @@ func ValidateUserInfo(ctx context.Context, tidb *ti.Database, userName string, p
 
 func ForgotPasswordValidation(ctx context.Context, tiDB *ti.Database, apiKey string, domain string, email string, url string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "forgot-password-validation-core")
+	defer span.End()
 	callerName := "ForgotPassword"
 
 	// ensure email is not nil
@@ -685,6 +689,7 @@ const UpdateUserPasswordsQuery = `
 
 func ResetForgotPassword(ctx context.Context, tiDB *ti.Database, vcsClient *git.VCSClient, userId string, newPassword string, retypedPassword string, filter *utils3.PasswordFilter, forcePass bool, validToken bool) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "reset-forgot-password-core")
+	defer span.End()
 	callerName := "ResetForgotPassword"
 
 	// ensure token was valid
@@ -849,6 +854,7 @@ OFFSET ?;
 
 func UserProjects(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "user-projects-core")
+	defer span.End()
 	callerName := "UserProjects"
 
 	// query attempt and projects with the user id as author id and sort by date last edited
@@ -893,6 +899,7 @@ func UserProjects(ctx context.Context, callingUser *models.User, tidb *ti.Databa
 
 func FollowUser(ctx context.Context, callingUser *models.User, tidb *ti.Database, following int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "follow-user-core")
+	defer span.End()
 	callerName := "FollowUser"
 
 	// create transaction for image insertion
@@ -926,6 +933,7 @@ func FollowUser(ctx context.Context, callingUser *models.User, tidb *ti.Database
 
 func UnFollowUser(ctx context.Context, callingUser *models.User, tidb *ti.Database, following int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "un-follow-user-core")
+	defer span.End()
 	callerName := "UnFollowUser"
 
 	// create transaction for image insertion
@@ -965,6 +973,7 @@ type UserUsage struct {
 
 func UserProfilePage(ctx context.Context, callingUser *models.User, tidb *ti.Database, userId *int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "user-profile-page-core")
+	defer span.End()
 	callerName := "UserProfilePage"
 
 	following := false
@@ -1070,6 +1079,7 @@ func UserProfilePage(ctx context.Context, callingUser *models.User, tidb *ti.Dat
 
 func ChangeEmail(ctx context.Context, callingUser *models.User, tidb *ti.Database, newEmail string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "change-email-core")
+	defer span.End()
 	callerName := "ChangeEmail"
 
 	// todo: needs some sort of email validation in the future
@@ -1147,6 +1157,7 @@ func ChangeEmail(ctx context.Context, callingUser *models.User, tidb *ti.Databas
 
 func ChangePhoneNumber(ctx context.Context, callingUser *models.User, tidb *ti.Database, newPhone string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "change-phonenumber-core")
+	defer span.End()
 	callerName := "ChangePhoneNumber"
 
 	// todo: may need a way to validate phone number
@@ -1199,6 +1210,7 @@ func ChangePhoneNumber(ctx context.Context, callingUser *models.User, tidb *ti.D
 
 func ChangeUsername(ctx context.Context, callingUser *models.User, tidb *ti.Database, newUsername string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "change-username-core")
+	defer span.End()
 	callerName := "ChangeUsername"
 
 	// ensure input username is valid
@@ -1231,6 +1243,7 @@ func ChangeUsername(ctx context.Context, callingUser *models.User, tidb *ti.Data
 
 func ChangePassword(ctx context.Context, callingUser *models.User, tidb *ti.Database, oldPassword string, newPassword string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "change-password-core")
+	defer span.End()
 	callerName := "ChangePassword"
 
 	res, err := tidb.QueryContext(ctx, &span, &callerName, "select user_name, password, encrypted_service_key from users where _id = ? limit 1", callingUser.ID)
@@ -1341,6 +1354,7 @@ func ChangePassword(ctx context.Context, callingUser *models.User, tidb *ti.Data
 
 func ChangeUserPicture(ctx context.Context, callingUser *models.User, tidb *ti.Database, newImagePath string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "change-user-picture-core")
+	defer span.End()
 	callerName := "ChangePassword"
 
 	// ensure input username is valid
@@ -1362,6 +1376,7 @@ func ChangeUserPicture(ctx context.Context, callingUser *models.User, tidb *ti.D
 func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.MeiliSearchEngine, vcsClient *git.VCSClient,
 	callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "delete-user-account-core")
+	defer span.End()
 	callerName := "DeleteUserAccount"
 
 	if callingUser.UserStatus == models.UserStatusPremium && callingUser.StripeSubscription != nil {
@@ -1509,6 +1524,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	storageEngine storage.Storage, mgKey string, mgDomain string, initialRecUrl string, referralUser *string, logger logging.Logger) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-google-user-core")
+	defer span.End()
 	callerName := "CreateNewGoogleUser"
 
 	var httpClient = &http.Client{}
@@ -1899,6 +1915,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	timezone string, avatarSetting models.AvatarSettings, githubSecret string, thumbnailPath string,
 	storageEngine storage.Storage, mgKey string, mgDomain string, initialRecUrl string, referralUser *string, ip string, logger logging.Logger) (map[string]interface{}, string, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-github-user-core")
+	defer span.End()
 	callerName := "CreateNewGithubUser"
 
 	userInfo, gitMail, err := GetGithubId(externalAuth, githubSecret)
@@ -2325,6 +2342,7 @@ func GetSubscription(ctx context.Context, callingUser *models.User) (map[string]
 
 func GetUserInformation(ctx context.Context, callingUser *models.User, tidb *ti.Database) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-user-information-core")
+	defer span.End()
 	callerName := "GetUserInformation"
 
 	// query for user information
@@ -2353,6 +2371,7 @@ func GetUserInformation(ctx context.Context, callingUser *models.User, tidb *ti.
 
 func UpdateAvatarSettings(ctx context.Context, callingUser *models.User, tidb *ti.Database, avatarSettings models.AvatarSettings, thumbnailPath string, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-avatar-settings-core")
+	defer span.End()
 	callerName := "UpdateAvatarSettings"
 
 	// create transaction for image insertion
@@ -2397,6 +2416,7 @@ func UpdateAvatarSettings(ctx context.Context, callingUser *models.User, tidb *t
 
 func SetUserWorkspaceSettings(ctx context.Context, callingUser *models.User, tidb *ti.Database, workspaceSettings *models.WorkspaceSettings) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "set-user-workspace-settings-core")
+	defer span.End()
 	callerName := "setUserWorkspaceSettings"
 
 	// create transaction for image insertion
@@ -2432,6 +2452,7 @@ func SetUserWorkspaceSettings(ctx context.Context, callingUser *models.User, tid
 
 func GetUserWorkspaceSettings(ctx context.Context, callingUser *models.User, tidb *ti.Database) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-user-workspace-settings-core")
+	defer span.End()
 	callerName := "getUserWorkspaceSettings"
 
 	// query for all active projects for specified user
@@ -2460,6 +2481,7 @@ func GetUserWorkspaceSettings(ctx context.Context, callingUser *models.User, tid
 
 func UpdateUserExclusiveAgreement(ctx context.Context, callingUser *models.User, tidb *ti.Database) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "set-user-exclusive-agreement-core")
+	defer span.End()
 	callerName := "setUserExclusiveAgreement"
 
 	// create transaction for image insertion
@@ -2486,6 +2508,7 @@ func UpdateUserExclusiveAgreement(ctx context.Context, callingUser *models.User,
 
 func UpdateHolidayPreference(ctx context.Context, callingUser *models.User, tidb *ti.Database) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "set-user-holiday-preference-core")
+	defer span.End()
 	callerName := "setUserHolidayPreference"
 
 	// create transaction for image insertion
@@ -2512,6 +2535,7 @@ func UpdateHolidayPreference(ctx context.Context, callingUser *models.User, tidb
 
 func MarkTutorialAsCompleted(ctx context.Context, callingUser *models.User, tidb *ti.Database, tutorialKey string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "mark-tutorial-as-completed-core")
+	defer span.End()
 	callerName := "markTutorialAsCompleted"
 
 	// validate that the tutorial key is valid
@@ -2557,6 +2581,7 @@ func MarkTutorialAsCompleted(ctx context.Context, callingUser *models.User, tidb
 
 func GetUserID(ctx context.Context, tidb *ti.Database, username string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-user-id-core")
+	defer span.End()
 	callerName := "getUserID"
 
 	// query for all active projects for specified user
@@ -2587,6 +2612,7 @@ func GetUserID(ctx context.Context, tidb *ti.Database, username string) (map[str
 
 func DeleteEphemeralUser(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, rdb redis.UniversalClient, ownerIds []int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "delete-ephemeral-user")
+	defer span.End()
 	callerName := "deleteEphemeralUser"
 
 	// delete the user ids from from DB and Gitea and their user session

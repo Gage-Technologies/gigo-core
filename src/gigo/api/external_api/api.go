@@ -68,6 +68,8 @@ const (
 	CtxKeyCacheKey   = "cacheKey"
 	CtxKeyIP         = "ip"
 	CtxKeyUser       = "callingUser"
+	CtxKeyUserID     = "callingUserID"
+	CtxKeyUserName   = "callingUserName"
 	CtxKeyRequestID  = "requestID"
 	CtxKeyBodyBuffer = "bodyBuffer"
 )
@@ -1121,6 +1123,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 	}
 
 	ctx, span := otel.Tracer("gigo-core").Start(r.Context(), "authenticate-user-session-http")
+	defer span.End()
 	callerName := "authenticate-user-session"
 	// query for user in database
 	res, err := s.tiDB.QueryContext(ctx, &span, &callerName, "select * from users where _id = ? limit 1", userID)
@@ -1341,6 +1344,7 @@ func (s *HTTPServer) authenticateAgent(next http.Handler) http.Handler {
 		var ownerId int64
 
 		sctx, span := otel.Tracer("gigo-core").Start(r.Context(), "authenticate-agent-http")
+		defer span.End()
 		callerName := "authenticateAgent"
 		err = s.tiDB.QueryRow(sctx, &span, &callerName,
 			"select a._id, w.owner_id from workspaces w join workspace_agent a on a.workspace_id = w._id where w._id = ? and a.secret = uuid_to_bin(?) order by a.created_at desc limit 1",
@@ -1381,6 +1385,7 @@ func (s *HTTPServer) initApiCall(next http.Handler) http.Handler {
 
 		// derive trace span from context for telem
 		span := trace.SpanFromContext(ctx)
+		defer span.End()
 
 		// link the api call with the request ID and true ip
 		span.SetAttributes(attribute.Int64(CtxKeyRequestID, reqId))

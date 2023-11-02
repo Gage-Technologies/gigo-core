@@ -555,6 +555,7 @@ func (s *HTTPServer) masterWebSocketUserPoller(socket *masterWebSocket) {
 		currentUser := socket.user.Load()
 
 		ctx, span := otel.Tracer("gigo-core").Start(socket.ctx, "master-web-socket-user-poller-refresh")
+		defer span.End()
 		callerName := "masterWebSocketUserPoller"
 		// query for user in database
 		res, err := s.tiDB.QueryContext(ctx, &span, &callerName, "select * from users where _id = ? limit 1", currentUser.ID)

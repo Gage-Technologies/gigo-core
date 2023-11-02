@@ -98,6 +98,7 @@ func GetBroadcastMessages(ctx context.Context, tidb *ti.Database) (map[string]in
 func AwardBroadcastCheck(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, callingId int64, xpAwarded uint64, renownIncrease bool, levelIncrease bool) error {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "award-broadcast-check-core")
+	defer span.End()
 	callerName := "AwardBroadcastCheck"
 
 	initmsg := models2.BroadcastMessage{InitMessage: "Broadcast Initiated"}
@@ -239,6 +240,7 @@ func AwardBroadcastCheck(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 
 func CheckBroadcastAward(ctx context.Context, tidb *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "check-broadcast-award-core")
+	defer span.End()
 	callerName := "CheckBroadcastAward"
 
 	// ensure calling user is not nil
@@ -271,6 +273,7 @@ func CheckBroadcastAward(ctx context.Context, tidb *ti.Database, callingUser *mo
 
 func RevertBroadcastAward(ctx context.Context, tidb *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "revert-broadcast-award-core")
+	defer span.End()
 	callerName := "RevertBroadcastAward"
 
 	if callingUser == nil {

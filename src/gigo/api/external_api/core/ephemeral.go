@@ -63,6 +63,7 @@ func CreateEphemeral(ctx context.Context, tidb *ti.Database, storageEngine stora
 	hostname string, useTLS bool, ipString string, logger logging.Logger) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-ephemeral-core")
+	defer span.End()
 	callerName := "CreateEphemeral"
 
 	var exists int
@@ -169,6 +170,7 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 	storageEngine storage.Storage, avatarSettings models.AvatarSettings, filter *utils3.PasswordFilter, forcePass bool, initialRecUrl string,
 	logger logging.Logger, mgKey string, mgDomain string, referralUser *string, eUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-user-core")
+	defer span.End()
 	callerName := "CreateNewUser"
 
 	// require that username be present for all users
@@ -475,6 +477,7 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 	domain string, externalAuth string, password string, vcsClient *git.VCSClient, starterUserInfo models.UserStart, timezone string, avatarSettings models.AvatarSettings, thumbnailPath string,
 	storageEngine storage.Storage, mgKey string, mgDomain string, initialRecUrl string, referralUser *string, eUser *models.User, logger logging.Logger) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-google-user-core")
+	defer span.End()
 	callerName := "CreateNewGoogleUser"
 
 	var httpClient = &http.Client{}
@@ -735,6 +738,7 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 	eUser *models.User, logger logging.Logger) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-new-github-user-core")
+	defer span.End()
 	callerName := "CreateNewGithubUser"
 
 	userInfo, gitMail, err := GetGithubId(externalAuth, githubSecret)

@@ -27,6 +27,7 @@ import (
 //			   - error
 func TopRecommendation(ctx context.Context, tidb *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "top-recommendation-core")
+	defer span.End()
 	callerName := "TopRecommendation"
 
 	// query attempt and projects with the user id as author id and sort by date last edited
@@ -74,6 +75,7 @@ func TopRecommendation(ctx context.Context, tidb *ti.Database, callingUser *mode
 //			   - error
 func RecommendByAttempt(ctx context.Context, tidb *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "recommended-by-attempt-core")
+	defer span.End()
 	callerName := "RecommendByAttempt"
 
 	// query attempt and projects with the user id as author id and sort by date last edited
@@ -453,6 +455,7 @@ func RecommendByAttempt(ctx context.Context, tidb *ti.Database, callingUser *mod
 //			   - error
 func HarderRecommendation(ctx context.Context, tidb *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "harder-recommendation-core")
+	defer span.End()
 	callerName := "HarderRecommendation"
 
 	// query attempt and projects with the user id as author id and sort by date last edited

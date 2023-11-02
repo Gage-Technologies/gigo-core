@@ -20,6 +20,7 @@ type UpdateConnectionTimesOptions struct {
 func UpdateConnectionTimes(ctx context.Context, opts UpdateConnectionTimesOptions) func() error {
 	return func() error {
 		ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-connection-times-core")
+		defer span.End()
 		callerName := "UpdateConnectionTimes"
 
 		// perform updated on agent

@@ -111,6 +111,7 @@ func ListActiveTemplates(mg *mailgun.MailgunImpl) (*[]mailgun.Template, error) {
 
 func VerifyEmailToken(ctx context.Context, tiDB *ti.Database, userId string, token string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "verify-email-token-core")
+	defer span.End()
 	callerName := "VerifyToken"
 
 	// ensure token and email were provided

@@ -172,6 +172,7 @@ func LaunchPremiumWeeklyFreeze(ctx context.Context, db *ti.Database, workerPool 
 
 func handleUserDayRollover(db *ti.Database, sf *snowflake.Node, logger logging.Logger) error {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "handle-inactive-user-day-rollover-routine")
+	defer span.End()
 	callerName := "handleInactiveUserDayRollover"
 
 	// open tx for all queries
@@ -330,6 +331,7 @@ func handleUserDayRollover(db *ti.Database, sf *snowflake.Node, logger logging.L
 
 func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Logger, rdb redis.UniversalClient) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "premium-weekly-freeze-routine")
+	defer span.End()
 	callerName := "premiumWeeklyFreeze"
 
 	logger.Debugf("starting premiumWeeklyFreeze")

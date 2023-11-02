@@ -89,6 +89,7 @@ func handleRegistryCaches(containerName string, caches []config.RegistryCacheCon
 //	a GIGO workspace and initializing credentials for the agent/workspace
 func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsdk.WorkspaceAgentMetadata, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "initialize-agent-core")
+	defer span.End()
 	callerName := "InitializeAgent"
 
 	// create empty variables to hold data
@@ -297,6 +298,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 
 func GetWorkspaceAgentByID(ctx context.Context, db *ti.Database, id int64) (*models.WorkspaceAgent, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.Background(), "get-workspace-agent-by-id-core")
+	defer span.End()
 	callerName := "GetWorkspaceAgentByID"
 
 	// query for workspace agent in database
@@ -321,6 +323,7 @@ func GetWorkspaceAgentByID(ctx context.Context, db *ti.Database, id int64) (*mod
 
 func UpdateWorkspaceAgentState(ctx context.Context, db *ti.Database, agent int64, state models.WorkspaceAgentState) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-workspace-agent-state")
+	defer span.End()
 	callerName := "UpdateWorkspaceAgentState"
 
 	if state.String() == "Invalid" {
@@ -335,6 +338,7 @@ func UpdateWorkspaceAgentState(ctx context.Context, db *ti.Database, agent int64
 
 func UpdateWorkspaceAgentVersion(ctx context.Context, db *ti.Database, agent int64, version string) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-workspace-agent-version")
+	defer span.End()
 	callerName := "UpdateWorkspaceAgentVersion"
 
 	// if !semver.IsValid(version) {
@@ -349,6 +353,7 @@ func UpdateWorkspaceAgentVersion(ctx context.Context, db *ti.Database, agent int
 
 func UpdateWorkspaceAgentPorts(ctx context.Context, db *ti.Database, workspaceID int64, newPorts []agentsdk.ListeningPort) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-workspace-agent-ports")
+	defer span.End()
 	callerName := "UpdateWorkspaceAgentPorts"
 
 	// open tx for update
@@ -443,6 +448,7 @@ func UpdateWorkspaceAgentPorts(ctx context.Context, db *ti.Database, workspaceID
 
 func UpdateWorkspaceAgentStats(ctx context.Context, opts UpdateAgentStatsOptions) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-workspace-agent-stats-agent")
+	defer span.End()
 	callerName := "UpdateWorkspaceAgentStats"
 
 	// create new agent stats model

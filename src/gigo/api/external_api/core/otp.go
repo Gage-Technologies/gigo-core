@@ -44,6 +44,7 @@ func GenerateUserOtpUri(ctx context.Context, callingUser *models.User, db *ti.Da
 
 func VerifyUserOtp(ctx context.Context, callingUser *models.User, db *ti.Database, storageEngine storage.Storage, otp string, ip string) (map[string]interface{}, string, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "verify-user-otp-core")
+	defer span.End()
 	callerName := "VerifyUserOtp"
 
 	// ensure that the otp has been initialized

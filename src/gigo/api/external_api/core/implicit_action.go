@@ -13,6 +13,7 @@ import (
 
 func RecordImplicitAction(ctx context.Context, tidb *ti.Database, sf *snowflake.Node, callingUser *models.User, postId int64, sessionId uuid.UUID, action models.ImplicitAction) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "record-implicit-action-core")
+	defer span.End()
 	callerName := "RecordImplicitAction"
 	impl := models.CreateImplicitRec(sf.Generate().Int64(), callingUser.ID, postId, sessionId, action, time.Now(), callingUser.Tier)
 	statement := impl.ToSQLNative()

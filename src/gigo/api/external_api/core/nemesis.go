@@ -73,6 +73,7 @@ type AllUsers struct {
 
 func DeclareNemesis(ctx context.Context, db *ti.Database, sf *snowflake.Node, js *mq.JetstreamClient, callingUserID int64, protagID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "declare-nemesis-core")
+	defer span.End()
 	callerName := "DeclareNemesis"
 
 	// make sure a match is not already in progress
@@ -90,7 +91,6 @@ func DeclareNemesis(ctx context.Context, db *ti.Database, sf *snowflake.Node, js
 	_ = check.Close()
 
 	// find the username of the calling user, who will be the antagonist
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "declare-nemesis")
 	var antagUsername string
 	err = db.QueryRowContext(ctx, &span, &callerName, "select user_name from users where _id = ?", callingUserID).Scan(&antagUsername)
 	if err != nil {
@@ -98,7 +98,6 @@ func DeclareNemesis(ctx context.Context, db *ti.Database, sf *snowflake.Node, js
 	}
 
 	// find the username of the selected user, who will be the protagonist
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "declare-nemesis")
 	var protagUsername string
 	err = db.QueryRowContext(ctx, &span, &callerName, "select user_name from users where _id = ?", protagID).Scan(&protagUsername)
 	if err != nil {
@@ -130,7 +129,6 @@ func DeclareNemesis(ctx context.Context, db *ti.Database, sf *snowflake.Node, js
 		}
 	}
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "declare-nemesis")
 	_, err = CreateNotification(ctx, db, js, sf, protagID, "Declare Nemesis", models.NemesisRequest, &callingUserID)
 	if err != nil {
 		return nil, fmt.Errorf("DeclareNemesis core. Failed to create notification: %v", err)
@@ -142,6 +140,7 @@ func DeclareNemesis(ctx context.Context, db *ti.Database, sf *snowflake.Node, js
 
 func AcceptNemesis(ctx context.Context, db *ti.Database, sf *snowflake.Node, js *mq.JetstreamClient, callingUserID int64, antagonistID int64) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "accept-nemesis-core")
+	defer span.End()
 	callerName := "AcceptNemesis"
 
 	// if callingUsername != nemesisReq.ProtagonistUsername {
@@ -227,6 +226,7 @@ func DeclineNemesis(ctx context.Context, db *ti.Database, sf *snowflake.Node, js
 	// }
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "decline-nemesis-core")
+	defer span.End()
 	callerName := "DeclineNemesis"
 
 	_, err := db.ExecContext(ctx, &span, &callerName, "delete from nemesis where antagonist_id = ? and protagonist_id = ? and victor is null and is_accepted = false", antagonistID, callingUserID)
@@ -244,6 +244,7 @@ func DeclineNemesis(ctx context.Context, db *ti.Database, sf *snowflake.Node, js
 
 func GetActiveNemesis(ctx context.Context, db *ti.Database, callingUserID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-active-nemesis-core")
+	defer span.End()
 	callerName := "GetActiveNemesis"
 
 	res, err := db.QueryContext(ctx, &span, &callerName, "SELECT * FROM nemesis WHERE victor IS NULL AND (antagonist_id = ? OR protagonist_id = ?) AND is_accepted = true", callingUserID, callingUserID)
@@ -306,6 +307,7 @@ func GetActiveNemesis(ctx context.Context, db *ti.Database, callingUserID int64)
 
 func GetNemesisBattleground(ctx context.Context, db *ti.Database, matchID int64, antagonistID int64, protagonistID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-nemesis-battleground-core")
+	defer span.End()
 	calllerName := "GetNemesisBattleground"
 
 	res, err := db.QueryContext(ctx, &span, &calllerName, "select * from nemesis where is_accepted = true and _id = ? and antagonist_id =? and protagonist_id =? and victor is null", matchID, antagonistID, protagonistID)
@@ -433,6 +435,7 @@ func GetNemesisBattleground(ctx context.Context, db *ti.Database, matchID int64,
 
 func RecentNemesisBattleground(ctx context.Context, db *ti.Database, callingUserID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "recent-nemesis-battleground-core")
+	defer span.End()
 	callerName := "RecentNemesisBattleground"
 
 	res, err := db.QueryContext(ctx, &span, &callerName, "select * from nemesis where is_accepted = true and (antagonist_id = ? or protagonist_id = ?) order by time_of_villainy desc limit 1;", callingUserID, callingUserID)
@@ -569,6 +572,7 @@ func RecentNemesisBattleground(ctx context.Context, db *ti.Database, callingUser
 
 func WarHistory(ctx context.Context, db *ti.Database, callingUserID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "war-history-core")
+	defer span.End()
 	callerName := "WarHistory"
 	res, err := db.QueryContext(ctx, &span, &callerName, "select _id, antagonist_name, protagonist_name, victor, protagonist_towers_captured, antagonist_towers_captured from nemesis where (antagonist_id = ? or protagonist_id = ?) and victor is not null;", callingUserID, callingUserID)
 	if err != nil {
@@ -612,6 +616,7 @@ func WarHistory(ctx context.Context, db *ti.Database, callingUserID int64) (map[
 
 func PendingNemesis(ctx context.Context, db *ti.Database, callingUserID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "pending-nemesis-core")
+	defer span.End()
 	callerName := "PendingNemesis"
 
 	res, err := db.QueryContext(ctx, &span, &callerName, "select * from nemesis where (antagonist_id =? or protagonist_id =?) and is_accepted = 0", callingUserID, callingUserID)
@@ -640,6 +645,7 @@ func PendingNemesis(ctx context.Context, db *ti.Database, callingUserID int64) (
 
 func DeclareVictor(ctx context.Context, db *ti.Database, matchID int64, victor int64) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "declare-victor-core")
+	defer span.End()
 	callerName := "DeclareVictor"
 
 	_, err := db.ExecContext(ctx, &span, &callerName, "update nemesis set victor = ?, end_time = ? where _id = ? and victor is null", victor, time.Now(), matchID)
@@ -652,6 +658,7 @@ func DeclareVictor(ctx context.Context, db *ti.Database, matchID int64, victor i
 
 func GetAllUsers(ctx context.Context, db *ti.Database, callingUserID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-all-users-core")
+	defer span.End()
 	callerName := "GetAllUsersNemesis"
 
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
@@ -685,6 +692,7 @@ func GetAllUsers(ctx context.Context, db *ti.Database, callingUserID int64) (map
 
 func GetDailyXPGain(ctx context.Context, db *ti.Database, matchID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "nemesis-get-daily-xp-gain-core")
+	defer span.End()
 	callerName := "NemesisDailyXP"
 
 	var antagonistId int64

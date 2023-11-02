@@ -19,6 +19,7 @@ import (
 
 func ProjectAttemptInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, attemptId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "project-attempt-information-core")
+	defer span.End()
 	callerName := "ProjectAttemptInformation"
 	// query for all active projects for specified user
 	res, err := tidb.QueryContext(ctx, &span, &callerName, "select p.author_id as author_id, p._id as _id, p.challenge_cost as challenge_cost from post p join attempt a on a.post_id = p._id where a._id = ? limit 1", attemptId)
@@ -103,6 +104,7 @@ func getExistingFilePath(storageEngine storage.Storage, postId int64, attemptId 
 
 func AttemptInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, attemptId int64, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "attempt-information-core")
+	defer span.End()
 	callerName := "AttemptInformation"
 	// query for all active projects for specified user
 	res, err := tidb.QueryContext(ctx, &span, &callerName, "select a._id as _id, post_title, description, author, author_id, a.created_at as created_at, updated_at, repo_id, author_tier, a.coffee as coffee, post_id, closed, success, closed_date, a.tier as tier, parent_attempt, a.workspace_settings, r._id as reward_id, color_palette, render_in_front, name, a.post_type as post_type from attempt a left join users u on a.author_id = u._id left join rewards r on r._id = u.avatar_reward where a._id = ? limit 1", attemptId)
@@ -171,6 +173,7 @@ func GetAttemptCode(ctx context.Context, vcsClient *git.VCSClient, callingUser *
 
 func EditDescription(ctx context.Context, id int64, meili *search.MeiliSearchEngine, project bool, newDescription string, tidb *ti.Database) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-description-http")
+	defer span.End()
 	callerName := "EditDescription"
 
 	// create transaction for image insertion

@@ -14,6 +14,7 @@ import (
 
 func SendFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.Node, js *mq.JetstreamClient, callingUser *models.User, friendID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "send-friend-request-core")
+	defer span.End()
 	callerName := "SendFriendRequest"
 	// create transaction for friend request insertion
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
@@ -49,19 +50,16 @@ func SendFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.Node,
 	var username string
 	var friendname string
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "send-friend-request-core")
 	err = db.QueryRowContext(ctx, &span, &callerName, "select user_name from users where _id = ?", callingUser.ID).Scan(&username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select username: %v", err)
 	}
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "send-friend-request-core")
 	err = db.QueryRowContext(ctx, &span, &callerName, "select user_name from users where _id = ?", friendID).Scan(&friendname)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select username: %v", err)
 	}
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "send-friend-request-core")
 	notif, err := CreateNotification(ctx, db, js, sf, friendID, "New Friend Request", models.FriendRequest, &callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send notification: %v", err)
@@ -83,6 +81,7 @@ func SendFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.Node,
 
 func AcceptFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.Node, js *mq.JetstreamClient, callingUser *models.User, requesterID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "accept-friend-request-core")
+	defer span.End()
 	callerName := "AcceptFriendRequest"
 
 	// create transaction for friend request insertion
@@ -98,19 +97,16 @@ func AcceptFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 	var friendname string
 	var notificationIds []int64
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "accept-friend-request-core")
 	err = db.QueryRowContext(ctx, &span, &callerName, "select user_name from users where _id = ?", callingUser.ID).Scan(&username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select username: %v", err)
 	}
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "accept-friend-request-core")
 	err = db.QueryRowContext(ctx, &span, &callerName, "select user_name from users where _id = ?", requesterID).Scan(&friendname)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select username: %v", err)
 	}
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "accept-friend-request-core")
 	req, err := db.QueryContext(ctx, &span, &callerName, "select notification_id from friend_requests where user_id = ? and friend = ?", requesterID, callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select username: %v", err)
@@ -159,7 +155,6 @@ func AcceptFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 		}
 	}
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "accept-friend-request-core")
 	_, err = CreateNotification(ctx, db, js, sf, requesterID, "Accepted Friend Request", models.FriendRequest, &callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send notification: %v", err)
@@ -170,6 +165,7 @@ func AcceptFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 
 func DeclineFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.Node, js *mq.JetstreamClient, callingUser *models.User, requesterID int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "decline-friend-request-core")
+	defer span.End()
 	callerName := "DeclineFriendRequest"
 
 	// create transaction for friend request insertion
@@ -184,7 +180,6 @@ func DeclineFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.No
 	var notificationIds []int64
 
 	// Fetching notifications before marking them as declined
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "decline-friend-request-core")
 	req, err := db.QueryContext(ctx, &span, &callerName, "select notification_id from friend_requests where user_id = ? and friend = ?", requesterID, callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select notification_ids: %v", err)
@@ -219,7 +214,6 @@ func DeclineFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.No
 		}
 	}
 
-	ctx, span = otel.Tracer("gigo-core").Start(ctx, "decline-friend-request-core")
 	_, err = CreateNotification(ctx, db, js, sf, requesterID, "Declined Friend Request", models.FriendRequest, &callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send notification: %v", err)
@@ -230,6 +224,7 @@ func DeclineFriendRequest(ctx context.Context, db *ti.Database, sf *snowflake.No
 
 func GetFriendsList(ctx context.Context, db *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-friends-list-core")
+	defer span.End()
 	callerName := "GetFriendsList"
 
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
@@ -263,6 +258,7 @@ func GetFriendsList(ctx context.Context, db *ti.Database, callingUser *models.Us
 
 func GetFriendRequests(ctx context.Context, db *ti.Database, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "check-friends--core")
+	defer span.End()
 	callerName := "CheckFriends"
 
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
@@ -296,6 +292,7 @@ func GetFriendRequests(ctx context.Context, db *ti.Database, callingUser *models
 
 func CheckFriend(ctx context.Context, db *ti.Database, callingUser *models.User, friendId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "check-friends--core")
+	defer span.End()
 	callerName := "CheckFriends"
 
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
@@ -326,6 +323,7 @@ func CheckFriend(ctx context.Context, db *ti.Database, callingUser *models.User,
 
 func CheckFriendRequest(ctx context.Context, db *ti.Database, callingUser *models.User, otherUserId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "check-friend-request-core")
+	defer span.End()
 	callerName := "CheckFriendRequest"
 
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)

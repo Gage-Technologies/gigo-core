@@ -24,7 +24,8 @@ import (
 )
 
 func asyncAddStreakXP(ctx context.Context, nodeId int64, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, msg *nats.Msg, logger logging.Logger) {
-	ctx, _ = otel.Tracer("gigo-core").Start(ctx, "async-add-streak-xp-routine")
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "async-add-streak-xp-routine")
+	defer span.End()
 
 	// unmarshall add streak xp request message
 	var addStreakMsg models2.AddStreakXPMsg
