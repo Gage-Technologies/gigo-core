@@ -3,6 +3,7 @@ package follower
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"time"
 
 	"context"
@@ -202,7 +203,7 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 			return
 		}
 
-		loc.Loc = fmt.Sprintf("/user/%s", username)
+		loc.Loc = fmt.Sprintf("/user/%s", url.QueryEscape(username))
 		loc.LastMod = &createdAt
 		loc.ChangeFreq = smg.Weekly
 		loc.Priority = 0.4
