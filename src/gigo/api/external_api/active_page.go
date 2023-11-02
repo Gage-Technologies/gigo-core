@@ -56,7 +56,7 @@ func (s *HTTPServer) PastWeekActive(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.PastWeekActive(ctx, callingUser.(*models.User), s.tiDB, int(skip.(float64)), int(limit.(float64)))
+	res, err := core.PastWeekActive(ctx, callingUser.(*models.User), s.tiDB, int(skip.(float64)), int(limit.(float64)), s.storageEngine)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
@@ -123,7 +123,7 @@ func (s *HTTPServer) MostChallengingActive(w http.ResponseWriter, r *http.Reques
 	}
 
 	// execute core function logic
-	res, err := core.MostChallengingActive(ctx, callingUser.(*models.User), s.tiDB, int(skip.(float64)), int(limit.(float64)))
+	res, err := core.MostChallengingActive(ctx, callingUser.(*models.User), s.tiDB, int(skip.(float64)), int(limit.(float64)), s.storageEngine)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
@@ -190,7 +190,7 @@ func (s *HTTPServer) DontGiveUpActive(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.DontGiveUpActive(ctx, callingUser.(*models.User), s.tiDB, int(skip.(float64)), int(limit.(float64)))
+	res, err := core.DontGiveUpActive(ctx, callingUser.(*models.User), s.tiDB, int(skip.(float64)), int(limit.(float64)), s.storageEngine)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)

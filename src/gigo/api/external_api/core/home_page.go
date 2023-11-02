@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/gage-technologies/gigo-lib/storage"
 	"sort"
 	"strings"
 
@@ -133,7 +134,7 @@ where
         p._id in (1688570643030736896, 1688617436791701504, 1688638972722413568, 1688656093628071936, 1688914007987060736, 1688940677359992832, 1688982281277931520, 1689003147793530880, 1689029578237935616, 1689326500572037120, 1689350506096361472)
 order by p.attempts desc`
 
-func ActiveProjectsHome(ctx context.Context, callingUser *models.User, tidb *ti.Database) (map[string]interface{}, error) {
+func ActiveProjectsHome(ctx context.Context, callingUser *models.User, tidb *ti.Database, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "active-projects-home-core")
 	defer span.End()
 	callerName := "ActiveProjectsHome"
@@ -156,7 +157,16 @@ func ActiveProjectsHome(ctx context.Context, callingUser *models.User, tidb *ti.
 			return nil, fmt.Errorf("failed to decode query for resulsts. Active Project Home core.    Error: %v", err)
 		}
 
-		projects = append(projects, project.ToFrontend())
+		projectFrontend := project.ToFrontend()
+
+		thumbnail, err := getExistingFilePath(storageEngine, project.PostID, project.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve thumbnail: %v", err)
+		}
+
+		projectFrontend.Thumbnail = thumbnail
+
+		projects = append(projects, projectFrontend)
 	}
 
 	return map[string]interface{}{"projects": projects}, nil

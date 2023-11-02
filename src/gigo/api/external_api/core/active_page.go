@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gigo-core/gigo/api/external_api/core/query_models"
+	"github.com/gage-technologies/gigo-lib/storage"
 	"time"
 
 	ti "github.com/gage-technologies/gigo-lib/db"
@@ -91,7 +92,7 @@ order by updated_at desc
 limit ? offset ?
 `
 
-func PastWeekActive(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int) (map[string]interface{}, error) {
+func PastWeekActive(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int, storageEngine storage.Storage) (map[string]interface{}, error) {
 	weekEarlier := time.Now().AddDate(0, 0, -7)
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "past-week-active-core")
@@ -114,15 +115,42 @@ func PastWeekActive(ctx context.Context, callingUser *models.User, tidb *ti.Data
 			return nil, fmt.Errorf("failed to scan post from cursor: %v", err)
 		}
 
-		project.Thumbnail = fmt.Sprintf("/static/posts/t/%v", project.PostId)
+		//project.Thumbnail = fmt.Sprintf("/static/posts/t/%v", project.PostId)
 
-		projects = append(projects, project.ToFrontend())
+		//// format post to frontend
+		//fp := project.ToFrontend()
+		//
+		//thumbnail, err := getExistingFilePath(storageEngine, project.PostId, project.ID)
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to retrieve thumbnail: %v", err)
+		//}
+		//
+		//fp.Thumbnail = thumbnail
+		//
+		//projects = append(projects, fp)
+
+		if project.ID != -1 {
+			//project.Thumbnail = fmt.Sprintf("/static/attempts/t/%v", project.ID)
+			// format post to frontend
+			fp := project.ToFrontend()
+
+			thumbnail, err := getExistingFilePath(storageEngine, project.PostId, project.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to retrieve thumbnail: %v", err)
+			}
+
+			fp.Thumbnail = thumbnail
+			projects = append(projects, fp)
+		} else {
+			project.Thumbnail = fmt.Sprintf("/static/posts/t/%v", project.PostId)
+			projects = append(projects, project.ToFrontend())
+		}
 	}
 
 	return map[string]interface{}{"projects": projects}, nil
 }
 
-func MostChallengingActive(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int) (map[string]interface{}, error) {
+func MostChallengingActive(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "most-challenging-active-http")
 	callerName := "MostChallengingActive"
 
@@ -144,13 +172,24 @@ func MostChallengingActive(ctx context.Context, callingUser *models.User, tidb *
 			return nil, fmt.Errorf("failed to decode query for resulsts. Active Project Home core.    Error: %v", err)
 		}
 
-		projects = append(projects, project.ToFrontend())
+		//projects = append(projects, project.ToFrontend())
+		// format post to frontend
+		fp := project.ToFrontend()
+
+		thumbnail, err := getExistingFilePath(storageEngine, project.PostID, project.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve thumbnail: %v", err)
+		}
+
+		fp.Thumbnail = thumbnail
+
+		projects = append(projects, fp)
 	}
 
 	return map[string]interface{}{"projects": projects}, nil
 }
 
-func DontGiveUpActive(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int) (map[string]interface{}, error) {
+func DontGiveUpActive(ctx context.Context, callingUser *models.User, tidb *ti.Database, skip int, limit int, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "cont-give-up-active-core")
 	callerName := "DontGiveUpActive"
 
@@ -175,9 +214,20 @@ func DontGiveUpActive(ctx context.Context, callingUser *models.User, tidb *ti.Da
 		}
 
 		if project.ID != -1 {
-			project.Thumbnail = fmt.Sprintf("/static/posts/t/%v", project.ID)
+			//project.Thumbnail = fmt.Sprintf("/static/attempts/t/%v", project.ID)
+			// format post to frontend
+			fp := project.ToFrontend()
+
+			thumbnail, err := getExistingFilePath(storageEngine, project.PostId, project.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to retrieve thumbnail: %v", err)
+			}
+
+			fp.Thumbnail = thumbnail
+			projects = append(projects, fp)
 		} else {
 			project.Thumbnail = fmt.Sprintf("/static/posts/t/%v", project.PostId)
+			projects = append(projects, project.ToFrontend())
 		}
 
 		projects = append(projects, project.ToFrontend())

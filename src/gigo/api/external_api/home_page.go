@@ -47,7 +47,7 @@ func (s *HTTPServer) ActiveProjectsHome(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// execute core function logic
-	res, err := core.ActiveProjectsHome(ctx, callingUser.(*models.User), s.tiDB)
+	res, err := core.ActiveProjectsHome(ctx, callingUser.(*models.User), s.tiDB, s.storageEngine)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
