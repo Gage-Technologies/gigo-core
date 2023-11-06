@@ -806,7 +806,7 @@ func (s *HTTPServer) validateRequest(w http.ResponseWriter, r *http.Request, cal
 
 	// attempt to decode the request body
 	err := json.NewDecoder(buf).Decode(value)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		s.handleError(w, "failed to decode request", r.URL.Path, "validateRequest", r.Method, r.Context().Value(CtxKeyRequestID),
 			network.GetRequestIP(r), username, userId,
 			http.StatusInternalServerError, "internal server error", err)
@@ -1900,6 +1900,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.PathPrefix("/api/broadcast/ws/{id:[0-9]+}").HandlerFunc(s.BroadcastWebSocket).Methods("GET")
 	s.router.HandleFunc("/api/verifyResetToken/{token}/{userId}", s.VerifyEmailToken).Methods("GET")
 	s.router.HandleFunc("/api/reportIssue", s.CreateReportIssue).Methods("POST")
+	s.router.HandleFunc("/api/recordUsage", s.RecordWebUsage).Methods("POST")
 	// s.router.PathPrefix("/api/websocket/ws/{id:[0-9]+}").HandlerFunc(s.WebSocketMaster).Methods("GET")
 
 	// ////////////////////////////////////Stripe

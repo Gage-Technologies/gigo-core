@@ -11,7 +11,7 @@ const (
 
 type Message[T any] struct {
 	SequenceID string      `json:"sequence_id" validate:"required"`
-	Type       MessageType `json:"type" validate:"required,lte=17"`
+	Type       MessageType `json:"type" validate:"required,lte=19"`
 	Payload    T           `json:"payload" validate:"required"`
 }
 

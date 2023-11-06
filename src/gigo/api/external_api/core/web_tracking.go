@@ -17,15 +17,14 @@ type RecordWebUsageParams struct {
 	IP        string                  `json:"ip"`
 	Host      string                  `json:"host" validate:"required"`
 	Event     models.WebTrackingEvent `json:"event" validate:"required"`
-	Timestamp time.Time               `json:"timestamp" validate:"required"`
-	TimeSpent *time.Duration          `json:"timespent"`
+	TimeSpent *int                    `json:"timespent"`
 	Path      string                  `json:"path" validate:"required"`
 	Latitude  *float64                `json:"latitude"`
 	Longitude *float64                `json:"longitude"`
 	Metadata  map[string]interface{}  `json:"metadata"`
 }
 
-func RecordWebUsage(ctx context.Context, db *ti.Database, sf *snowflake.Node, params *RecordWebUsageParams) (*models.WebTracking, error) {
+func RecordWebUsage(ctx context.Context, db *ti.Database, sf *snowflake.Node, params *RecordWebUsageParams) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "record-web-usage")
 	defer span.End()
 	callerName := "RecordWebUsage"
@@ -33,7 +32,14 @@ func RecordWebUsage(ctx context.Context, db *ti.Database, sf *snowflake.Node, pa
 	// parse the ip into a net IP
 	ip := net.ParseIP(params.IP)
 	if ip == nil {
-		return nil, fmt.Errorf("could not parse ip address: %q", params.IP)
+		return fmt.Errorf("could not parse ip address: %q", params.IP)
+	}
+
+	// format the time spent
+	var ts *time.Duration
+	if params.TimeSpent != nil {
+		dur := time.Millisecond * time.Duration(*params.TimeSpent)
+		ts = &dur
 	}
 
 	// create a new web usage
@@ -43,8 +49,8 @@ func RecordWebUsage(ctx context.Context, db *ti.Database, sf *snowflake.Node, pa
 		ip,
 		params.Host,
 		params.Event,
-		params.Timestamp,
-		params.TimeSpent,
+		time.Now(),
+		ts,
 		params.Path,
 		params.Latitude,
 		params.Longitude,
@@ -54,13 +60,13 @@ func RecordWebUsage(ctx context.Context, db *ti.Database, sf *snowflake.Node, pa
 	// save the web usage
 	statements, err := usage.ToSqlNative()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load insert statement for new web usage creation: %v", err)
+		return fmt.Errorf("failed to load insert statement for new web usage creation: %v", err)
 	}
 
 	// open transaction for insertion
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open insertion transaction while creating new web usage: %v", err)
+		return fmt.Errorf("failed to open insertion transaction while creating new web usage: %v", err)
 	}
 	defer tx.Rollback()
 
@@ -68,15 +74,15 @@ func RecordWebUsage(ctx context.Context, db *ti.Database, sf *snowflake.Node, pa
 	for _, statement := range statements {
 		_, err = tx.Exec(&callerName, statement.Statement, statement.Values...)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert new web usage: %v", err)
+			return fmt.Errorf("failed to insert new web usage: %v", err)
 		}
 	}
 
 	// commit changes and close transaction
 	err = tx.Commit(&callerName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to commit insertion transaction while creating new web usage: %v", err)
+		return fmt.Errorf("failed to commit insertion transaction while creating new web usage: %v", err)
 	}
 
-	return usage, nil
+	return nil
 }

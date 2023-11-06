@@ -251,9 +251,6 @@ func (s *HTTPServer) masterWebSocketLoop(socket *masterWebSocket) {
 	}
 	socket.plugins = append(socket.plugins, workspacePlugin)
 
-	webUsageTrackingPlugin := NewPluginWebTracking(socket.ctx, s, socket)
-	socket.plugins = append(socket.plugins, webUsageTrackingPlugin)
-
 	// create a ticker to send a ping to the client every 30 seconds
 	// to ensure the connection is still alive
 	ticker := time.NewTicker(30 * time.Second)
@@ -292,13 +289,6 @@ func (s *HTTPServer) masterWebSocketLoop(socket *masterWebSocket) {
 				continue
 			}
 		case msg := <-workspacePlugin.OutgoingMessages():
-			// forward message to client
-			err := wsjson.Write(socket.ctx, socket.ws, msg)
-			if err != nil {
-				socket.logger.Errorf("failed to forward message to client: %v", err)
-				continue
-			}
-		case msg := <-webUsageTrackingPlugin.OutgoingMessages():
 			// forward message to client
 			err := wsjson.Write(socket.ctx, socket.ws, msg)
 			if err != nil {
