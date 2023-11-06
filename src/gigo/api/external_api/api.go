@@ -1675,6 +1675,37 @@ func (s *HTTPServer) ping(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Health function to enable the load balancer to confirm the system is alive
+func (s *HTTPServer) healthz(w http.ResponseWriter, r *http.Request) {
+	// add headers
+	w.Header().Set("Content-Type", "application/json")
+
+	// save the status
+	status := "ok"
+	statusCode := 200
+
+	// test database connection
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), time.Millisecond*300)
+	defer dbCancel()
+	err := s.tiDB.PingContext(dbCtx)
+	if err != nil {
+		status = "not ok"
+		statusCode = 500
+	}
+
+	// set status code
+	w.WriteHeader(statusCode)
+
+	// write JSON response to HTTP response
+	_, err = w.Write([]byte(fmt.Sprintf(`{"health":"%s"}`, status)))
+	if err != nil {
+		// handle error internally
+		s.handleError(w, "write to response body failed", r.URL.Path, "healthz", r.Method, r.Context().Value(CtxKeyRequestID),
+			"n/a", "n/a", network.GetRequestIP(r), http.StatusInternalServerError, "internal server error occurred", err)
+		return
+	}
+}
+
 // Links the HTTP Handler functions to the MUX router for execution via HTTP Requests at the designated endpoints
 func (s *HTTPServer) linkAPI() {
 	// /////////////////////////////////////////// CORS
@@ -1684,7 +1715,7 @@ func (s *HTTPServer) linkAPI() {
 
 	// /////////////////////////////////////////// Root
 	s.router.HandleFunc("/ping", s.ping).Methods("GET")
-	s.router.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("OK")) }).Methods("GET")
+	s.router.HandleFunc("/healthz", s.healthz).Methods("GET")
 
 	// /////////////////////////////////////////// Debug
 	// TODO: DO NOT LET USERS ACCESS THESE!!!
