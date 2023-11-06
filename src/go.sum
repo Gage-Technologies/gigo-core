@@ -569,6 +569,16 @@ github.com/gage-technologies/gigo-lib v0.0.0-20231031174252-05b930a3c22d h1:jyJ9
 github.com/gage-technologies/gigo-lib v0.0.0-20231031174252-05b930a3c22d/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
 github.com/gage-technologies/gigo-lib v0.0.0-20231102175225-58ba0b1e20ab h1:/rYVJDwdSiAs7YnGaYoEheCPPYhHLxowN+Pyjc+lcQQ=
 github.com/gage-technologies/gigo-lib v0.0.0-20231102175225-58ba0b1e20ab/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106174223-1db3c0f32a1f h1:uAYaStirQZGvr3dnGFFKzkZcw/yZLSkgdSAzKT3TFkU=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106174223-1db3c0f32a1f/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106180700-6a4ad1bc0e40 h1:Ccpt62pPGcYtPEsLzaZU02xCtD6WhaAFEcDL9jTUkBo=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106180700-6a4ad1bc0e40/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106182002-963c1d220941 h1:letKeAUpMsrK9YxeUPD64LsGR0HusUa+UC7W7Py4CUw=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106182002-963c1d220941/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106193027-fd5aa24c1243 h1:XUI8GLx75DGwxEPuNYuSYnN+KaASlxd+esFL0MkboPM=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106193027-fd5aa24c1243/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106193514-9cfedb64eef6 h1:39dHhaKI4Tzp4v6MaUyIpUSx6gDoZj+HGPkpMNtA/7o=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106193514-9cfedb64eef6/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
 github.com/gage-technologies/gitea-go/gitea v0.16.0 h1:w0eOZn9HMR7acXzaJlvZ4BoPZfH76OOibm+U1cTB28I=
 github.com/gage-technologies/gitea-go/gitea v0.16.0/go.mod h1:nMhiMA2jCA/JHqGWtn6zsc1A34LILhMaJWpG8orDdzo=
 github.com/gage-technologies/go-logrus-elasticsearch v0.0.0-20210908162149-c64f8e07bb9e h1:ui469cZfaOayIzw7jhRD+eoTHxwIk0JupCpjUiVmAao=

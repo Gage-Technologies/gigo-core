@@ -45,6 +45,7 @@ const (
 	MessageTypeUpdateReadMessage
 	MessageTypeUpdateChatMute
 	MessageTypeChatUpdatedEvent
+	MessageTypeRecordWebUsage
 )
 
 func (t MessageType) String() string {
@@ -68,5 +69,6 @@ func (t MessageType) String() string {
 		"MessageTypeUpdateReadMessage",
 		"MessageTypeUpdateChatMute",
 		"MessageTypeChatUpdatedEvent",
+		"MessageTypeRecordWebUsage",
 	}[t]
 }
