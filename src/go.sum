@@ -560,6 +560,8 @@ github.com/gage-technologies/gigo-lib v0.0.0-20231122154018-32547453fa47 h1:QSCd
 github.com/gage-technologies/gigo-lib v0.0.0-20231122154018-32547453fa47/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
 github.com/gage-technologies/gigo-lib v0.0.0-20231122160600-6681573bba9a h1:9bKXJVzbBEyJkNXaFh2ksWoQ4UCwANjereeblTRrgUA=
 github.com/gage-technologies/gigo-lib v0.0.0-20231122160600-6681573bba9a/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106220943-008f35845d75 h1:XbIOg1CXmhg3pJOZL3NsyE65ZrXfNeGRHAOZ4eXD6uc=
+github.com/gage-technologies/gigo-lib v0.0.0-20231106220943-008f35845d75/go.mod h1://EL4QVv8nz9lIcVWsdsRyA8AiPwKsArCM7CkZXw2aU=
 github.com/gage-technologies/gitea-go/gitea v0.16.0 h1:w0eOZn9HMR7acXzaJlvZ4BoPZfH76OOibm+U1cTB28I=
 github.com/gage-technologies/gitea-go/gitea v0.16.0/go.mod h1:nMhiMA2jCA/JHqGWtn6zsc1A34LILhMaJWpG8orDdzo=
 github.com/gage-technologies/go-logrus-elasticsearch v0.0.0-20210908162149-c64f8e07bb9e h1:ui469cZfaOayIzw7jhRD+eoTHxwIk0JupCpjUiVmAao=
@@ -961,6 +963,8 @@ github.com/hydrogen18/memlistener v0.0.0-20200120041712-dcc25e7acd91/go.mod h1:q
 github.com/iancoleman/strcase v0.2.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
+github.com/illarion/gonotify v1.0.1 h1:F1d+0Fgbq/sDWjj/r66ekjDG+IDeecQKUFH4wNwsoio=
+github.com/illarion/gonotify v1.0.1/go.mod h1:zt5pmDofZpU1f8aqlK0+95eQhoEAn/d4G4B/FjVW4jE=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/imdario/mergo v0.3.8/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/imdario/mergo v0.3.10/go.mod h1:jmQim1M+e3UYxmgPu/WyfjB3N3VflVyUjjjwH0dnCYA=
