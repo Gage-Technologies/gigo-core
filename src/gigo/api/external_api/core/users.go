@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 
 	"gigo-core/gigo/streak"
 
@@ -67,11 +68,13 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 		}, errors.New("username missing from user creation")
 	}
 
+	username := strings.ReplaceAll(userName, " ", "_")
+
 	// build query to check if username already exists
 	nameQuery := "select user_name from users where user_name = ?"
 
 	// query users to ensure username does not already exist
-	response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, userName)
+	response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
 	}
@@ -161,7 +164,7 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	}
 
 	// create a new user object
-	newUser, err := models.CreateUser(snowflakeNode.Generate().Int64(), userName, password, email, phone,
+	newUser, err := models.CreateUser(snowflakeNode.Generate().Int64(), username, password, email, phone,
 		models.UserStatusBasic, bio, []int64{}, nil, firstName, lastName, -1, "None",
 		starterUserInfo, timezone, avatarSettings, 0)
 	if err != nil {
@@ -1553,20 +1556,25 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// build query to check if username already exists
 	nameQuery := "select user_name from users where user_name = ?"
 
-	// query users to ensure username does not already exist
-	response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, userInfo.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
-	}
+	username := strings.ReplaceAll(userInfo.Name, " ", "_")
 
-	// ensure the closure of the rows
-	defer response.Close()
+	// check if username exists, if it does then append a number until it is unique
+	for {
+		var existingUsername string
+		// execute the query with the current username
+		err := tidb.QueryRowContext(ctx, &span, &callerName, nameQuery, username).Scan(&existingUsername)
 
-	if response.Next() {
-		userInfo.Name = userInfo.Name + snowflakeNode.Generate().String()
-		// return map[string]interface{}{
-		//	"message": "that username already exists",
-		// }, errors.New("duplicate username in user creation")
+		// if there is no result, the username is unique
+		if err == sql.ErrNoRows {
+			break
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
+		}
+
+		// if we get a result, append a random number to the username and try again
+		username = fmt.Sprintf("%s%d", username, rand.Intn(1000))
 	}
 
 	// build query to check if username already exists
@@ -1603,7 +1611,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	}
 
 	// create a new user object with google id added
-	newUser, err := models.CreateUser(snowflakeNode.Generate().Int64(), userInfo.Name, password, tokenInfo.Email,
+	newUser, err := models.CreateUser(snowflakeNode.Generate().Int64(), username, password, tokenInfo.Email,
 		"N/A", models.UserStatusBasic, "", nil, nil, userInfo.GivenName, userInfo.FamilyName,
 		-1, googleId, starterUserInfo, timezone, avatarSettings, 0)
 	if err != nil {
@@ -1972,62 +1980,29 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		name = m["name"].(string)
 	}
 
-	// // build query to check if username already exists
-	// nameQuery = "select user_name from users where user_name = ?"
-	//
-	// // query users to ensure username does not already exist
-	// response, err = tidb.QueryContext(ctx, &span, &callerName, nameQuery, m["login"].(string))
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
-	// }
-	//
-	// // ensure the closure of the rows
-	// defer response.Close()
-	//
-	// if response.Next() {
-	//	return map[string]interface{}{
-	//		"message": "that username already exists",
-	//	}, errors.New("duplicate username in user creation")
-	// }
-
 	// build query to check if username already exists
 	nameQuery = "select user_name from users where user_name = ?"
 
-	// query users to ensure username does not already exist
-	response, err = tidb.QueryContext(ctx, &span, &callerName, nameQuery, m["login"].(string))
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to query for duplicate username: %v", err)
+	username := strings.ReplaceAll(m["login"].(string), " ", "_")
+
+	// check if username exists, if it does then append a number until it is unique
+	for {
+		var existingUsername string
+		// execute the query with the current username
+		err := tidb.QueryRowContext(ctx, &span, &callerName, nameQuery, username).Scan(&existingUsername)
+
+		// if there is no result, the username is unique
+		if err == sql.ErrNoRows {
+			break
+		}
+
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to query for duplicate username: %v", err)
+		}
+
+		// if we get a result, append a random number to the username and try again
+		username = fmt.Sprintf("%s%d", username, rand.Intn(1000))
 	}
-
-	// ensure the closure of the rows
-	defer response.Close()
-
-	loginName := m["login"].(string)
-
-	if response.Next() {
-		loginName = m["login"].(string) + snowflakeNode.Generate().String()
-		// return map[string]interface{}{
-		//	"message": "that username already exists",
-		// }, errors.New("duplicate username in user creation")
-	}
-
-	// // build query to check if username already exists
-	// emailQuery := "select user_name from users where email = ?"
-	//
-	// // query users to ensure username does not already exist
-	// responseEmail, err := tidb.QueryContext(ctx, &span, &callerName, emailQuery, tokenInfo.Email)
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
-	// }
-	//
-	// // ensure the closure of the rows
-	// defer responseEmail.Close()
-	//
-	// if responseEmail.Next() {
-	//	return map[string]interface{}{
-	//		"message": "that email is already in use",
-	//	}, errors.New("duplicate username in user creation")
-	// }
 
 	// require that password be present for all users
 	if password == "" || len(password) < 5 {
@@ -2046,7 +2021,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 
 	// TODO: download avatar and store locally
 	// create a new user object with Google id added
-	newUser, err := models.CreateUser(genID, loginName,
+	newUser, err := models.CreateUser(genID, username,
 		password, email, "N/A", models.UserStatusBasic, "", nil,
 		nil, name, "", -1, strconv.FormatInt(userId, 10), starterUserInfo, timezone, avatarSetting, 0)
 	if err != nil {
