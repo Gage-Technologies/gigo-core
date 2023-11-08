@@ -51,6 +51,7 @@ type PostUserBackground struct {
 	HasAccess               *bool                        `json:"has_access" sql:"has_access"`
 	ExclusiveDescription    *string                      `json:"exclusive_description,omitempty" sql:"exclusive_description"`
 	EstimatedTutorialTime   *time.Duration               `json:"estimated_tutorial_time,omitempty" sql:"estimated_tutorial_time"`
+	StartTime               *time.Duration               `json:"start_time,omitempty" sql:"start_time"`
 }
 
 type PostUserBackgroundSQL struct {
@@ -86,6 +87,7 @@ type PostUserBackgroundSQL struct {
 	HasAccess               *bool                 `json:"has_access" sql:"has_access"`
 	ExclusiveDescription    *string               `json:"exclusive_description,omitempty" sql:"exclusive_description"`
 	EstimatedTutorialTime   *time.Duration        `json:"estimated_tutorial_time,omitempty" sql:"estimated_tutorial_time"`
+	StartTime               *time.Duration        `json:"start_time" sql:"start_time"`
 }
 
 type PostUserBackgroundFrontend struct {
@@ -127,7 +129,8 @@ type PostUserBackgroundFrontend struct {
 	HasAccess                   *bool                        `json:"has_access" sql:"has_access"`
 	StripePriceId               *string                      `json:"stripe_price_id" sql:"stripe_price_id"`
 	ExclusiveDescription        *string                      `json:"exclusive_description,omitempty" sql:"exclusive_description"`
-	EstimatedTutorialTimeMillis *int64                       `json:"estimated_tutorial_time_millis,omitempty" sql:"estimated_tutorial_time_millis"`
+	EstimatedTutorialTimeMillis *int64                       `json:"estimated_tutorial_time_millis" sql:"estimated_tutorial_time_millis"`
+	StartTimeMillis             *int64                       `json:"start_time_millis" sql:"start_time_millis"`
 }
 
 func PostUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, rows *sql.Rows) (*PostUserBackground, error) {
@@ -261,6 +264,7 @@ func PostUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, rows 
 		Deleted:                 postSQL.Deleted,
 		ExclusiveDescription:    postSQL.ExclusiveDescription,
 		EstimatedTutorialTime:   postSQL.EstimatedTutorialTime,
+		StartTime:               postSQL.StartTime,
 	}
 
 	return post, nil
@@ -344,6 +348,12 @@ func (i *PostUserBackground) ToFrontend() (*PostUserBackgroundFrontend, error) {
 		tutorialMillis = &millis
 	}
 
+	var startTimeMillis *int64
+	if i.StartTime != nil {
+		millis := i.StartTime.Milliseconds()
+		startTimeMillis = &millis
+	}
+
 	// create new post frontend
 	mf := &PostUserBackgroundFrontend{
 		ID:                          fmt.Sprintf("%d", i.ID),
@@ -384,6 +394,7 @@ func (i *PostUserBackground) ToFrontend() (*PostUserBackgroundFrontend, error) {
 		StripePriceId:               priceId,
 		ExclusiveDescription:        exclusiveDescription,
 		EstimatedTutorialTimeMillis: tutorialMillis,
+		StartTimeMillis:             startTimeMillis,
 	}
 
 	return mf, nil

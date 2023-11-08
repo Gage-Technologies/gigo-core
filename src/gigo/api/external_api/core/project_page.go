@@ -48,7 +48,7 @@ func ProjectInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.V
 
 	// query for all active projects for specified user
 	res, err := tidb.QueryContext(ctx, &span, &callerName,
-		"select p._id as _id, title, description, author, p.deleted as deleted, author_id, p.created_at as created_at, updated_at, repo_id, p.tier as tier, top_reply, p.coffee as coffee, post_type, views, completions, attempts, published, stripe_price_id,challenge_cost, workspace_config, p.workspace_settings, leads, embedded, r._id as reward_id, name, color_palette, render_in_front, exclusive_description, estimated_tutorial_time from post p join users u on p.author_id = u._id left join rewards r on r._id = u.avatar_reward where p._id = ? and ((visibility = ? and author_id = ?) or visibility = ?) limit 1",
+		"select p._id as _id, title, description, author, p.deleted as deleted, author_id, p.created_at as created_at, updated_at, repo_id, p.tier as tier, top_reply, p.coffee as coffee, post_type, views, completions, attempts, published, stripe_price_id,challenge_cost, workspace_config, p.workspace_settings, leads, embedded, r._id as reward_id, name, color_palette, render_in_front, exclusive_description, estimated_tutorial_time, p.start_time as start_time from post p join users u on p.author_id = u._id left join rewards r on r._id = u.avatar_reward where p._id = ? and ((visibility = ? and author_id = ?) or visibility = ?) limit 1",
 		projectId, models.PrivateVisibility, callerId, models.PublicVisibility,
 	)
 	if err != nil {

@@ -103,8 +103,10 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 	var enableHolidayThemes bool
 	var challengeType models.ChallengeType
 	var projectId int64
-	var projectType int64
+	var projectType models.CodeSource
 	var ephemeralUser bool
+	var createdAt time.Time
+	var startTime *time.Duration
 
 	// retrieve the user status for the owner
 	err := opts.DB.QueryRowContext(ctx, &span, &callerName,
@@ -120,9 +122,9 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 
 	// use owner ID to get data from a new workspace
 	err = opts.DB.QueryRowContext(ctx, &span, &callerName,
-		"select repo_id, commit, expiration, workspace_settings, init_state, state, code_source_id, code_source_type from workspaces where _id = ? and owner_id = ? limit 1",
+		"select repo_id, commit, expiration, workspace_settings, init_state, state, code_source_id, code_source_type, created_at, start_time from workspaces where _id = ? and owner_id = ? limit 1",
 		&opts.WorkspaceId, &opts.OwnerId,
-	).Scan(&repo, &commit, &expiration, &wsSettingsBytes, &initState, &state, &projectId, &projectType)
+	).Scan(&repo, &commit, &expiration, &wsSettingsBytes, &initState, &state, &projectId, &projectType, &createdAt, &startTime)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("failed to query workspaces: %v", err)
@@ -132,7 +134,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 
 	}
 
-	if projectType == 0 {
+	if projectType == models.CodeSourcePost {
 		err = opts.DB.QueryRowContext(ctx, &span, &callerName,
 			"SELECT post_type FROM post WHERE _id = ? LIMIT 1",
 			&projectId,
@@ -254,11 +256,65 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		accessPort,
 	)
 
-	// update the user stats for a new workspace but only if the user is not ephemeral
-	if initState != models.WorkspaceInitCompleted && !ephemeralUser {
-		err = opts.StreakEngine.UserStartWorkspace(ctx, opts.OwnerId)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start streak workspace for user %v: %v", opts.OwnerId, err)
+	// handle first start logic
+	if initState != models.WorkspaceInitCompleted {
+		// update the user stats for a new workspace but only if the user is not ephemeral
+		if !ephemeralUser {
+			err = opts.StreakEngine.UserStartWorkspace(ctx, opts.OwnerId)
+			if err != nil {
+				return nil, fmt.Errorf("failed to start streak workspace for user %v: %v", opts.OwnerId, err)
+			}
+		}
+
+		// record the time to start if we have never recorded it
+		if startTime == nil {
+			// calculate the time since the workspace was created
+			duration := time.Since(createdAt)
+			startTime = &duration
+
+			// open a tx
+			tx, err := opts.DB.BeginTx(ctx, &span, &callerName, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to begin transaction: %v", err)
+			}
+			defer tx.Rollback()
+
+			// update the workspace table with the start time
+			_, err = tx.ExecContext(
+				ctx, &callerName,
+				"update workspaces set start_time = ? where _id = ?",
+				startTime, opts.WorkspaceId,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update workspace start time: %v", err)
+			}
+
+			// update the post or attempt (dependent on the project type)
+			if projectType == models.CodeSourcePost {
+				_, err = tx.ExecContext(
+					ctx, &callerName,
+					"update post set start_time = ? where _id = ?",
+					startTime, projectId,
+				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to update post start time: %v", err)
+				}
+			} else {
+				_, err = tx.ExecContext(
+					ctx, &callerName,
+					"update attempt set start_time = ? where _id = ?",
+					startTime, projectId,
+				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to update attempt start time: %v", err)
+				}
+			}
+
+			// commit the tx
+			err = tx.Commit(&callerName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to commit transaction: %v", err)
+			}
 		}
 	}
 
