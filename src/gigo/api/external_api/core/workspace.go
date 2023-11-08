@@ -1028,7 +1028,7 @@ func GetWorkspaceStatus(ctx context.Context, db *ti.Database, vcsClient *git.VCS
 	callerName := "GetWorkspaceStatus"
 
 	// query database for workspace
-	res, err := db.QueryContext(ctx, &span, &callerName, "select _id, code_source_id, code_source_type, repo_id, created_at, owner_id, expiration, commit, state, init_state, init_failure, ports from workspaces where _id = ? and owner_id = ?", id, callingUser.ID)
+	res, err := db.QueryContext(ctx, &span, &callerName, "select _id, code_source_id, code_source_type, repo_id, created_at, owner_id, expiration, commit, state, init_state, init_failure, ports, is_vnc from workspaces where _id = ? and owner_id = ?", id, callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query workspace: %v", err)
 	}
