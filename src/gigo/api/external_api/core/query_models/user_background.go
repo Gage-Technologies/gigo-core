@@ -8,47 +8,51 @@ import (
 )
 
 type UserBackground struct {
-	ID                  int64             `json:"_id" sql:"_id"`
-	UserName            string            `json:"user_name" sql:"user_name"`
-	Password            string            `json:"password"`
-	Email               string            `json:"email" sql:"email"`
-	Phone               string            `json:"phone" sql:"phone"`
-	UserStatus          models.UserStatus `json:"user_status" sql:"user_status"`
-	EncryptedServiceKey []byte            `json:"encrypted_service_key" sql:"encrypted_service_key"`
-	RewardId            *int64            `json:"reward_id" sql:"reward_id"`
-	ColorPalette        *string           `json:"color_palette" sql:"color_palette"`
-	RenderInFront       *bool             `json:"render_in_front" sql:"render_in_front"`
-	Name                *string           `json:"name" sql:"name"`
-	FollowerCount       *uint64           `json:"follower_count" sql:"follower_count"`
-	Level               models.LevelType  `json:"level" sql:"level"`
-	Tier                models.TierType   `json:"tier" sql:"tier"`
-	Rank                models.RankType   `json:"user_rank" sql:"user_rank"`
-	Coffee              uint64            `json:"coffee" sql:"coffee"`
-	StripeAccount       *string           `json:"stripe_account" sql:"stripe_account"`
-	ExclusiveAgreement  bool              `json:"exclusive_agreement" sql:"exclusive_agreement"`
-	Tutorials           []byte            `json:"tutorials" sql:"tutorials"`
+	ID                  int64                     `json:"_id" sql:"_id"`
+	UserName            string                    `json:"user_name" sql:"user_name"`
+	Password            string                    `json:"password"`
+	Email               string                    `json:"email" sql:"email"`
+	Phone               string                    `json:"phone" sql:"phone"`
+	UserStatus          models.UserStatus         `json:"user_status" sql:"user_status"`
+	EncryptedServiceKey []byte                    `json:"encrypted_service_key" sql:"encrypted_service_key"`
+	RewardId            *int64                    `json:"reward_id" sql:"reward_id"`
+	ColorPalette        *string                   `json:"color_palette" sql:"color_palette"`
+	RenderInFront       *bool                     `json:"render_in_front" sql:"render_in_front"`
+	Name                *string                   `json:"name" sql:"name"`
+	FollowerCount       *uint64                   `json:"follower_count" sql:"follower_count"`
+	Level               models.LevelType          `json:"level" sql:"level"`
+	Tier                models.TierType           `json:"tier" sql:"tier"`
+	Rank                models.RankType           `json:"user_rank" sql:"user_rank"`
+	Coffee              uint64                    `json:"coffee" sql:"coffee"`
+	StripeAccount       *string                   `json:"stripe_account" sql:"stripe_account"`
+	ExclusiveAgreement  bool                      `json:"exclusive_agreement" sql:"exclusive_agreement"`
+	Tutorials           []byte                    `json:"tutorials" sql:"tutorials"`
+	AuthRole            models.AuthenticationRole `json:"auth_role" sql:"auth_role"`
+	StripeSubscription  *string                   `json:"stripe_subscription" sql:"stripe_subscription"`
 }
 
 type UserBackgroundFrontend struct {
-	ID                 string              `json:"_id" sql:"_id"`
-	PFPPath            string              `json:"pfp_path" sql:"pfp_path"`
-	UserName           string              `json:"user_name" sql:"user_name"`
-	Email              string              `json:"email" sql:"email"`
-	Phone              string              `json:"phone" sql:"phone"`
-	UserStatus         models.UserStatus   `json:"user_status" sql:"user_status"`
-	UserStatusString   string              `json:"user_status_string" sql:"user_status_string"`
-	RewardId           *string             `json:"reward_id" sql:"reward_id"`
-	ColorPalette       *string             `json:"color_palette" sql:"color_palette"`
-	RenderInFront      *bool               `json:"render_in_front" sql:"render_in_front"`
-	Name               *string             `json:"name" sql:"name"`
-	FollowerCount      *uint64             `json:"follower_count" sql:"follower_count"`
-	Level              models.LevelType    `json:"level" sql:"level"`
-	Tier               models.TierType     `json:"tier" sql:"tier"`
-	Rank               models.RankType     `json:"user_rank" sql:"user_rank"`
-	Coffee             uint64              `json:"coffee" sql:"coffee"`
-	StripeAccount      bool                `json:"stripe_account" sql:"stripe_account"`
-	ExclusiveAgreement bool                `json:"exclusive_agreement" sql:"exclusive_agreement"`
-	Tutorials          models.UserTutorial `json:"tutorials" sql:"tutorials"`
+	ID                 string                    `json:"_id" sql:"_id"`
+	PFPPath            string                    `json:"pfp_path" sql:"pfp_path"`
+	UserName           string                    `json:"user_name" sql:"user_name"`
+	Email              string                    `json:"email" sql:"email"`
+	Phone              string                    `json:"phone" sql:"phone"`
+	UserStatus         models.UserStatus         `json:"user_status" sql:"user_status"`
+	UserStatusString   string                    `json:"user_status_string" sql:"user_status_string"`
+	RewardId           *string                   `json:"reward_id" sql:"reward_id"`
+	ColorPalette       *string                   `json:"color_palette" sql:"color_palette"`
+	RenderInFront      *bool                     `json:"render_in_front" sql:"render_in_front"`
+	Name               *string                   `json:"name" sql:"name"`
+	FollowerCount      *uint64                   `json:"follower_count" sql:"follower_count"`
+	Level              models.LevelType          `json:"level" sql:"level"`
+	Tier               models.TierType           `json:"tier" sql:"tier"`
+	Rank               models.RankType           `json:"user_rank" sql:"user_rank"`
+	Coffee             uint64                    `json:"coffee" sql:"coffee"`
+	StripeAccount      bool                      `json:"stripe_account" sql:"stripe_account"`
+	ExclusiveAgreement bool                      `json:"exclusive_agreement" sql:"exclusive_agreement"`
+	Tutorials          models.UserTutorial       `json:"tutorials" sql:"tutorials"`
+	AuthRole           models.AuthenticationRole `json:"auth_role" sql:"auth_role"`
+	StripeSubscription *string                   `json:"stripe_subscription" sql:"stripe_subscription"`
 }
 
 func (i *UserBackground) ToFrontend() (*UserBackgroundFrontend, error) {
@@ -81,6 +85,11 @@ func (i *UserBackground) ToFrontend() (*UserBackgroundFrontend, error) {
 	var stripeAccount bool = false
 	if i.StripeAccount != nil {
 		stripeAccount = true
+	}
+
+	var stripeSubscription *string = nil
+	if i.StripeSubscription != nil {
+		stripeSubscription = i.StripeSubscription
 	}
 
 	// parse the tutorials from bytes to a model
@@ -116,6 +125,8 @@ func (i *UserBackground) ToFrontend() (*UserBackgroundFrontend, error) {
 		StripeAccount:      stripeAccount,
 		ExclusiveAgreement: i.ExclusiveAgreement,
 		Tutorials:          tutorials,
+		StripeSubscription: stripeSubscription,
+		AuthRole:           i.AuthRole,
 	}
 
 	return mf, nil

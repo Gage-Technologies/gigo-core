@@ -5,6 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/stripe/stripe-go/v74"
+	"github.com/stripe/stripe-go/v74/customer"
+	"github.com/stripe/stripe-go/v74/subscription"
+	"log"
 	"net/http"
 	"time"
 
@@ -50,7 +54,7 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 	callerName := "Login"
 
 	// query for user with passed credentials
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials from users u left join rewards r on r._id = u.avatar_reward where lower(user_name) = lower(?) limit 1", username)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role from users u left join rewards r on r._id = u.avatar_reward where lower(user_name) = lower(?) limit 1", username)
 	if err != nil {
 		return map[string]interface{}{
 			"message": "invalid username passed",
@@ -112,6 +116,43 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 		tutorials = models.DefaultUserTutorial
 	}
 
+	inTrial := false
+	hasPaymentInfo := false
+	hasSubscription := false
+	alreadyCancelled := false
+
+	if user.StripeSubscription != nil {
+		sub, err := subscription.Get(*user.StripeSubscription, nil)
+		if err != nil {
+			inTrial = false
+			hasPaymentInfo = false
+			hasSubscription = false
+			alreadyCancelled = false
+		}
+
+		// Check if the subscription is in trial
+		inTrial = sub.TrialEnd > 0 && sub.TrialEnd > time.Now().Unix()
+		hasSubscription = true
+		alreadyCancelled = sub.CancelAtPeriodEnd
+
+		customerId := sub.Customer.ID
+
+		pmParams := &stripe.CustomerListPaymentMethodsParams{
+			Customer: &customerId,
+		}
+
+		i := customer.ListPaymentMethods(pmParams)
+
+		for i.Next() {
+			hasPaymentInfo = true
+			break
+		}
+
+		if i.Err() != nil {
+			log.Println("Error retrieving payment methods:", i.Err())
+		}
+	}
+
 	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*30, 0, map[string]interface{}{
 		"user_status":         user.UserStatus,
 		"email":               user.Email,
@@ -125,6 +166,10 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 		"exclusive_agreement": user.ExclusiveAgreement,
 		"tutorials":           tutorials,
 		"tier":                user.Tier,
+		"in_trial":            inTrial,
+		"has_payment_info":    hasPaymentInfo,
+		"has_subscription":    hasSubscription,
+		"already_cancelled":   alreadyCancelled,
 	})
 	if err != nil {
 		return nil, "", err
@@ -194,7 +239,7 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 	googleId = tokenInfo.UserId
 
 	// query for user with passed credentials
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, user_status, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials from users u left join rewards r on r._id = u.avatar_reward where external_auth = ? limit 1", googleId)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, user_status, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role from users u left join rewards r on r._id = u.avatar_reward where external_auth = ? limit 1", googleId)
 	if err != nil {
 		return map[string]interface{}{
 			"message": "google account not linked to any users",
@@ -256,6 +301,43 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 		tutorials = models.DefaultUserTutorial
 	}
 
+	inTrial := false
+	hasPaymentInfo := false
+	hasSubscription := false
+	alreadyCancelled := false
+
+	if user.StripeSubscription != nil {
+		sub, err := subscription.Get(*user.StripeSubscription, nil)
+		if err != nil {
+			inTrial = false
+			hasPaymentInfo = false
+			hasSubscription = false
+			alreadyCancelled = false
+		}
+
+		// Check if the subscription is in trial
+		inTrial = sub.TrialEnd > 0 && sub.TrialEnd > time.Now().Unix()
+		hasSubscription = true
+		alreadyCancelled = sub.CancelAtPeriodEnd
+
+		customerId := sub.Customer.ID
+
+		pmParams := &stripe.CustomerListPaymentMethodsParams{
+			Customer: &customerId,
+		}
+
+		i := customer.ListPaymentMethods(pmParams)
+
+		for i.Next() {
+			hasPaymentInfo = true
+			break
+		}
+
+		if i.Err() != nil {
+			log.Println("Error retrieving payment methods:", i.Err())
+		}
+	}
+
 	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*30, 0, map[string]interface{}{
 		"user_status":         user.UserStatus,
 		"email":               user.Email,
@@ -269,6 +351,10 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 		"exclusive_agreement": user.ExclusiveAgreement,
 		"tutorials":           tutorials,
 		"tier":                user.Tier,
+		"in_trial":            inTrial,
+		"has_payment_info":    hasPaymentInfo,
+		"has_subscription":    hasSubscription,
+		"already_cancelled":   alreadyCancelled,
 	})
 	if err != nil {
 		return nil, "", err
@@ -334,7 +420,7 @@ func LoginWithGithub(ctx context.Context, tidb *ti.Database, storageEngine stora
 	ghId := int64(m["id"].(float64))
 
 	// query for user with passed credentials
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, user_status, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials from users u left join rewards r on r._id = u.avatar_reward where external_auth = ? limit 1", ghId)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, user_status, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role from users u left join rewards r on r._id = u.avatar_reward where external_auth = ? limit 1", ghId)
 	if err != nil {
 		return map[string]interface{}{
 			"message": "github account not linked to any users",
@@ -412,7 +498,7 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 
 	// query for user with passed credentials
 	res, err := tidb.QueryContext(ctx, &span, &callerName,
-		"select color_palette, render_in_front, name, tutorials from users u left join rewards r on r._id = u.avatar_reward where user_name = ? limit 1", callingUser.UserName,
+		"select color_palette, render_in_front, name, tutorials, stripe_subscription, auth_role from users u left join rewards r on r._id = u.avatar_reward where user_name = ? limit 1", callingUser.UserName,
 	)
 	if err != nil {
 		return map[string]interface{}{
@@ -449,6 +535,43 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 		tutorials = models.DefaultUserTutorial
 	}
 
+	inTrial := false
+	hasPaymentInfo := false
+	hasSubscription := false
+	alreadyCancelled := false
+
+	if user.StripeSubscription != nil {
+		sub, err := subscription.Get(*user.StripeSubscription, nil)
+		if err != nil {
+			inTrial = false
+			hasPaymentInfo = false
+			hasSubscription = false
+			alreadyCancelled = false
+		}
+
+		// Check if the subscription is in trial
+		inTrial = sub.TrialEnd > 0 && sub.TrialEnd > time.Now().Unix()
+		hasSubscription = true
+		alreadyCancelled = sub.CancelAtPeriodEnd
+
+		customerId := sub.Customer.ID
+
+		pmParams := &stripe.CustomerListPaymentMethodsParams{
+			Customer: &customerId,
+		}
+
+		i := customer.ListPaymentMethods(pmParams)
+
+		for i.Next() {
+			hasPaymentInfo = true
+			break
+		}
+
+		if i.Err() != nil {
+			log.Println("Error retrieving payment methods:", i.Err())
+		}
+	}
+
 	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*30, 0, map[string]interface{}{
 		"user_status":         callingUser.UserStatus,
 		"email":               callingUser.Email,
@@ -463,6 +586,10 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 		"exclusive_account":   accountValid,
 		"tutorials":           tutorials,
 		"tier":                callingUser.Tier,
+		"in_trial":            inTrial,
+		"has_payment_info":    hasPaymentInfo,
+		"has_subscription":    hasSubscription,
+		"already_cancelled":   alreadyCancelled,
 	})
 	if err != nil {
 		return nil, "", err

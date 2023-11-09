@@ -3,6 +3,10 @@ package core
 import (
 	"context"
 	"fmt"
+	"github.com/stripe/stripe-go/v74"
+	"github.com/stripe/stripe-go/v74/customer"
+	"github.com/stripe/stripe-go/v74/subscription"
+	"log"
 
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
@@ -62,9 +66,44 @@ func VerifyUserOtp(ctx context.Context, callingUser *models.User, db *ti.Databas
 	if valid {
 		accountValid := false
 
+		inTrial := false
+		hasPaymentInfo := false
+		hasSubscription := false
+		alreadyCancelled := false
+
 		if callingUser.StripeAccount != nil {
 			accountValid = true
+			sub, err := subscription.Get(*callingUser.StripeSubscription, nil)
+			if err != nil {
+				inTrial = false
+				hasPaymentInfo = false
+				hasSubscription = false
+				alreadyCancelled = false
+			}
+
+			// Check if the subscription is in trial
+			inTrial = sub.TrialEnd > 0 && sub.TrialEnd > time.Now().Unix()
+			hasSubscription = true
+			alreadyCancelled = sub.CancelAtPeriodEnd
+
+			customerId := sub.Customer.ID
+
+			pmParams := &stripe.CustomerListPaymentMethodsParams{
+				Customer: &customerId,
+			}
+
+			i := customer.ListPaymentMethods(pmParams)
+
+			for i.Next() {
+				hasPaymentInfo = true
+				break
+			}
+
+			if i.Err() != nil {
+				log.Println("Error retrieving payment methods:", i.Err())
+			}
 		}
+
 		// create a token for the user session
 		t, err := utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", callingUser.ID), ip, 24*30, 0, map[string]interface{}{
 			"user_status":         callingUser.UserStatus,
@@ -74,6 +113,10 @@ func VerifyUserOtp(ctx context.Context, callingUser *models.User, db *ti.Databas
 			"thumbnail":           fmt.Sprintf("/static/user/pfp/%v", callingUser.ID),
 			"exclusive_content":   accountValid,
 			"exclusive_agreement": callingUser.ExclusiveAgreement,
+			"in_trial":            inTrial,
+			"has_payment_info":    hasPaymentInfo,
+			"has_subscription":    hasSubscription,
+			"already_cancelled":   alreadyCancelled,
 		})
 		if err != nil {
 			return nil, "", err
