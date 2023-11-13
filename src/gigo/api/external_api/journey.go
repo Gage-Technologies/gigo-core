@@ -59,6 +59,15 @@ func (s *HTTPServer) SaveJourneyInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// attempt to load parameter from body
+	aptitude, ok := s.loadValue(w, r, reqJson, "SaveJourneyInfo", "aptitude_level", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if aptitude == nil || !ok {
+		return
+	}
+
+	// load the aptitude level into the journey info
+	journeyInfo.AptitudeLevel = aptitude.(string)
+
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
