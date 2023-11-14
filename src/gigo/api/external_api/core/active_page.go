@@ -36,7 +36,8 @@ select
     coffee, 
     updated_at, 
     _id,
-    post_type
+    post_type,
+    title
 from attempt 
 where 
     author_id = ? and 
@@ -82,7 +83,8 @@ select
     coffee,
     updated_at,
     _id,
-    post_type
+    post_type,
+    title
 from attempt 
 where 
     author_id = ? and 
