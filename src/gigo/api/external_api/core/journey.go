@@ -108,7 +108,7 @@ func CheckJourneyInfo(ctx context.Context, tiDB *ti.Database, callingUser *model
 // TODO make sure all necessary workspace config functionality is implemented
 
 func CreateJourneyUnit(ctx context.Context, tiDB *ti.Database, sf *snowflake.Node, callingUser *models.User,
-	title string, unitFocus models.UnitFocus, languages []models.ProgrammingLanguage, description string,
+	title string, unitFocus models.UnitFocus, visibility models.PostVisibility, languages []models.ProgrammingLanguage, description string,
 	tags []string, tier models.TierType, challengeCost *string, vcsClient *git.VCSClient, workspaceConfigContent string,
 	workspaceConfigTitle string, workspaceConfigDescription string, workspaceConfigLangs []models.ProgrammingLanguage,
 	workspaceSettings *models.WorkspaceSettings, estimatedTutorialTime *time.Duration) (map[string]interface{}, error) {
@@ -248,7 +248,7 @@ func CreateJourneyUnit(ctx context.Context, tiDB *ti.Database, sf *snowflake.Nod
 	)
 
 	// create new journey unit
-	journey, err := models.CreateJourneyUnit(id, title, unitFocus, languages, description,
+	journey, err := models.CreateJourneyUnit(id, title, unitFocus, callingUser.ID, visibility, languages, description,
 		repo.ID, time.Now(), time.Now(), tags, tier, workspaceSettings, wsCfg.ID, estimatedTutorialTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new journey unit: %v", err)
@@ -369,7 +369,7 @@ func CreateJourneyProject(ctx context.Context, tiDB *ti.Database, sf *snowflake.
 func CreateJourneyUnitAttempt(ctx context.Context, tiDB *ti.Database, vcsClient *git.VCSClient, userSession *models.UserSession, sf *snowflake.Node, callingUser *models.User,
 	parentUnit int64, title string, unitFocus models.UnitFocus, languages []models.ProgrammingLanguage,
 	description string, repoID int64, tags []string, tier models.TierType,
-	workspaceConfig int64,
+	workspaceConfig int64, parentUnitAuthorID int64, parentUnitVisibility models.PostVisibility,
 	workspaceConfigRevision int, workspaceSettings *models.WorkspaceSettings,
 	estimatedTutorialTime *time.Duration) (map[string]interface{}, error) {
 
@@ -377,23 +377,36 @@ func CreateJourneyUnitAttempt(ctx context.Context, tiDB *ti.Database, vcsClient 
 	defer span.End()
 	callerName := "CreateJourneyUnitAttempt"
 
-	///TODO ADD AUTHOR ID TO JOURNEY UNIT FOR QUERYING PURPOSES
-
 	// ensure that post is not Exclusive
-	if postVisibility == models.ExclusiveVisibility {
-		return nil, fmt.Errorf("You can't start this attempt yet. This Challenge is an Exclusive Challenge " +
+	if parentUnitVisibility == models.ExclusiveVisibility {
+		return nil, fmt.Errorf("You can't start this attempt yet. This Journey Unit is an Exclusive Unit " +
 			"and must be purchased.")
 	}
 
 	// ensure that the user is premium if this is a Premium challenge
-	if postVisibility == models.PremiumVisibility && callingUser.UserStatus != models.UserStatusPremium {
-		return nil, fmt.Errorf("You can't start this attempt yet. This Challenge is a Premium Challenge and " +
+	if parentUnitVisibility == models.PremiumVisibility && callingUser.UserStatus != models.UserStatusPremium {
+		return nil, fmt.Errorf("You can't start this attempt yet. This Unit is a Premium Unit and " +
 			"is only accessible to Premium users. Go tou the Account Settings page to upgrade your account.")
 	}
 
+	// create variables to hold post data
+	var unitTitle string
+	var unitDesc string
+	var unitAuthorId int64
+	var unitVisibility models.PostVisibility
+
+	// retrieve post
+	err := tiDB.QueryRowContext(ctx, &span, &callerName,
+		"select title, description, author_id, visibility from journey_units where _id = ? limit 1", parentUnit,
+	).Scan(&unitTitle, &unitDesc, &unitAuthorId, &unitVisibility)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for post: %v\n    query: %s\n    params: %v", err,
+			"select repo_id from journey_units where _id = ?", []interface{}{parentUnit})
+	}
+
 	// create source repo path
-	repoOwner := fmt.Sprintf("%d", postAuthorId)
-	repoName := fmt.Sprintf("%d", postId)
+	repoOwner := fmt.Sprintf("%d", unitAuthorId)
+	repoName := fmt.Sprintf("%d", parentUnit)
 
 	id := sf.Generate().Int64()
 
@@ -429,7 +442,7 @@ func CreateJourneyUnitAttempt(ctx context.Context, tiDB *ti.Database, vcsClient 
 	}
 
 	// fork post repo into user owned attempt repo
-	newRepoId := fmt.Sprintf("%d", attempt.ID)
+	newRepoId := fmt.Sprintf("%d", journey.ID)
 	repo, gitRes, err := userGitClient.CreateFork(repoOwner, repoName, gitea.CreateForkOption{Name: &newRepoId})
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -474,14 +487,14 @@ func CreateJourneyUnitAttempt(ctx context.Context, tiDB *ti.Database, vcsClient 
 		return nil, fmt.Errorf("failed to commit tx: %v", err)
 	}
 
-	return map[string]interface{}{"message": "journey project created"}, nil
+	return map[string]interface{}{"message": "journey unit attempt created"}, nil
 
 }
 
 // todo create journey unit project attempt
 func CreateJourneyProjectAttempt(ctx context.Context, tiDB *ti.Database, sf *snowflake.Node, callingUser *models.User,
 	unitID int64, parentProject int64, workingDirectory string, title string, description string,
-	language *models.ProgrammingLanguage, tags []string, dependencies []models.JourneyDependencies,
+	language models.ProgrammingLanguage, tags []string, dependencies []int64,
 	estimatedTutorialTime *time.Duration) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-journey-project-attempt-core")
@@ -492,6 +505,67 @@ func CreateJourneyProjectAttempt(ctx context.Context, tiDB *ti.Database, sf *sno
 	if callingUser == nil || callingUser.UserName != "gigo" || callingUser.AuthRole != models.Admin {
 		return nil, fmt.Errorf("callinguser is not an admin. CreateJourneyProjectAttempt core")
 	}
+
+	var exists bool
+	query := "SELECT EXISTS(SELECT 1 FROM journey_unit_attempts WHERE _id = ?)"
+	err := tiDB.QueryRowContext(ctx, &span, &callerName, query, unitID).Scan(&exists)
+	if err != nil {
+		// Handle the error, which could be because of a variety of reasons, like no rows in result set
+		return nil, fmt.Errorf("failed to check for existsing journey unit: %v", err)
+	}
+
+	if !exists {
+		return map[string]interface{}{"message": "journey unit does not exist"}, nil
+	}
+
+	exists = false
+	query = "SELECT EXISTS(SELECT 1 FROM journey_unit_projects WHERE _id = ?)"
+	err = tiDB.QueryRowContext(ctx, &span, &callerName, query, parentProject).Scan(&exists)
+	if err != nil {
+		// Handle the error, which could be because of a variety of reasons, like no rows in result set
+		return nil, fmt.Errorf("failed to check for existsing journey unit: %v", err)
+	}
+
+	if !exists {
+		return map[string]interface{}{"message": "journey unit does not exist"}, nil
+	}
+
+	id := sf.Generate().Int64()
+
+	// create new journey unit
+	journey, err := models.CreateJourneyUnitProjectAttempts(id, unitID, parentProject, false, workingDirectory, title, description,
+		language, tags, dependencies, estimatedTutorialTime)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new journey project: %v", err)
+	}
+
+	journeyInsertion := journey.ToSQLNative()
+
+	// create tx for insertion
+	tx, err := tiDB.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create insert tx: %v", err)
+	}
+
+	// defer rollback in case we fail
+	defer tx.Rollback()
+
+	// iterate insertion statements executing insertions via tx
+	for _, statement := range journeyInsertion {
+		_, err := tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert journey unit: %v", err)
+		}
+	}
+
+	// commit tx
+	err = tx.Commit(&callerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit tx: %v", err)
+	}
+
+	return map[string]interface{}{"message": "journey project attempt created"}, nil
+
 }
 
 // todo delete journey unit
