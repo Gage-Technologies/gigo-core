@@ -697,7 +697,7 @@ func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 	if title != nil {
 		// update post description if user is the original owner
-		_, err := tx.ExecContext(ctx, &callerName, "update attempt set post_title = ? where _id = ?", title, id)
+		_, err := tx.ExecContext(ctx, &callerName, "update attempt set title = ? where _id = ?", title, id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to edit post title: %v", err)
 		}
