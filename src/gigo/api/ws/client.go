@@ -20,6 +20,14 @@ var (
 	ErrAlternativeRequestActive = fmt.Errorf("alternative request active")
 )
 
+// ResourceUtilization
+//
+// Utilization of a workspace
+type ResourceUtilization struct {
+	CPU float64
+	Mem float64
+}
+
 // CreateWorkspaceOptions
 //
 //	Options used to create a new workspace.
@@ -467,6 +475,42 @@ func (c *WorkspaceClient) DestroyWorkspace(ctx context.Context, workspaceId int6
 	}
 
 	return nil
+}
+
+// GetResourceUtil
+//
+//	Retrieves the utilization of a workspace
+func (c *WorkspaceClient) GetResourceUtil(ctx context.Context, workspaceId, ownerId int64) (*ResourceUtilization, error) {
+	// retrieve a client
+	client, err := c.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve a client: %v", err)
+	}
+
+	// execute remote provision call
+	res, err := client.GetResourceUtil(ctx, &proto.GetResourceUtilRequest{
+		WorkspaceId: workspaceId,
+		OwnerId:     ownerId,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource util: %v", err)
+	}
+
+	// check status code
+	if res.GetStatus() != proto.ResponseCode_SUCCESS {
+		// handle go error
+		if res.GetError() != nil && res.GetError().GetGoError() != "" {
+			return nil, fmt.Errorf("remote server error failed to get resource util: %v", res.GetError().GetGoError())
+		}
+
+		// handle unknown error
+		return nil, selectError(res.GetStatus(), fmt.Errorf("failed to get resource util: %v", res.GetStatus().String()))
+	}
+
+	return &ResourceUtilization{
+		CPU: res.GetCpu(),
+		Mem: res.GetMemory(),
+	}, nil
 }
 
 func selectError(code proto.ResponseCode, fallbackErr error) error {
