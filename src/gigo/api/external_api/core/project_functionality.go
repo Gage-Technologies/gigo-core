@@ -913,10 +913,11 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	// conditionally load parent attempt data for repo
 	if parentAttempt != nil {
 		var attemptOwner int64
+		var closed bool
 		err = tidb.QueryRowContext(ctx, &span, &callerName,
-			"select author_id from attempt where _id = ? limit 1",
+			"select author_id, closed from attempt where _id = ? limit 1",
 			*parentAttempt,
-		).Scan(&attemptOwner)
+		).Scan(&attemptOwner, &closed)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return map[string]interface{}{
@@ -927,6 +928,10 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 		}
 		repoOwner = fmt.Sprintf("%d", attemptOwner)
 		repoName = fmt.Sprintf("%d", *parentAttempt)
+
+		if !closed {
+			return map[string]interface{}{"message": "Attempt must be published first."}, nil
+		}
 	}
 
 	// create a new attempt
