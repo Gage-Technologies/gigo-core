@@ -1567,8 +1567,13 @@ func (s *HTTPServer) CloseAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userName, ok := s.loadValue(w, r, reqJson, "CloseAttempt", "title", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if userName == nil || !ok {
+		return
+	}
+
 	// execute core function logic
-	res, err := core.CloseAttempt(ctx, s.tiDB, s.vscClient, callingUser.(*models.User), attemptId)
+	res, err := core.CloseAttempt(ctx, s.tiDB, s.vscClient, callingUser.(*models.User), attemptId, userName.(string))
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})

@@ -1525,7 +1525,7 @@ func compareStructs(a, b interface{}) []string {
 	return diffs
 }
 
-func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, callingUser *models.User, attemptId int64) (map[string]interface{}, error) {
+func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, callingUser *models.User, attemptId int64, title string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "close-attempt-core")
 	defer span.End()
 	callerName := "CloseAttempt"
@@ -1551,8 +1551,8 @@ func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	_ = res.Close()
 
 	// mark the selected attempt as closed and mark the date
-	_, err = tidb.ExecContext(ctx, &span, &callerName, "update attempt set closed = ?, closed_date = ? where author_id = ? and _id = ?",
-		true, time.Now().Format("2006-01-02"), callingUser.ID, attemptId)
+	_, err = tidb.ExecContext(ctx, &span, &callerName, "update attempt set closed = ?, closed_date = ?, title = ? where author_id = ? and _id = ?",
+		true, time.Now().Format("2006-01-02"), title, callingUser.ID, attemptId)
 	if err != nil {
 		return map[string]interface{}{"message": "failed to close attempt"}, fmt.Errorf("failed to close attempt: %v", err)
 	}
