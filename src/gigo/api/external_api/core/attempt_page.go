@@ -107,7 +107,7 @@ func AttemptInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.V
 	defer span.End()
 	callerName := "AttemptInformation"
 	// query for all active projects for specified user
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select a._id as _id, post_title, description, author, author_id, a.created_at as created_at, updated_at, repo_id, author_tier, a.coffee as coffee, post_id, closed, success, closed_date, a.tier as tier, parent_attempt, a.workspace_settings, r._id as reward_id, color_palette, render_in_front, name, a.post_type as post_type, a.start_time as start_time from attempt a left join users u on a.author_id = u._id left join rewards r on r._id = u.avatar_reward where a._id = ? limit 1", attemptId)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select a._id as _id, post_title, description, author, author_id, a.created_at as created_at, updated_at, repo_id, author_tier, a.coffee as coffee, post_id, closed, success, closed_date, a.tier as tier, parent_attempt, a.workspace_settings, r._id as reward_id, color_palette, render_in_front, name, a.post_type as post_type, a.start_time as start_time, title from attempt a left join users u on a.author_id = u._id left join rewards r on r._id = u.avatar_reward where a._id = ? limit 1", attemptId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query attempt information: %v", err)
 	}

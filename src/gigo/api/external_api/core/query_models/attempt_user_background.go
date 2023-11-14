@@ -17,6 +17,7 @@ import (
 type AttemptUserBackground struct {
 	ID                int64                     `json:"_id" sql:"_id"`
 	PostTitle         string                    `json:"post_title" sql:"post_title"`
+	Title             *string                   `json:"title" sql:"title"`
 	Description       string                    `json:"description" sql:"description"`
 	Author            string                    `json:"author" sql:"author"`
 	AuthorID          int64                     `json:"author_id" sql:"author_id"`
@@ -44,6 +45,7 @@ type AttemptUserBackground struct {
 type AttemptUserBackgroundSQL struct {
 	ID                int64                `json:"_id" sql:"_id"`
 	PostTitle         string               `json:"post_title" sql:"post_title"`
+	Title             *string              `json:"title" sql:"title"`
 	Description       string               `json:"description" sql:"description"`
 	Author            string               `json:"author" sql:"author"`
 	AuthorID          int64                `json:"author_id" sql:"author_id"`
@@ -71,6 +73,7 @@ type AttemptUserBackgroundSQL struct {
 type AttemptUserBackgroundFrontend struct {
 	ID              string               `json:"_id" sql:"_id"`
 	PostTitle       string               `json:"post_title" sql:"post_title"`
+	Title           *string              `json:"title" sql:"title"`
 	Description     string               `json:"description" sql:"description"`
 	Author          string               `json:"author" sql:"author"`
 	AuthorID        string               `json:"author_id" sql:"author_id"`
@@ -165,6 +168,7 @@ func AttemptUserBackgroundFromSQLNative(ctx context.Context, db *ti.Database, ro
 		RenderInFront:     attemptSQL.RenderInFront,
 		PostType:          attemptSQL.PostType,
 		StartTime:         attemptSQL.StartTime,
+		Title:             attemptSQL.Title,
 	}
 
 	return attempt, nil
@@ -211,6 +215,11 @@ func (i *AttemptUserBackground) ToFrontend() *AttemptUserBackgroundFrontend {
 		startTimeMillis = &millis
 	}
 
+	var title *string = nil
+	if i.Title != nil {
+		title = i.Title
+	}
+
 	// create new attempt frontend
 	mf := &AttemptUserBackgroundFrontend{
 		ID:              fmt.Sprintf("%d", i.ID),
@@ -238,6 +247,7 @@ func (i *AttemptUserBackground) ToFrontend() *AttemptUserBackgroundFrontend {
 		PostType:        i.PostType,
 		PostTypeString:  i.PostType.String(),
 		StartTimeMillis: startTimeMillis,
+		Title:           title,
 	}
 
 	return mf
