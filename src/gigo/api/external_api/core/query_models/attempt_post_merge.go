@@ -6,22 +6,22 @@ import (
 )
 
 type AttemptPostMerge struct {
-	PostId      int64                `json:"post_id" sql:"post_id"`
-	PostTitle   string               `json:"post_title" sql:"post_title"`
-	Title       *string              `json:"title" sql:"title"`
-	Description string               `json:"description" sql:"description"`
-	Tier        models.TierType      `json:"tier" sql:"tier"`
-	Coffee      int64                `json:"coffee" sql:"coffee"`
-	UpdatedAt   string               `json:"updated_at" sql:"updated_at"`
-	ID          int64                `json:"_id" sql:"_id"`
-	Thumbnail   string               `json:"thumbnail" sql:"thumbnail"`
-	PostType    models.ChallengeType `json:"post_type" sql:"post_type"`
+	PostId       int64                `json:"post_id" sql:"post_id"`
+	PostTitle    string               `json:"post_title" sql:"post_title"`
+	AttemptTitle *string              `json:"attempt_title" sql:"attempt_title"`
+	Description  string               `json:"description" sql:"description"`
+	Tier         models.TierType      `json:"tier" sql:"tier"`
+	Coffee       int64                `json:"coffee" sql:"coffee"`
+	UpdatedAt    string               `json:"updated_at" sql:"updated_at"`
+	ID           int64                `json:"_id" sql:"_id"`
+	Thumbnail    string               `json:"thumbnail" sql:"thumbnail"`
+	PostType     models.ChallengeType `json:"post_type" sql:"post_type"`
 }
 
 type AttemptPostMergeFrontend struct {
 	PostId         string               `json:"post_id"`
 	PostTitle      string               `json:"post_title"`
-	Title          *string              `json:"title" sql:"title"`
+	AttemptTitle   *string              `json:"attempt_title" sql:"attempt_title"`
 	Description    string               `json:"description"`
 	Tier           models.TierType      `json:"tier"`
 	Coffee         string               `json:"coffee"`
@@ -34,8 +34,8 @@ type AttemptPostMergeFrontend struct {
 
 func (merge AttemptPostMerge) ToFrontend() AttemptPostMergeFrontend {
 	var title *string = nil
-	if merge.Title != nil {
-		title = merge.Title
+	if merge.AttemptTitle != nil {
+		title = merge.AttemptTitle
 	}
 	mf := AttemptPostMergeFrontend{
 		PostId:         fmt.Sprintf("%v", merge.PostId),
@@ -48,7 +48,7 @@ func (merge AttemptPostMerge) ToFrontend() AttemptPostMergeFrontend {
 		Thumbnail:      merge.Thumbnail,
 		PostType:       merge.PostType,
 		PostTypeString: merge.PostType.String(),
-		Title:          title,
+		AttemptTitle:   title,
 	}
 	return mf
 }

@@ -22,7 +22,8 @@ select
     coffee, 
     updated_at, 
     -1 as _id,
-    post_type
+    post_type,
+    NULL as attempt_title
 from post 
 where 
     author_id = ? and 
@@ -69,7 +70,8 @@ select
     coffee,
     updated_at,
     -1 as _id,
-    post_type
+    post_type,
+    NULL as attempt_title
 from post 
 where 
     author_id = ? and 
@@ -113,7 +115,7 @@ func PastWeekActive(ctx context.Context, callingUser *models.User, tidb *ti.Data
 	for res.Next() {
 		var project query_models.AttemptPostMerge
 
-		err = res.Scan(&project.PostId, &project.PostTitle, &project.Description, &project.Tier, &project.Coffee, &project.UpdatedAt, &project.ID, &project.PostType)
+		err = res.Scan(&project.PostId, &project.PostTitle, &project.Description, &project.Tier, &project.Coffee, &project.UpdatedAt, &project.ID, &project.PostType, &project.AttemptTitle)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan post from cursor: %v", err)
 		}
@@ -213,7 +215,7 @@ func DontGiveUpActive(ctx context.Context, callingUser *models.User, tidb *ti.Da
 	for res.Next() {
 		var project query_models.AttemptPostMerge
 
-		err = res.Scan(&project.PostId, &project.PostTitle, &project.Description, &project.Tier, &project.Coffee, &project.UpdatedAt, &project.ID, &project.PostType)
+		err = res.Scan(&project.PostId, &project.PostTitle, &project.Description, &project.Tier, &project.Coffee, &project.UpdatedAt, &project.ID, &project.PostType, &project.AttemptTitle)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan post from cursor: %v", err)
 		}
