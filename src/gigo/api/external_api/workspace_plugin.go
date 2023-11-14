@@ -376,8 +376,8 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 
 func (p *WebSocketPluginWorkspace) resourceUtilRoutine() {
 	// loop forever loading the resource utilization data
-	// for each workspace every 15s
-	ticker := time.NewTicker(time.Second * 15)
+	// for each workspace every 10s
+	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
 	user := p.socket.user.Load()
 	if user == nil {
@@ -442,8 +442,12 @@ func (p *WebSocketPluginWorkspace) resourceUtilRoutine() {
 					models2.WorkspaceStatusUpdateMsg{
 						Workspace: wsState,
 						Resources: &models2.WorkspaceResourceUtil{
-							CPU:    util.CPU,
-							Memory: util.Mem,
+							CPU:         util.CPU,
+							Memory:      util.Mem,
+							CPULimit:    util.CPULimit,
+							MemoryLimit: util.MemLimit,
+							CPUUsage:    util.CPUUsage,
+							MemoryUsage: util.MemUsage,
 						},
 					},
 				)

@@ -24,8 +24,12 @@ var (
 //
 // Utilization of a workspace
 type ResourceUtilization struct {
-	CPU float64
-	Mem float64
+	CPU      float64
+	Mem      float64
+	CPULimit int64
+	MemLimit int64
+	CPUUsage int64
+	MemUsage int64
 }
 
 // CreateWorkspaceOptions
@@ -508,8 +512,12 @@ func (c *WorkspaceClient) GetResourceUtil(ctx context.Context, workspaceId, owne
 	}
 
 	return &ResourceUtilization{
-		CPU: res.GetCpu(),
-		Mem: res.GetMemory(),
+		CPU:      res.GetCpu(),
+		Mem:      res.GetMemory(),
+		CPULimit: res.GetCpuLimit(),
+		MemLimit: res.GetMemoryLimit(),
+		CPUUsage: res.GetCpuUsage(),
+		MemUsage: res.GetMemoryUsage(),
 	}, nil
 }
 
