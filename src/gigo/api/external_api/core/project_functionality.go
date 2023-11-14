@@ -697,7 +697,7 @@ func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 	if title != nil {
 		// update post description if user is the original owner
-		_, err := tx.ExecContext(ctx, &callerName, "update attempt set post_title = ? where _id = ?", title, id)
+		_, err := tx.ExecContext(ctx, &callerName, "update attempt set title = ? where _id = ?", title, id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to edit post title: %v", err)
 		}
@@ -913,10 +913,11 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	// conditionally load parent attempt data for repo
 	if parentAttempt != nil {
 		var attemptOwner int64
+		var closed bool
 		err = tidb.QueryRowContext(ctx, &span, &callerName,
-			"select author_id from attempt where _id = ? limit 1",
+			"select author_id, closed from attempt where _id = ? limit 1",
 			*parentAttempt,
-		).Scan(&attemptOwner)
+		).Scan(&attemptOwner, &closed)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return map[string]interface{}{
@@ -927,6 +928,10 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 		}
 		repoOwner = fmt.Sprintf("%d", attemptOwner)
 		repoName = fmt.Sprintf("%d", *parentAttempt)
+
+		if !closed {
+			return map[string]interface{}{"message": "Attempt must be published first."}, nil
+		}
 	}
 
 	// create a new attempt
@@ -1525,7 +1530,7 @@ func compareStructs(a, b interface{}) []string {
 	return diffs
 }
 
-func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, callingUser *models.User, attemptId int64) (map[string]interface{}, error) {
+func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, callingUser *models.User, attemptId int64, title string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "close-attempt-core")
 	defer span.End()
 	callerName := "CloseAttempt"
@@ -1551,8 +1556,8 @@ func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	_ = res.Close()
 
 	// mark the selected attempt as closed and mark the date
-	_, err = tidb.ExecContext(ctx, &span, &callerName, "update attempt set closed = ?, closed_date = ? where author_id = ? and _id = ?",
-		true, time.Now().Format("2006-01-02"), callingUser.ID, attemptId)
+	_, err = tidb.ExecContext(ctx, &span, &callerName, "update attempt set closed = ?, closed_date = ?, title = ? where author_id = ? and _id = ?",
+		true, time.Now().Format("2006-01-02"), title, callingUser.ID, attemptId)
 	if err != nil {
 		return map[string]interface{}{"message": "failed to close attempt"}, fmt.Errorf("failed to close attempt: %v", err)
 	}
