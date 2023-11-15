@@ -3,3 +3,4 @@
 .vscode
 .env
 dev/.env
+dev/data/ziti
