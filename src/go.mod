@@ -128,12 +128,6 @@ require (
 )
 
 require (
-	github.com/beevik/etree v1.1.0 // indirect
-	github.com/fatih/structs v1.1.0 // indirect
-	github.com/imdario/mergo v0.3.12 // indirect
-)
-
-require (
 	cdr.dev/slog v1.4.2-0.20220525200111-18dce5c2cd5f // indirect
 	cloud.google.com/go v0.110.0 // indirect
 	cloud.google.com/go/compute v1.19.0 // indirect
@@ -185,7 +179,6 @@ require (
 	github.com/hashicorp/hcl/v2 v2.14.0 // indirect
 	github.com/hashicorp/terraform-json v0.14.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
-	github.com/ikeikeikeike/go-sitemap-generator v1.0.2
 	github.com/illarion/gonotify v1.0.1 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect

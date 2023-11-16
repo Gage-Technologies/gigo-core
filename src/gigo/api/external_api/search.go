@@ -817,6 +817,20 @@ func (s *HTTPServer) SearchWorkspaceConfigs(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// attempt to load search user bool
+	searchUserI, ok := s.loadValue(w, r, reqJson, "SearchWorkspaceConfigs", "search_user", reflect.Bool, nil, true, userName, userId)
+	if !ok {
+		return
+	}
+
+	var searchUser *int64
+	if searchUserI != nil {
+		if searchUserI.(bool) {
+			searchUserId := callingUser.(*models.User).ID
+			searchUser = &searchUserId
+		}
+	}
+
 	// attempt to load parameter from body
 	langsType := reflect.Float64
 	languagesI, ok := s.loadValue(w, r, reqJson, "SearchWorkspaceConfigs", "languages", reflect.Slice, &langsType, true, userName, userId)
@@ -892,7 +906,7 @@ func (s *HTTPServer) SearchWorkspaceConfigs(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// execute core function logic
-	res, err := core.SearchWorkspaceConfigs(ctx, s.tiDB, s.meili, query.(string), languages, tags, int(skip.(float64)), int(limit.(float64)))
+	res, err := core.SearchWorkspaceConfigs(ctx, s.tiDB, s.meili, query.(string), languages, tags, int(skip.(float64)), int(limit.(float64)), searchUser)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
