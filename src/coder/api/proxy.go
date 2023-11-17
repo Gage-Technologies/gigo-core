@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"embed"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -16,6 +18,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/network"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/gorilla/mux"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -480,11 +483,10 @@ func (api *WorkspaceAPI) proxyWorkspacePort(opts proxyWorkspacePortOptions, rw h
 	// format user id to string
 	callingId := fmt.Sprintf("%d", opts.CallingUser.ID)
 
-	// format app url using the provided port and parse into a native url type
-	// NOTE: it doesn't matter what the ip is here just that it is valid
-	// and holds the port we care about since we're going to swap it for the
-	// tailnet ip address anyway
-	appURL, err := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", opts.Port))
+	// the only thing that matters in the app url is the scheme since
+	// we are offloading to the zitinet which will handle the port and
+	// host on the agent side of the zitinet
+	appURL, err := url.Parse("http://dummy-host")
 	if err != nil {
 		api.HandleError(rw, "failed to parse internal app url", r.URL.Path, "proxyWorkspacePort",
 			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), opts.CallingUser.UserName,
@@ -500,17 +502,15 @@ func (api *WorkspaceAPI) proxyWorkspacePort(opts proxyWorkspacePortOptions, rw h
 		return
 	}
 
-	conn, release, err := api.WorkspaceAgentCache.Acquire(r, opts.AgentID)
-	if err != nil {
-		api.HandleError(rw, "failed to connect to workspace agent", r.URL.Path, "proxyWorkspacePort",
-			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), opts.CallingUser.UserName,
-			callingId, http.StatusBadGateway, "internal server error", err)
-		return
+	// we need to override the http transport to operate on the zitinet
+	proxy.Transport = &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (netConn net.Conn, e error) {
+			// we dial the agent here using the zitimesh server which will
+			// establish a connection to the end target on the agent over
+			// the ziti net mesh ovelay
+			return api.ZitiServer.DialAgent(opts.AgentID, zitimesh.NetworkTypeTCP, int(opts.Port))
+		},
 	}
-	defer release()
-
-	// use agent connection via tailnet to route network traffic
-	proxy.Transport = conn.HTTPTransport()
 
 	// This strips the session token from a workspace app request.
 	cookieHeaders := r.Header.Values("Cookie")[:]

@@ -7,7 +7,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -21,7 +20,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/sourcegraph/conc"
 	"go.opentelemetry.io/otel"
-	"tailscale.com/net/speedtest"
 )
 
 type WorkspaceSubscribeParams struct {
@@ -241,84 +239,7 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 		callerName := "WorkspaceWebSocketPlugin"
 		defer parentSpan.End()
 
-		var agentId int64
-		err = p.s.tiDB.QueryRow(ctx, &parentSpan, &callerName, "SELECT _id FROM workspace_agent WHERE workspace_id = ? limit 1", statusMsg.Workspace.ID).Scan(&agentId)
-		if err != nil {
-			p.s.logger.Errorf("failed to query workspace agent: %v", err)
-			return
-		}
-
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace start completed, acquiring connection to workspace agent", statusMsg.Workspace.ID)
-
-		// create a new http request to the workspace agent
-		r, err := http.NewRequestWithContext(p.ctx, http.MethodGet, fmt.Sprintf("http://localhost:13337/healthz"), nil)
-		if err != nil {
-			p.s.logger.Errorf("failed to create http request: %v", err)
-			return
-		}
-
-		// acquire a connection to the workspace agent
-		conn, release, err := p.s.WorkspaceAgentCache.Acquire(r, agentId)
-		if err != nil {
-			p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to acquire connection to workspace agent: %v", statusMsg.Workspace.ID, err)
-			return
-		}
-
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent connection acquired; awaiting network reachability", statusMsg.Workspace.ID)
-
-		// parse id to int
-		id, _ := strconv.ParseInt(statusMsg.Workspace.ID, 10, 64)
-
-		// wait up to 10s for the workspace agent to become reachable
-		reachableCtx, cancelReachableCtx := context.WithTimeout(context.TODO(), time.Second*10)
-		reachable := conn.AwaitReachable(reachableCtx)
-		cancelReachableCtx()
-		if !reachable {
-			p.s.logger.Errorf("WorkspaceWebSocket (%s): workspace agent connection failed to become reachable; dropping connection and re-establishing", statusMsg.Workspace.ID)
-			// release the connection from the cache and close the connection
-			// we need to create a new connection to the workspace agent
-			release()
-			p.s.WorkspaceAgentCache.ForgetAndClose(agentId)
-
-			// create a new connection to the workspace agent
-			conn, release, err = p.s.WorkspaceAgentCache.Acquire(r, agentId)
-			if err != nil {
-				p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to acquire connection to workspace agent: %v", statusMsg.Workspace.ID, err)
-				release()
-				return
-			}
-
-			// make another attempt to wait for the workspace agent to become reachable
-			// but this time wait up to 30s
-			reachableCtx, cancelReachableCtx := context.WithTimeout(context.TODO(), time.Second*30)
-			reachable := conn.AwaitReachable(reachableCtx)
-			cancelReachableCtx()
-			if !reachable {
-				release()
-				// fail here since we can't connect to the workspace agent
-				p.s.logger.Errorf("WorkspaceWebSocket (%s): workspace agent is not reachable", statusMsg.Workspace.ID)
-				// mark the workspace as failed
-				err = core.WorkspaceInitializationFailure(p.ctx, p.s.tiDB, p.s.wsStatusUpdater, id,
-					models.WorkspaceInitVSCodeLaunch, "connecting to workspace", -1,
-					"", "failed to establish connection to workspace", p.s.jetstreamClient)
-				if err != nil {
-					p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to mark workspace as failed: %v", statusMsg.Workspace.ID, err)
-					return
-				}
-			}
-		}
-
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent is reachable; running speedtest", statusMsg.Workspace.ID)
-
-		// make a direct http request to the workspace agent to initialize the connection
-		_, err = conn.Speedtest(p.ctx, speedtest.Download, time.Second)
-		if err != nil {
-			p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to initialize connection to workspace agent: %v", statusMsg.Workspace.ID, err)
-			release()
-			return
-		}
-
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent connection initialized; waiting agent ready", statusMsg.Workspace.ID)
+		p.s.logger.Debugf("waiting agent ready: %d", statusMsg.Workspace.ID)
 
 		// wait for the workspace agent to become ready
 		timeout := time.After(time.Second * 30)
@@ -328,20 +249,21 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 			case <-p.ctx.Done():
 				return
 			case <-timeout:
-				p.s.logger.Errorf("WorkspaceWebSocket (%d): failed to wait agent ready", statusMsg.Workspace.ID)
+				p.s.logger.Errorf("failed to wait agent ready: %d", statusMsg.Workspace.ID)
 				exit = true
 				break
 			default:
 				// check if the agent is ready
+				var agentId int64
 				err = p.s.tiDB.QueryRowContext(ctx, &parentSpan, &callerName,
 					"select _id from workspace_agent a where workspace_id = ? and a.state = ? order by a.created_at desc limit 1",
-					id, models.WorkspaceAgentStateRunning,
+					statusMsg.Workspace.ID, models.WorkspaceAgentStateRunning,
 				).Scan(&agentId)
 				if err != nil {
 					if err != sql.ErrNoRows {
-						p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to query workspace agent: %v", statusMsg.Workspace.ID, err)
+						p.s.logger.Errorf("failed to query workspace agent %d: %v", statusMsg.Workspace.ID, err)
 					}
-					p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent not ready yet", statusMsg.Workspace.ID)
+					p.s.logger.Debugf("workspace agent not ready yet: %d", statusMsg.Workspace.ID)
 					time.Sleep(time.Second)
 					continue
 				}
@@ -354,11 +276,7 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 			}
 		}
 
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent is ready", statusMsg.Workspace.ID)
-
-		// release the connection
-		release()
-		cancelReachableCtx()
+		p.s.logger.Debugf("workspace agent is ready: %d", statusMsg.Workspace.ID)
 	}
 
 	// write status to the websocket

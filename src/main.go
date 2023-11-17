@@ -28,7 +28,6 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/gage-technologies/gigo-lib/cluster"
-	"github.com/gage-technologies/gigo-lib/coder/tailnet"
 	config2 "github.com/gage-technologies/gigo-lib/config"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/git"
@@ -36,6 +35,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/mq"
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/gage-technologies/gigo-lib/storage"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/go-redis/redis/v8"
 	"github.com/sourcegraph/conc/pool"
 	"github.com/stripe/stripe-go/v74"
@@ -94,8 +94,8 @@ func initTracer(insecure bool, collectorURL string, serviceName string) func(con
 	return exporter.Shutdown
 }
 
-func shutdown(server *external_api.HTTPServer, clusterNode cluster.Node, workerPool *pool.Pool,
-	systemCancel context.CancelFunc, logger logging.Logger) {
+func shutdown(server *external_api.HTTPServer, zitiManager *zitimesh.Manager, clusterNode cluster.Node,
+	workerPool *pool.Pool, systemCancel context.CancelFunc, logger logging.Logger) {
 	// we lock here so we can prevent the main thread from exiting
 	// before we finish the graceful shutdown
 	lock.Lock()
@@ -136,6 +136,11 @@ func shutdown(server *external_api.HTTPServer, clusterNode cluster.Node, workerP
 	logger.Info("canceling system context")
 	fmt.Println("canceling system context")
 	systemCancel()
+
+	// delete ziti mesh node
+	logger.Info("delete ziti server")
+	fmt.Println("delete ziti server")
+	zitiManager.DeleteServer(clusterNode.GetSelfMetadata().ID)
 
 	logger.Info("server shutdown complete")
 	fmt.Println("server shutdown complete")
@@ -372,6 +377,21 @@ func main() {
 		Tls:      cfg.HTTPServerConfig.UseTLS,
 	})
 
+	fmt.Println("Creating ziti mesh")
+	// create a new ziti mesh manager and server
+	zitiManager, err := zitimesh.NewManager(cfg.ZitiConfig)
+	if err != nil {
+		log.Fatalf("failed to create ziti mesh manager: %v", err)
+	}
+	zitiServerID, zitiServerToken, err := zitiManager.CreateServer(nodeID)
+	if err != nil {
+		log.Fatalf("failed to create ziti server: %v", err)
+	}
+	zitiServer, err := zitimesh.NewServer(ctx, zitiServerID, zitiServerToken, systemLogger)
+	if err != nil {
+		log.Fatalf("failed to create ziti server: %v", err)
+	}
+
 	fmt.Println("Creating cluster node")
 	// create cluster node
 	var clusterNode cluster.Node
@@ -384,7 +404,7 @@ func main() {
 			// but could theoretically be set manually if deployed by hand
 			os.Getenv("GIGO_POD_IP"),
 			leader.Routine(nodeID, cfg, tiDB, js, rdb, wsStatusUpdater, routineLogger),
-			follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, routineLogger),
+			follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, zitiManager, routineLogger),
 			// we use a 1s tick for the cluster routines
 			time.Second,
 			clusterLogger,
@@ -409,7 +429,7 @@ func main() {
 				Password:  cfg.EtcdConfig.Password,
 			},
 			LeaderRoutine:   leader.Routine(nodeID, cfg, tiDB, js, rdb, wsStatusUpdater, routineLogger),
-			FollowerRoutine: follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, routineLogger),
+			FollowerRoutine: follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, zitiManager, routineLogger),
 			// we use a 1s tick for the cluster routines
 			RoutineTick: time.Second,
 			Logger:      clusterLogger,
@@ -422,16 +442,6 @@ func main() {
 	fmt.Println("Starting cluster node")
 	// start the cluster node
 	clusterNode.Start()
-
-	// derive tailenet coordinator logger from root logger
-	coordinatorLogger := rootLogger.WithName("gigo-core-coordinator")
-
-	fmt.Println("Creating tailnet coordinator")
-	// create tailnet coordinator
-	tailnetCoordinator, err := tailnet.NewCoordinator(clusterNode, js, coordinatorLogger)
-	if err != nil {
-		log.Fatalf("failed to create tailnet coordinator: %v", err)
-	}
 
 	fmt.Println("Creating creating password filter")
 	// create password filter
@@ -461,11 +471,10 @@ func main() {
 	fmt.Println("Creating workspace api server")
 	// create workspace api server
 	wsApiOpts := &api.WorkspaceAPIOptions{
-		ID:                 nodeID,
-		ClusterNode:        clusterNode,
-		Ctx:                ctx,
-		TailnetCoordinator: tailnetCoordinator,
-		DerpMeshKey:        cfg.DerpMeshKey,
+		ID:          nodeID,
+		ClusterNode: clusterNode,
+		Ctx:         ctx,
+		DerpMeshKey: cfg.DerpMeshKey,
 		// we assume that the node ip will always be set at this
 		// env var - this is really designed to be operated on k8s
 		// but could theoretically be set manually if deployed by hand
@@ -481,6 +490,7 @@ func main() {
 		GitUseTLS:      strings.Contains(cfg.GiteaConfig.HostUrl, "https://"),
 		Js:             js,
 		RegistryCaches: cfg.RegistryCaches,
+		ZitiServer:     zitiServer,
 	}
 	wsApiServer, err := api.NewWorkspaceAPI(wsApiOpts)
 	if err != nil {
@@ -497,20 +507,20 @@ func main() {
 	fmt.Println("Creating signal handlers")
 	// register shutdown handler for all potential interrupt signals
 	interrupt := tebata.New(syscall.SIGINT)
-	err = interrupt.Reserve(shutdown, externalServer, clusterNode, followerWorkerPool, cancel, systemLogger)
+	err = interrupt.Reserve(shutdown, externalServer, zitiManager, clusterNode, followerWorkerPool, cancel, systemLogger)
 	if err != nil {
 		log.Fatal("failed to created interrupt handler: ", err)
 	}
 
 	term := tebata.New(syscall.SIGTERM)
-	err = term.Reserve(shutdown, externalServer, clusterNode, followerWorkerPool, cancel, systemLogger)
+	err = term.Reserve(shutdown, externalServer, zitiManager, clusterNode, followerWorkerPool, cancel, systemLogger)
 	if err != nil {
 		log.Fatal("failed to created term handler: ", err)
 	}
 
 	// this doesn't really work since sigkill overrides the handler but we do it anyway
 	kill := tebata.New(syscall.SIGKILL)
-	err = kill.Reserve(shutdown, externalServer, clusterNode, followerWorkerPool, cancel, systemLogger)
+	err = kill.Reserve(shutdown, externalServer, zitiManager, clusterNode, followerWorkerPool, cancel, systemLogger)
 	if err != nil {
 		log.Fatal("failed to created kill handler: ", err)
 	}

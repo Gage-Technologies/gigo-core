@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gage-technologies/gigo-lib/coder/wsconncache"
 	middleware "go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -40,7 +39,6 @@ import (
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/gage-technologies/gigo-lib/db/spice"
 	"github.com/gage-technologies/gigo-lib/git"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/mq"
@@ -234,7 +232,6 @@ type HTTPServer struct {
 	listener                     *net.Listener
 	router                       *mux.Router
 	tiDB                         *ti.Database
-	spice                        *spice.Database
 	meili                        *search.MeiliSearchEngine
 	rdb                          redis.UniversalClient
 	sf                           *snowflake.Node
@@ -275,9 +272,6 @@ type HTTPServer struct {
 	curatedSecret                string
 	masterKey                    string
 	captchaSecret                string
-
-	// AGPL: Coder
-	WorkspaceAgentCache *wsconncache.Cache
 }
 
 // CreateHTTPServer Creates a new HTTPServer object
@@ -449,8 +443,6 @@ func (s *HTTPServer) LinkWorkspaceAPI(api *wsApi.WorkspaceAPI) {
 	api.HandleError = s.handleError
 	// link router and paths
 	api.LinkAPI(s.router)
-	// link workspace connection cache
-	s.WorkspaceAgentCache = api.WorkspaceAgentCache
 }
 
 func (s *HTTPServer) Serve() error {
@@ -1468,59 +1460,6 @@ func (s *HTTPServer) initApiCall(next http.Handler) http.Handler {
 	})
 }
 
-// Helper function used to check permissions for a certain resource and subject
-// If the function returns false then the calling function should immediately exit as the response has already been handled
-func (s *HTTPServer) checkPermission(w http.ResponseWriter, r *http.Request, callingUser *models.UserFrontend, permission spice.Permission) bool {
-	// // auto grant admins to all permissions
-	// if callingUser.AuthRole == models.Admin.String() {
-	//	return true
-	// }
-
-	// execute permission check
-	permissionCheck, _, err := s.spice.CheckPermission(permission, "")
-	if err != nil {
-		// handle permission check error
-		s.handleError(w, fmt.Sprintf("failed to check permission for user: %+v", permission), r.URL.Path,
-			"checkPermission", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-			callingUser.UserName, callingUser.ID, http.StatusInternalServerError, "internal server error occurred", err)
-		return false
-	}
-
-	// reject bad permission
-	if permissionCheck != spice.HasPermission {
-		// handle permission check error
-		s.handleError(w, fmt.Sprintf("invalid permission: %+v", permission), r.URL.Path,
-			"checkPermission", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-			callingUser.UserName, callingUser.ID, http.StatusForbidden, "you do not have permission to perform this action", err)
-		return false
-	}
-
-	return true
-}
-
-// Helper function used to check permissions for a certain resource and subject
-// This function will only return a boolean for the permission. Unlike checkPermission, this function will not write a response
-// to the HTTP channel
-func (s *HTTPServer) checkPermissionNoResponse(callingUser *models.UserFrontend, permission spice.Permission) (bool, error) {
-	// // auto grant admins to all permissions
-	// if callingUser.AuthRole == models.Admin.String() {
-	//	return true, nil
-	// }
-
-	// execute permission check
-	permissionCheck, _, err := s.spice.CheckPermission(permission, "")
-	if err != nil {
-		return false, err
-	}
-
-	// reject bad permission
-	if permissionCheck != spice.HasPermission {
-		return false, nil
-	}
-
-	return true, nil
-}
-
 // Receives a chunked file upload and assembles the file chunks into a single temporary file
 // The function returns nil if the execution requires no further action and returns the request JSON map if the
 // core function logic should be executed
@@ -1899,7 +1838,6 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/project/tempGenImage/{id:[0-9]+}", s.GetGeneratedImage).Methods("GET")
 	s.router.PathPrefix("/static/ext").HandlerFunc(s.ExtensionFiles).Methods("GET")
 	s.router.PathPrefix("/static/ui").HandlerFunc(s.UiFiles).Methods("GET")
-	s.router.PathPrefix("/api/workspace/ws/{id:[0-9]+}").HandlerFunc(s.WorkspaceWebSocket).Methods("GET")
 	s.router.PathPrefix("/api/broadcast/ws/{id:[0-9]+}").HandlerFunc(s.BroadcastWebSocket).Methods("GET")
 	s.router.HandleFunc("/api/verifyResetToken/{token}/{userId}", s.VerifyEmailToken).Methods("GET")
 	s.router.HandleFunc("/api/reportIssue", s.CreateReportIssue).Methods("POST")
