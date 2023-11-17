@@ -1324,6 +1324,298 @@ func (s *HTTPServer) PublishProject(w http.ResponseWriter, r *http.Request) {
 	s.jsonResponse(r, w, res, r.URL.Path, "PublishProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
 
+func (s *HTTPServer) CreatePublicConfigTemplate(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-public-config-template-http")
+	defer parentSpan.End()
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "GetConfig", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "CreatePublicConfigTemplate", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load workspacePath from body
+	workspaceConfigContent, ok := s.loadValue(w, r, reqJson, "CreatePublicConfigTemplate", "content", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigContent == nil || !ok {
+		return
+	}
+
+	// attempt to load workspacePath from body
+	workspaceConfigTitle, ok := s.loadValue(w, r, reqJson, "CreatePublicConfigTemplate", "title", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigTitle == nil || !ok {
+		return
+	}
+
+	// attempt to load repo id from body
+	workspaceConfigDescription, ok := s.loadValue(w, r, reqJson, "CreatePublicConfigTemplate", "description", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigDescription == nil || !ok {
+		return
+	}
+
+	// attempt to load parameter from body
+	tagsType := reflect.Map
+	tagsI, ok := s.loadValue(w, r, reqJson, "CreatePublicConfigTemplate", "tags", reflect.Slice, &tagsType, false, callingUser.(*models.User).UserName, callingId)
+	if tagsI == nil || !ok {
+		return
+	}
+
+	// create a slice to hold tags loaded from the http parameter
+	tags := make([]*models.Tag, 0)
+
+	// iterate through tagsI asserting each value as a map and create a new tag
+	for _, tagI := range tagsI.([]interface{}) {
+		tag := tagI.(map[string]interface{})
+
+		// load id from tag map
+		idI, ok := tag["_id"]
+		if !ok {
+			s.handleError(w, "missing tag id", r.URL.Path, "CreatePublicConfigTemplate", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"internal server error occurred", fmt.Errorf("missing tag id"))
+			return
+		}
+
+		// assert id as string and parse into int64
+		idS, ok := idI.(string)
+		if !ok {
+			s.handleError(w, fmt.Sprintf("invalid tag id type: %v", reflect.TypeOf(idS)), r.URL.Path,
+				"CreatePublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"invalid tag id type - should be string", nil)
+			return
+		}
+
+		id, err := strconv.ParseInt(idS, 10, 64)
+		if !ok {
+			s.handleError(w, "failed to parse tag id as int64", r.URL.Path, "CreatePublicConfigTemplate", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+				"internal server error occurred", err)
+			return
+		}
+
+		// load value from tag map
+		valS, ok := tag["value"]
+		if !ok {
+			s.handleError(w, "missing tag value", r.URL.Path, "CreatePublicConfigTemplate", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"internal server error occurred", nil)
+			return
+		}
+
+		// assert val as string
+		val, ok := valS.(string)
+		if !ok {
+			s.handleError(w, fmt.Sprintf("invalid tag value type: %v", reflect.TypeOf(valS)), r.URL.Path,
+				"CreatePublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"invalid tag value type - should be string", nil,
+			)
+			return
+		}
+
+		tags = append(tags, models.CreateTag(id, val))
+	}
+
+	// attempt to load parameter from body
+	langsType := reflect.Float64
+	languagesI, ok := s.loadValue(w, r, reqJson, "CreatePublicConfigTemplate", "languages", reflect.Slice, &langsType, false, callingUser.(*models.User).UserName, callingId)
+	if languagesI == nil || !ok {
+		return
+	}
+
+	// create a slice to hold languages loaded from the http parameter
+	languages := make([]models.ProgrammingLanguage, 0)
+
+	// attempt to load parameter from body
+	for _, lang := range languagesI.([]interface{}) {
+		languages = append(languages, models.ProgrammingLanguage(lang.(float64)))
+	}
+
+	// execute core function logic
+	res, err := core.CreatePublicConfigTemplate(ctx, s.tiDB, s.meili, s.sf, tags, workspaceConfigTitle.(string), workspaceConfigDescription.(string), callingUser.(*models.User), workspaceConfigContent.(string), languages)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "CreatePublicConfigTemplate core failed", r.URL.Path, "CreatePublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"create-public-config-template",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "CreatePublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+
+}
+
+func (s *HTTPServer) EditPublicConfigTemplate(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "edit-public-config-template-http")
+	defer parentSpan.End()
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "EditPublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "EditPublicConfigTemplate", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load workspacePath from body
+	workspaceConfigContent, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "content", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigContent == nil || !ok {
+		return
+	}
+
+	// attempt to load workspacePath from body
+	workspaceConfigTitle, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "title", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigTitle == nil || !ok {
+		return
+	}
+
+	// attempt to load repo id from body
+	workspaceConfigDescription, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "description", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigDescription == nil || !ok {
+		return
+	}
+
+	// attempt to load parameter from body
+	workspaceConfigIDI, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "config_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigIDI == nil || !ok {
+		return
+	}
+
+	// parse post id to integer
+	workspaceConfigID, err := strconv.ParseInt(workspaceConfigIDI.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse post id string to integer: %s", workspaceConfigIDI.(string)), r.URL.Path, "EditPublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// attempt to load parameter from body
+	tagsType := reflect.Map
+	tagsI, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "tags", reflect.Slice, &tagsType, false, callingUser.(*models.User).UserName, callingId)
+	if tagsI == nil || !ok {
+		return
+	}
+
+	// create a slice to hold tags loaded from the http parameter
+	tags := make([]*models.Tag, 0)
+
+	// iterate through tagsI asserting each value as a map and create a new tag
+	for _, tagI := range tagsI.([]interface{}) {
+		tag := tagI.(map[string]interface{})
+
+		// load id from tag map
+		idI, ok := tag["_id"]
+		if !ok {
+			s.handleError(w, "missing tag id", r.URL.Path, "EditPublicConfigTemplate", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"internal server error occurred", fmt.Errorf("missing tag id"))
+			return
+		}
+
+		// assert id as string and parse into int64
+		idS, ok := idI.(string)
+		if !ok {
+			s.handleError(w, fmt.Sprintf("invalid tag id type: %v", reflect.TypeOf(idS)), r.URL.Path,
+				"EditPublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"invalid tag id type - should be string", nil)
+			return
+		}
+
+		id, err := strconv.ParseInt(idS, 10, 64)
+		if !ok {
+			s.handleError(w, "failed to parse tag id as int64", r.URL.Path, "EditPublicConfigTemplate", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+				"internal server error occurred", err)
+			return
+		}
+
+		// load value from tag map
+		valS, ok := tag["value"]
+		if !ok {
+			s.handleError(w, "missing tag value", r.URL.Path, "EditPublicConfigTemplate", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"internal server error occurred", nil)
+			return
+		}
+
+		// assert val as string
+		val, ok := valS.(string)
+		if !ok {
+			s.handleError(w, fmt.Sprintf("invalid tag value type: %v", reflect.TypeOf(valS)), r.URL.Path,
+				"EditPublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"invalid tag value type - should be string", nil,
+			)
+			return
+		}
+
+		tags = append(tags, models.CreateTag(id, val))
+	}
+
+	// execute core function logic
+	res, err := core.EditPublicConfigTemplate(ctx, s.tiDB, s.meili, s.sf, callingUser.(*models.User), workspaceConfigID, workspaceConfigContent.(string), tags)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "EditPublicConfigTemplate core failed", r.URL.Path, "EditPublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"edit-public-config-template",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "EditPublicConfigTemplate", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
 func (s *HTTPServer) EditConfig(w http.ResponseWriter, r *http.Request) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "edit-config-http")
 	defer parentSpan.End()

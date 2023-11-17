@@ -1295,6 +1295,300 @@ func PublishProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliS
 	return map[string]interface{}{"message": "Post published successfully.", "post": fmt.Sprintf("%d", postId)}, nil
 }
 
+func CreatePublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine,
+	sf *snowflake.Node, workspaceConfigTags []*models.Tag, workspaceConfigTitle string,
+	workspaceConfigDescription string, callingUser *models.User, workspaceConfigContent string,
+	workspaceConfigLangs []models.ProgrammingLanguage) (map[string]interface{}, error) {
+
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-public-workspace-config-template-core")
+	defer span.End()
+	callerName := "CreatePublicWorkspaceConfigTemplate"
+
+	// validate that the config is in the right format
+	var testCfg workspace_config.GigoWorkspaceConfig
+	err := yaml.Unmarshal([]byte(workspaceConfigContent), &testCfg)
+	if err != nil {
+		return map[string]interface{}{"message": "config is not the right format"}, err
+	}
+
+	if testCfg.Version != 0.1 {
+		return map[string]interface{}{"message": "version must be 0.1"}, nil
+	}
+
+	if testCfg.BaseContainer == "" {
+		return map[string]interface{}{"message": "must have a base container"}, nil
+	}
+
+	if testCfg.WorkingDirectory == "" {
+		return map[string]interface{}{"message": "must have a working directory"}, nil
+	}
+
+	// make sure cpu cores are set
+	if testCfg.Resources.CPU <= 0 {
+		return map[string]interface{}{"message": "must provide cpu cores"}, nil
+	}
+
+	// make sure memory is set
+	if testCfg.Resources.Mem <= 0 {
+		return map[string]interface{}{"message": "must provide memory"}, nil
+	}
+
+	// make sure disk is set
+	if testCfg.Resources.Disk <= 0 {
+		return map[string]interface{}{"message": "must provide disk"}, nil
+	}
+
+	// make sure no more than 6 cores are used
+	if testCfg.Resources.CPU > 6 {
+		return map[string]interface{}{"message": "cannot use more than 6 CPU cores"}, nil
+	}
+
+	// make sure no more than 8gb of memory is used
+	if testCfg.Resources.Mem > 8 {
+		return map[string]interface{}{"message": "cannot use more than 8 GB of RAM"}, nil
+	}
+
+	// make sure no more than 100gb of storage is used
+	if testCfg.Resources.Disk > 100 {
+		return map[string]interface{}{"message": "cannot use more than 100 GB of disk space"}, nil
+	}
+
+	// create boolean to track failure
+	failed := true
+
+	// create variable to track the id of a config template that is created
+	var configTemplateId *int64
+
+	// defer function to cleanup repo on failure
+	defer func() {
+		// skip cleanup if we succeeded
+		if !failed {
+			return
+		}
+
+		if configTemplateId != nil {
+			_ = meili.DeleteDocuments("workspace_configs", *configTemplateId)
+		}
+	}()
+
+	// create transaction for image insertion
+	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create insert tx: %v", err)
+	}
+
+	// defer closure of tx
+	defer tx.Rollback()
+
+	// create slice to hold tag ids for workspace config tags
+	wsConfigTagIds := make([]int64, len(workspaceConfigTags))
+
+	// iterate over the workspace config tags creating new tag structs for tags that do not already exist and adding ids to the slice created above
+	for _, tag := range workspaceConfigTags {
+
+		// conditionally create a new id and insert tag into database if it does not already exist
+		if tag.ID == -1 {
+			// generate new tag id
+			tag.ID = sf.Generate().Int64()
+
+			// iterate statements inserting the new tag into the database
+			for _, statement := range tag.ToSQLNative() {
+				_, err := tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+				if err != nil {
+					return nil, fmt.Errorf("failed to perform tag insertion: %v", err)
+				}
+			}
+
+		} else {
+			// increment tag column usage_count in database
+			_, err := tx.ExecContext(ctx, &callerName, "update tag set usage_count = usage_count + 1 where _id =?", tag.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
+			}
+		}
+
+		// append tag id to tag ids slice
+		wsConfigTagIds = append(wsConfigTagIds, tag.ID)
+	}
+
+	// create a new workspace config template
+	wsCfg := models.CreateWorkspaceConfig(
+		sf.Generate().Int64(),
+		workspaceConfigTitle,
+		workspaceConfigDescription,
+		workspaceConfigContent,
+		callingUser.ID,
+		0,
+		wsConfigTagIds,
+		workspaceConfigLangs,
+	)
+
+	// format to sql insertion statements
+	statements, err := wsCfg.ToSQLNative()
+	if err != nil {
+		return nil, fmt.Errorf("failed to format workspace config to sql: %v", err)
+	}
+
+	// perform sql insertion
+	for _, statement := range statements {
+		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to perform workspace config insertion: %v", err)
+		}
+	}
+
+	// perform search engine insertion
+	err = meili.AddDocuments("workspace_configs", wsCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert workspace config to search engine: %v", err)
+	}
+
+	return map[string]interface{}{"message": "workspace config template created successfully", "config": wsCfg}, nil
+}
+
+func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, sf *snowflake.Node, callingUser *models.User, workspaceConfigID int64, content string, workspaceConfigTags []*models.Tag) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-public-config-core")
+	defer span.End()
+	callerName := "EditPublicConfigTemplate"
+
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select * from workspace_config where _id = ? and author_id =?", workspaceConfigID, callingUser.ID)
+	if err != nil {
+		return map[string]interface{}{"message": "no config found matching parameters"}, fmt.Errorf("failed to query workspace config: %v", err)
+	}
+
+	var conf *models.WorkspaceConfig
+
+	for res.Next() {
+		conf, err = models.WorkspaceConfigFromSQLNative(tidb, res)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse workspace config: %v", err)
+		}
+	}
+
+	isSame := true
+
+	// validate that the config is in the right format
+	var confCfg workspace_config.GigoWorkspaceConfig
+	var wsCfg workspace_config.GigoWorkspaceConfig
+	err = yaml.Unmarshal([]byte(content), &wsCfg)
+	if err != nil {
+		return map[string]interface{}{"message": "passed config is not the right format"}, err
+	}
+
+	err = yaml.Unmarshal([]byte(conf.Content), &confCfg)
+	if err != nil {
+		return map[string]interface{}{"message": "retrieved config is not the right format"}, err
+	}
+
+	if wsCfg.Version != 0.1 {
+		return map[string]interface{}{"message": "version must be 0.1"}, fmt.Errorf("version must be 0.1")
+	}
+
+	if wsCfg.BaseContainer == "" {
+		return map[string]interface{}{"message": "must have a base container"}, fmt.Errorf("must have a base container")
+	}
+
+	if wsCfg.BaseContainer != confCfg.BaseContainer {
+		isSame = false
+	}
+
+	if wsCfg.WorkingDirectory == "" {
+		return map[string]interface{}{"message": "must have a working directory"}, fmt.Errorf("must have a working directory")
+	}
+
+	if wsCfg.WorkingDirectory != confCfg.WorkingDirectory {
+		isSame = false
+	}
+
+	// make sure cpu cores are set
+	if wsCfg.Resources.CPU <= 0 {
+		return map[string]interface{}{"message": "must provide cpu cores"}, fmt.Errorf("must provide cpu cores")
+	}
+
+	if wsCfg.Resources.CPU != confCfg.Resources.CPU {
+		isSame = false
+	}
+
+	// make sure memory is set
+	if wsCfg.Resources.Mem <= 0 {
+		return map[string]interface{}{"message": "must provide memory"}, fmt.Errorf("must provide memory")
+	}
+
+	if wsCfg.Resources.Mem != confCfg.Resources.Mem {
+		isSame = false
+	}
+
+	// make sure disk is set
+	if wsCfg.Resources.Disk <= 0 {
+		return map[string]interface{}{"message": "must provide disk"}, fmt.Errorf("must provide disk")
+	}
+
+	if wsCfg.Resources.Disk != confCfg.Resources.Disk {
+		isSame = false
+	}
+
+	// make sure no more than 6 cores are used
+	if wsCfg.Resources.CPU > 6 {
+		return map[string]interface{}{"message": "cannot use more than 6 CPU cores"}, fmt.Errorf("cannot use more than 6 CPU cores")
+	}
+
+	// make sure no more than 8gb of memory is used
+	if wsCfg.Resources.Mem > 8 {
+		return map[string]interface{}{"message": "cannot use more than 8 GB of RAM"}, fmt.Errorf("cannot use more than 8 GB of RAM")
+	}
+
+	// make sure no more than 100gb of storage is used
+	if wsCfg.Resources.Disk > 100 {
+		return map[string]interface{}{"message": "cannot use more than 100 GB of disk space"}, fmt.Errorf("cannot use more than 100 GB of disk space")
+	}
+
+	if content != conf.Content {
+		isSame = false
+	}
+
+	newTags := make([]int64, 0)
+
+	for _, tag := range workspaceConfigTags {
+		for _, existingTag := range conf.Tags {
+			if existingTag == tag.ID {
+				isSame = false
+				break
+			}
+			newTags = append(newTags, tag.ID)
+		}
+	}
+
+	if isSame {
+		return map[string]interface{}{"message": "no changes made"}, nil
+	}
+
+	conf.Content = content
+	conf.Tags = newTags
+	conf.ID = sf.Generate().Int64()
+	conf.Revision += 1
+	statements, err := conf.ToSQLNative()
+	if err != nil {
+		return nil, fmt.Errorf("failed to format workspace config to sql: %v", err)
+	}
+
+	for _, statement := range statements {
+		_, err = tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to perform workspace config update: %v", err)
+		}
+
+	}
+
+	// perform search engine insertion
+	err = meili.AddDocuments("workspace_configs", wsCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert workspace config to search engine: %v", err)
+	}
+
+	return map[string]interface{}{"message": "successfully updated workspace config", "config": conf}, nil
+
+}
+
 func EditConfig(ctx context.Context, vcsClient *git.VCSClient, callingUser *models.User, repoId int64, content string, commit string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-config-core")
 	defer span.End()

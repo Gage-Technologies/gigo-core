@@ -1793,6 +1793,8 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/project/config", s.GetConfig).Methods("POST")
 	s.router.HandleFunc("/api/project/editConfig", s.EditConfig).Methods("POST")
 	s.router.HandleFunc("/api/project/confirmEditConfig", s.ConfirmEditConfig).Methods("POST")
+	s.router.HandleFunc("/api/public_config/create", s.CreatePublicConfigTemplate).Methods("POST")
+	s.router.HandleFunc("/api/public_config/edit", s.EditPublicConfigTemplate).Methods("POST")
 	s.router.HandleFunc("/api/project/genImage", s.GenerateProjectImage).Methods("POST")
 	s.router.HandleFunc("/api/user/createNewUser", s.CreateNewUser).Methods("POST")
 	s.router.HandleFunc("/api/user/validateUser", s.ValidateUserInfo).Methods("POST")
