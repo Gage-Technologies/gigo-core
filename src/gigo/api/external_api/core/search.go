@@ -867,13 +867,13 @@ func SearchWorkspaceConfigs(ctx context.Context, db *ti.Database, meili *search.
 
 	if searchUser != nil && *searchUser == true {
 		logger.Errorf("user id inside SearchWorkspaceConfigs: %d", callingUser.ID)
-		// append user id filter condition
+		// append filter condition for author id
 		searchRequest.Filter.Filters = append(searchRequest.Filter.Filters, search.FilterCondition{
 			Filters: []search.Filter{
 				{
 					Attribute: "author_id",
 					Operator:  search.OperatorEquals,
-					Values:    []interface{}{callingUser.ID},
+					Value:     callingUser.ID,
 				},
 			},
 		})
