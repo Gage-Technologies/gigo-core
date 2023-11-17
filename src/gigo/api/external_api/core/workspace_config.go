@@ -87,6 +87,7 @@ func CreateWorkspaceConfig(ctx context.Context, db *ti.Database, meili *search.M
 		0,
 		tagIds,
 		languages,
+		0,
 	)
 
 	// format to sql insert statements

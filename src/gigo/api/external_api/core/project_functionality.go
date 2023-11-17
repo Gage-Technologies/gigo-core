@@ -340,6 +340,7 @@ func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 			0,
 			wsConfigTagIds,
 			workspaceConfigLangs,
+			1,
 		)
 
 		// format to sql insertion statements
