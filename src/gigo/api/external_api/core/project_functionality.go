@@ -141,6 +141,11 @@ func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 			}
 			return nil, fmt.Errorf("failed to query workspace_config: %v", err)
 		}
+
+		_, err = tidb.ExecContext(ctx, &span, &callerName, "Update workspace_config SET uses = uses + 1 Where _id = ?", workspaceConfigId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update workspace config uses: %v", err)
+		}
 	}
 
 	// create repo for the project
