@@ -1495,13 +1495,6 @@ func (s *HTTPServer) EditPublicConfigTemplate(w http.ResponseWriter, r *http.Req
 	if workspaceConfigContent == nil || !ok {
 		return
 	}
-
-	// attempt to load workspacePath from body
-	workspaceConfigTitle, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "title", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
-	if workspaceConfigTitle == nil || !ok {
-		return
-	}
-
 	// attempt to load repo id from body
 	workspaceConfigDescription, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "description", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
 	if workspaceConfigDescription == nil || !ok {

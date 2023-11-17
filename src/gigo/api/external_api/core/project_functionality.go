@@ -1438,6 +1438,11 @@ func CreatePublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *s
 		}
 	}
 
+	err = tx.Commit(&callerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit workspace config insertion: %v", err)
+	}
+
 	// perform search engine insertion
 	err = meili.AddDocuments("workspace_configs", wsCfg)
 	if err != nil {

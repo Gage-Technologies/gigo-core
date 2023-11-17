@@ -794,7 +794,7 @@ func SearchComments(ctx context.Context, meili *search.MeiliSearchEngine, query 
 }
 
 func SearchWorkspaceConfigs(ctx context.Context, db *ti.Database, meili *search.MeiliSearchEngine, query string,
-	languages []models.ProgrammingLanguage, tags []int64, skip int, limit int, userID *int64) (map[string]interface{}, error) {
+	languages []models.ProgrammingLanguage, tags []int64, skip int, limit int, userID *int64, logger logging.Logger) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "search-workspace-configs-core")
 	defer span.End()
 	callerName := "SearchWorkspaceConfigs"
@@ -867,6 +867,7 @@ func SearchWorkspaceConfigs(ctx context.Context, db *ti.Database, meili *search.
 
 	// conditionally add author filter
 	if userID != nil {
+		logger.Errorf("user id inside SearchWorkspaceConfigs: %d", *userID)
 		// append user id filter condition
 		searchRequest.Filter.Filters = append(searchRequest.Filter.Filters, search.FilterCondition{
 			Filters: []search.Filter{
