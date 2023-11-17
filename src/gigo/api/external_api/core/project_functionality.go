@@ -1421,6 +1421,7 @@ func CreatePublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *s
 		0,
 		wsConfigTagIds,
 		workspaceConfigLangs,
+		0,
 	)
 
 	// format to sql insertion statements
