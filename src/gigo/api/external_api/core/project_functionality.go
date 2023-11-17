@@ -890,11 +890,12 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	var postAuthorId int64
 	var postVisibility models.PostVisibility
 	var postType models.ChallengeType
+	var workspaceConfig int64
 
 	// retrieve post
 	err = tidb.QueryRowContext(ctx, &span, &callerName,
-		"select _id, title, description, author_id, visibility, post_type from post where _id = ? limit 1", postId,
-	).Scan(&postId, &postTitle, &postDesc, &postAuthorId, &postVisibility, &postType)
+		"select _id, title, description, author_id, visibility, post_type, workspace_config from post where _id = ? limit 1", postId,
+	).Scan(&postId, &postTitle, &postDesc, &postAuthorId, &postVisibility, &postType, &workspaceConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for post: %v\n    query: %s\n    params: %v", err,
 			"select repo_id from post where _id = ?", []interface{}{postId})
@@ -1041,6 +1042,18 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	if err != nil {
 		return nil, fmt.Errorf("failed to update recommendations: %v", err)
 	}
+
+	/////////////////
+
+	//update workspace config for the new use
+	if workspaceConfig > 0 {
+		_, err = tidb.ExecContext(ctx, &span, &callerName, "Update workspace_config SET uses = uses + 1 Where _id = ?", workspaceConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update workspace config uses: %v", err)
+		}
+	}
+
+	////////////////////
 
 	// commit tx
 	err = tx.Commit(&callerName)
