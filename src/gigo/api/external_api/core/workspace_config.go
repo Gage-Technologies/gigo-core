@@ -305,7 +305,7 @@ func GetWorkspaceConfig(ctx context.Context, db *ti.Database, _id int64) (map[st
 	workspaceConfigRevisions := make([]*models.WorkspaceConfigFrontend, 0)
 
 	// iterate cursor loading revisions and appending to the outer slice
-	if !res.Next() {
+	for res.Next() {
 		// load workspace config from cursor
 		workspaceConfig, err := models.WorkspaceConfigFromSQLNative(db, res)
 		if err != nil {
@@ -319,7 +319,7 @@ func GetWorkspaceConfig(ctx context.Context, db *ti.Database, _id int64) (map[st
 	if len(workspaceConfigRevisions) == 0 {
 		return map[string]interface{}{
 			"message": "Workspace Config not found.",
-		}, fmt.Errorf("failed to load existing workspace config from cursor: no revisions found")
+		}, fmt.Errorf("failed to load existing workspace config from cursor: no configs found")
 	}
 
 	return map[string]interface{}{

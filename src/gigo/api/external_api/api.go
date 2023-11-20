@@ -1837,7 +1837,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/workspace/config/create", s.CreateWorkspaceConfig).Methods("POST")
 	s.router.HandleFunc("/api/workspace/config/update", s.UpdateWorkspaceConfig).Methods("POST")
 	s.router.HandleFunc("/api/workspace/config/get", s.GetUserWorkspaceSettings).Methods("POST")
-	s.router.HandleFunc("/api/workspace/config/get", s.GetWorkspaceConfig).Methods("POST")
+	s.router.HandleFunc("/api/workspace/config/getWsConfig", s.GetWorkspaceConfig).Methods("POST")
 	s.router.HandleFunc("/api/editDescription", s.EditDescription).Methods("POST")
 	s.router.HandleFunc("/api/attempt/start", s.StartAttempt).Methods("POST")
 	s.router.HandleFunc("/api/project/closedAttempts", s.GetClosedAttempts).Methods("POST")

@@ -879,11 +879,6 @@ func SearchWorkspaceConfigs(ctx context.Context, db *ti.Database, meili *search.
 		})
 	}
 
-	searchRequest.Sort.Sorts = append(searchRequest.Sort.Sorts, search.Sort{
-		Attribute: "revision",
-		Desc:      true,
-	})
-
 	// execute search
 	searchResult, err := meili.Search("workspace_configs", searchRequest)
 	if err != nil {
