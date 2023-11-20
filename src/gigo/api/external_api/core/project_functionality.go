@@ -1452,7 +1452,7 @@ func CreatePublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *s
 	return map[string]interface{}{"message": "workspace config template created successfully", "config": wsCfg}, nil
 }
 
-func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, sf *snowflake.Node, callingUser *models.User, workspaceConfigID int64, content string, workspaceConfigTags []*models.Tag) (map[string]interface{}, error) {
+func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, sf *snowflake.Node, callingUser *models.User, workspaceConfigID int64, content string, workspaceConfigTags []*models.Tag, description string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-public-config-core")
 	defer span.End()
 	callerName := "EditPublicConfigTemplate"
@@ -1570,8 +1570,8 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 
 	conf.Content = content
 	conf.Tags = newTags
-	conf.ID = sf.Generate().Int64()
 	conf.Revision += 1
+	conf.Description = description
 	statements, err := conf.ToSQLNative()
 	if err != nil {
 		return nil, fmt.Errorf("failed to format workspace config to sql: %v", err)
