@@ -1452,7 +1452,7 @@ func CreatePublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *s
 	return map[string]interface{}{"message": "workspace config template created successfully", "config": wsCfg}, nil
 }
 
-func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, sf *snowflake.Node, callingUser *models.User, workspaceConfigID int64, content string, workspaceConfigTags []*models.Tag, description string) (map[string]interface{}, error) {
+func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, callingUser *models.User, workspaceConfigID int64, content string, workspaceConfigTags []*models.Tag, description string, logger logging.Logger) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "edit-public-config-core")
 	defer span.End()
 	callerName := "EditPublicConfigTemplate"
@@ -1564,7 +1564,12 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 		}
 	}
 
+	if description != conf.Description {
+		isSame = false
+	}
+
 	if isSame {
+		logger.Errorf("no changes found in EditPublicConfigTemplate for config: %v", conf.ID)
 		return map[string]interface{}{"message": "no changes made"}, nil
 	}
 
@@ -1574,12 +1579,14 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 	conf.Description = description
 	statements, err := conf.ToSQLNative()
 	if err != nil {
+		logger.Errorf("failed to format edit workspace config to sql: %v", err)
 		return nil, fmt.Errorf("failed to format workspace config to sql: %v", err)
 	}
 
 	for _, statement := range statements {
 		_, err = tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
 		if err != nil {
+			logger.Errorf("failed to perform edit workspace config update: %v", err)
 			return nil, fmt.Errorf("failed to perform workspace config update: %v", err)
 		}
 
@@ -1588,9 +1595,11 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 	// perform search engine insertion
 	err = meili.AddDocuments("workspace_configs", wsCfg)
 	if err != nil {
+		logger.Errorf("failed to insert edited workspace config to search engine: %v", err)
 		return nil, fmt.Errorf("failed to insert workspace config to search engine: %v", err)
 	}
 
+	logger.Infof("successfully updated workspace config: %v", conf.ID)
 	return map[string]interface{}{"message": "successfully updated workspace config", "config": conf}, nil
 
 }

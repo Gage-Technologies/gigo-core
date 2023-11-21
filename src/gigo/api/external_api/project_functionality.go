@@ -1585,13 +1585,13 @@ func (s *HTTPServer) EditPublicConfigTemplate(w http.ResponseWriter, r *http.Req
 	}
 
 	// attempt to load parameter from body
-	description, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "config_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	description, ok := s.loadValue(w, r, reqJson, "EditPublicConfigTemplate", "description", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
 	if description == nil || !ok {
 		return
 	}
 
 	// execute core function logic
-	res, err := core.EditPublicConfigTemplate(ctx, s.tiDB, s.meili, s.sf, callingUser.(*models.User), workspaceConfigID, workspaceConfigContent.(string), tags, description.(string))
+	res, err := core.EditPublicConfigTemplate(ctx, s.tiDB, s.meili, callingUser.(*models.User), workspaceConfigID, workspaceConfigContent.(string), tags, description.(string), s.logger)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
