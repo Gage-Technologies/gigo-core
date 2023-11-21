@@ -272,26 +272,42 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 
 	var workspaceConfigId int64
 
-	// query attempts for the passed id and user
-	err = tidb.QueryRowContext(ctx, &span, &callerName,
-		"select workspace_config from workspaces w join post p on w.code_source_id = p._id where w._id = ?", wsId,
-	).Scan(&workspaceConfigId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
+	if csType == models.CodeSourcePost {
+		// query attempts for the passed id and user
+		err = tidb.QueryRowContext(ctx, &span, &callerName,
+			"select workspace_config from post where _id = ?", csId,
+		).Scan(&workspaceConfigId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
+			}
+			return nil, fmt.Errorf(
+				"failed to query for ws config in post: %v\n    query: %s\n    params: %v",
+				err, nil, []interface{}{csId, callingUser.ID})
 		}
-		return nil, fmt.Errorf(
-			"failed to query for ws config in post: %v\n    query: %s\n    params: %v",
-			err, nil, []interface{}{csId, callingUser.ID})
+	} else {
+		// query attempts for the passed id and user
+		err = tidb.QueryRowContext(ctx, &span, &callerName,
+			"select p.workspace_config from post p join attempt a on p._id = a.post_id where p._id = ?", csId,
+		).Scan(&workspaceConfigId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
+			}
+			return nil, fmt.Errorf(
+				"failed to query for ws config in post: %v\n    query: %s\n    params: %v",
+				err, nil, []interface{}{csId, callingUser.ID})
+		}
 	}
 
 	if workspaceConfigId > 0 {
 		var comparisonContent string
+		var wsConfigRevision int64
 
 		// query attempts for the passed id and user
 		err = tidb.QueryRowContext(ctx, &span, &callerName,
-			"select content from workspace_config where _id = ? limit 1", workspaceConfigId,
-		).Scan(&comparisonContent)
+			"select content, revision from workspace_config where _id = ? limit 1", workspaceConfigId,
+		).Scan(&comparisonContent, &wsConfigRevision)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return map[string]interface{}{"message": "Unable to locate ws config content."}, fmt.Errorf("ws config content not found")
@@ -335,7 +351,7 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 		}
 
 		if isSame {
-			_, err = tidb.ExecContext(ctx, &span, &callerName, "Update workspace_config SET completions = completions + 1 Where _id = ?", workspaceConfigId)
+			_, err = tidb.ExecContext(ctx, &span, &callerName, "Update workspace_config SET completions = completions + 1 Where _id = ? and revision = ?", workspaceConfigId, wsConfigRevision)
 			if err != nil {
 				return nil, fmt.Errorf("failed to update workspace config uses: %v", err)
 			}
