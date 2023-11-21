@@ -288,7 +288,7 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 	} else {
 		// query attempts for the passed id and user
 		err = tidb.QueryRowContext(ctx, &span, &callerName,
-			"select p.workspace_config from post p join attempt a on p._id = a.post_id where p._id = ?", csId,
+			"select p.workspace_config from post p join attempt a on p._id = a.post_id where a._id = ?", csId,
 		).Scan(&workspaceConfigId)
 		if err != nil {
 			if err == sql.ErrNoRows {
