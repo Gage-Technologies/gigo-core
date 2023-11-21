@@ -1548,8 +1548,13 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 		return map[string]interface{}{"message": "cannot use more than 100 GB of disk space"}, fmt.Errorf("cannot use more than 100 GB of disk space")
 	}
 
+	meiliUpdate := map[string]interface{}{
+		"_id": workspaceConfigID,
+	}
+
 	if content != conf.Content {
 		isSame = false
+		meiliUpdate["content"] = content
 	}
 
 	newTags := make([]int64, 0)
@@ -1562,16 +1567,20 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 			}
 			newTags = append(newTags, tag.ID)
 		}
+		meiliUpdate["tags"] = newTags
 	}
 
 	if description != conf.Description {
 		isSame = false
+		meiliUpdate["description"] = description
 	}
 
 	if isSame {
 		logger.Errorf("no changes found in EditPublicConfigTemplate for config: %v", conf.ID)
 		return map[string]interface{}{"message": "no changes made"}, nil
 	}
+
+	meiliUpdate["revision"] = conf.Revision + 1
 
 	conf.Content = content
 	conf.Tags = newTags
@@ -1595,7 +1604,7 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 	}
 
 	// perform search engine insertion
-	err = meili.UpdateDocuments("workspace_configs", wsCfg)
+	err = meili.UpdateDocuments("workspace_configs", meiliUpdate)
 	if err != nil {
 		logger.Errorf("failed to insert edited workspace config to search engine: %v", err)
 		return nil, fmt.Errorf("failed to insert workspace config to search engine: %v", err)
