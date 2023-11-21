@@ -1457,7 +1457,7 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 	defer span.End()
 	callerName := "EditPublicConfigTemplate"
 
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select * from workspace_config where _id = ? and author_id =?", workspaceConfigID, callingUser.ID)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select * from workspace_config where _id = ? and author_id =? order by revision desc limit 1", workspaceConfigID, callingUser.ID)
 	if err != nil {
 		return map[string]interface{}{"message": "no config found matching parameters"}, fmt.Errorf("failed to query workspace config: %v", err)
 	}
@@ -1578,6 +1578,8 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 	conf.Revision += 1
 	conf.Description = description
 	statements, err := conf.ToSQLNative()
+
+	logger.Debugf("EditPublicConfigTemplate revision number: %v", conf.Revision)
 	if err != nil {
 		logger.Errorf("failed to format edit workspace config to sql: %v", err)
 		return nil, fmt.Errorf("failed to format workspace config to sql: %v", err)
@@ -1593,7 +1595,7 @@ func EditPublicConfigTemplate(ctx context.Context, tidb *ti.Database, meili *sea
 	}
 
 	// perform search engine insertion
-	err = meili.AddDocuments("workspace_configs", wsCfg)
+	err = meili.UpdateDocuments("workspace_configs", wsCfg)
 	if err != nil {
 		logger.Errorf("failed to insert edited workspace config to search engine: %v", err)
 		return nil, fmt.Errorf("failed to insert workspace config to search engine: %v", err)
