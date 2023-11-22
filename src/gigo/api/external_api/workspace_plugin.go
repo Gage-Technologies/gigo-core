@@ -7,6 +7,9 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -14,12 +17,15 @@ import (
 	"gigo-core/gigo/api/external_api/core"
 	"gigo-core/gigo/api/external_api/ws"
 
+	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	models2 "github.com/gage-technologies/gigo-lib/mq/models"
 	"github.com/gage-technologies/gigo-lib/mq/streams"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/nats-io/nats.go"
 	"github.com/sourcegraph/conc"
 	"go.opentelemetry.io/otel"
+	"golang.org/x/sync/singleflight"
 )
 
 type WorkspaceSubscribeParams struct {
@@ -59,6 +65,9 @@ func NewPluginWorkspace(ctx context.Context, s *HTTPServer, socket *masterWebSoc
 
 	// launch the resource routine
 	plugin.wg.Go(plugin.resourceUtilRoutine)
+
+	// launch the init conn ping routine
+	plugin.wg.Go(plugin.wsPingRoutine)
 
 	// return the new plugin instance
 	return plugin, nil
@@ -239,6 +248,40 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 		callerName := "WorkspaceWebSocketPlugin"
 		defer parentSpan.End()
 
+		// get the workspace agent id
+		var agentId int64
+		err := p.s.tiDB.DB.QueryRow(
+			"select _id from workspace_agent where workspace_id = ? order by created_at desc limit 1",
+			statusMsg.Workspace.ID,
+		).Scan(&agentId)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				p.socket.logger.Errorf("init code-server conn for workspace %d: failed to query workspace agent: %v", statusMsg.Workspace.ID, err)
+				return
+			}
+			p.socket.logger.Infof("no active agents found for workspace %d", statusMsg.Workspace.ID)
+		}
+
+		p.s.logger.Debugf("initializing code server connection: %d", statusMsg.Workspace.ID)
+
+		// create a client that will dial using the ziti mesh
+		client := http.Client{
+			Transport: &http.Transport{
+				DialContext: func(ctx context.Context, network, addr string) (netConn net.Conn, e error) {
+					// we dial the agent here using the zitimesh server which will
+					// establish a connection to the end target on the agent over
+					// the ziti net mesh ovelay
+					return p.s.zitiServer.DialAgent(agentId, zitimesh.NetworkTypeTCP, 13337)
+				},
+			},
+		}
+
+		// execute a get request to the /healthz endpoint - this warms up the connection to code-server via ziti
+		resp, _ := client.Get("http://dummy/healthz")
+		if resp != nil && resp.Body != nil {
+			defer resp.Body.Close()
+		}
+
 		p.s.logger.Debugf("waiting agent ready: %d", statusMsg.Workspace.ID)
 
 		// wait for the workspace agent to become ready
@@ -329,15 +372,10 @@ func (p *WebSocketPluginWorkspace) resourceUtilRoutine() {
 					continue
 				}
 
-				p.socket.logger.Debugf("loading resource utilization data for workspace %d-%d", user.ID, id)
-
 				// skip if the state is not running
 				if wsState.State != models.WorkspaceActive {
-					p.socket.logger.Debugf("workspace resource utilization skipped for invalid state %d-%d: %d", user.ID, id, wsState.State)
 					continue
 				}
-
-				p.socket.logger.Debugf("attempting to retrieve resource utilization data for workspace %d-%d", user.ID, id)
 
 				// attempt to retrieve the resource utilization data for the workspace
 				ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
@@ -369,6 +407,114 @@ func (p *WebSocketPluginWorkspace) resourceUtilRoutine() {
 						},
 					},
 				)
+			}
+		}
+	}
+}
+
+func (p *WebSocketPluginWorkspace) wsPingRoutine() {
+	// loop forever pinging workspaces in start up
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	// create a singleflight group so only one goroutine can call the ping function at once
+	var g singleflight.Group
+
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-ticker.C:
+			// iterate all the workspaces pinging the ones in a starting state
+			for id := range p.wsSubs {
+				// check if we are exiting
+				select {
+				case <-p.ctx.Done():
+					return
+				default:
+				}
+
+				// retrieve the latest state for the workspace
+				p.mu.Lock()
+				wsState, ok := p.lastStates[fmt.Sprintf("%d", id)]
+				p.mu.Unlock()
+				if !ok {
+					p.socket.logger.Warnf("skipping init conn ping for workspace %d: missing state", id)
+					continue
+				}
+				if wsState == nil {
+					p.socket.logger.Debugf("nil state in init conn  ping routine %d", id)
+					continue
+				}
+
+				p.socket.logger.Debugf("attempting to init conn ping for workspace %d", id)
+
+				// skip if the state is not running
+				if wsState.State != models.WorkspaceStarting {
+					p.socket.logger.Debugf("skipping init conn ping for workspace %d because its state is not 'starting'", id)
+					continue
+				}
+
+				p.socket.logger.Debugf("attempting to init conn ping for workspace %d", id)
+
+				// get the workspace agent id
+				var agentId int64
+				err := p.s.tiDB.DB.QueryRow(
+					"select _id from workspace_agent where workspace_id = ? order by created_at desc limit 1",
+					id,
+				).Scan(&agentId)
+				if err != nil {
+					if err != sql.ErrNoRows {
+						p.socket.logger.Errorf("init conn ping for workspace %d: failed to query workspace agent: %v", id, err)
+						continue
+					}
+					p.socket.logger.Infof("no active agents found for workspace %d", id)
+				}
+
+				// attempt to ping the init connection server on the agent
+				pingFunc := func() (interface{}, error) {
+					p.socket.logger.Debugf("attempting to ping workspace %d", id)
+
+					// create a client that will dial using the ziti mesh
+					client := http.Client{
+						Transport: &http.Transport{
+							DialContext: func(ctx context.Context, network, addr string) (netConn net.Conn, e error) {
+								// we dial the agent here using the zitimesh server which will
+								// establish a connection to the end target on the agent over
+								// the ziti net mesh ovelay
+								return p.s.zitiServer.DialAgent(agentId, zitimesh.NetworkTypeTCP, agentsdk.ZitiInitConnPort)
+							},
+						},
+					}
+
+					// execute a get request to the /ping endpoint
+					resp, _ := client.Get("http://dummy/ping")
+					if resp != nil && resp.Body != nil {
+						defer resp.Body.Close()
+					}
+
+					if resp != nil && resp.StatusCode == 200 {
+						p.socket.logger.Debugf("successfully pinged init conn workspace %d", id)
+					} else {
+						var code int
+						var buf []byte
+						if resp != nil {
+							code = resp.StatusCode
+							if resp.Body != nil {
+								buf, _ = io.ReadAll(resp.Body)
+							}
+						}
+						p.socket.logger.Errorf("failed to ping init conn for workspace %d: %d - %v - %s", id, code, err, string(buf))
+					}
+
+					// NOTE: we really don't have to handle anything here - just making the connection is good enough
+					return nil, nil
+				}
+
+				// launch the ping function via the singleflight
+				p.wg.Go(func() {
+					_, _, _ = g.Do(strconv.FormatInt(id, 10), pingFunc)
+				})
 			}
 		}
 	}

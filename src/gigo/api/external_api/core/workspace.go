@@ -1803,7 +1803,7 @@ func DeleteEphemeral(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 	ownerIds := make([]int64, 0)
 
 	for _, id := range deleteIds {
-		wsQuery := fmt.Sprintf("select code_source_id, owner_id from workspaces where _id = %d and ephemeral = true", id)
+		wsQuery := fmt.Sprintf("select code_source_id, owner_id from workspaces where _id = %d and is_ephemeral = true", id)
 
 		res, err := tidb.QueryContext(ctx, &span, &callerName, wsQuery)
 		if err != nil {

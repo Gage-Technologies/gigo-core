@@ -46,6 +46,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/gage-technologies/gigo-lib/storage"
 	"github.com/gage-technologies/gigo-lib/utils"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/go-redis/redis/v8"
 	"github.com/go-redis/redis_rate/v9"
 	"github.com/gorilla/mux"
@@ -272,6 +273,7 @@ type HTTPServer struct {
 	curatedSecret                string
 	masterKey                    string
 	captchaSecret                string
+	zitiServer                   *zitimesh.Server
 }
 
 // CreateHTTPServer Creates a new HTTPServer object
@@ -307,7 +309,7 @@ func CreateHTTPServer(cfg config.HttpServerConfig, otelServiceName string, tidb 
 	rdb redis.UniversalClient, sf *snowflake.Node, giteaClient *git.VCSClient, storageEngine storage.Storage,
 	wsClient *ws.WorkspaceClient, js *mq.JetstreamClient, wsStatusUpdater *utils2.WorkspaceStatusUpdater,
 	accessUrl *url.URL, passwordFilter *utils2.PasswordFilter, githubSecret string, forceCdn bool, cdnKey string, masterKey string, captchaSecret string,
-	whitelistedIpRanges []*net.IPNet, logger logging.Logger) (*HTTPServer, error) {
+	whitelistedIpRanges []*net.IPNet, zitiServer *zitimesh.Server, logger logging.Logger) (*HTTPServer, error) {
 
 	// create MUX router to enable complex HTTP applications
 	r := mux.NewRouter()
@@ -397,6 +399,7 @@ func CreateHTTPServer(cfg config.HttpServerConfig, otelServiceName string, tidb 
 		curatedSecret:                cfg.CuratedSecret,
 		masterKey:                    masterKey,
 		captchaSecret:                captchaSecret,
+		zitiServer:                   zitiServer,
 	}
 
 	// TODO: refine a more conservative CORS policy

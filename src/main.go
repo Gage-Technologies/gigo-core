@@ -127,6 +127,11 @@ func shutdown(server *external_api.HTTPServer, zitiManager *zitimesh.Manager, cl
 		fmt.Printf("failed to close cluster node gracefully: %v\n", err)
 	}
 
+	// delete ziti mesh node
+	logger.Info("delete ziti server")
+	fmt.Println("delete ziti server")
+	zitiManager.DeleteServer(clusterNode.GetSelfMetadata().ID)
+
 	// wait for all workers of the follower routine to exit
 	logger.Info("waiting for follower workers to exit")
 	fmt.Println("waiting for follower workers to exit")
@@ -136,11 +141,6 @@ func shutdown(server *external_api.HTTPServer, zitiManager *zitimesh.Manager, cl
 	logger.Info("canceling system context")
 	fmt.Println("canceling system context")
 	systemCancel()
-
-	// delete ziti mesh node
-	logger.Info("delete ziti server")
-	fmt.Println("delete ziti server")
-	zitiManager.DeleteServer(clusterNode.GetSelfMetadata().ID)
 
 	logger.Info("server shutdown complete")
 	fmt.Println("server shutdown complete")
@@ -391,6 +391,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create ziti server: %v", err)
 	}
+	err = zitiManager.CreateWorkspaceServicePolicy()
+	if err != nil {
+		log.Fatalf("failed to create ziti policy: %v", err)
+	}
 
 	fmt.Println("Creating cluster node")
 	// create cluster node
@@ -463,7 +467,7 @@ func main() {
 	// create HTTP server
 	externalServer, err := external_api.CreateHTTPServer(cfg.HTTPServerConfig, cfg.OTELConfig.ServiceName, tiDB, meili, rdb, snowflakeNode,
 		vcsClient, storageEngine, wsClient, js, wsStatusUpdater, parsedAccessUrl, passwordFilter, cfg.GithubSecret,
-		cfg.HTTPServerConfig.ForceCdnAccess, cfg.HTTPServerConfig.CdnAccessKey, cfg.MasterKey, cfg.CaptchaSecret, whitelistedIpRanges, httpLogger)
+		cfg.HTTPServerConfig.ForceCdnAccess, cfg.HTTPServerConfig.CdnAccessKey, cfg.MasterKey, cfg.CaptchaSecret, whitelistedIpRanges, zitiServer, httpLogger)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("failed to create http server, %v", err))
 	}
