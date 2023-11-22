@@ -496,7 +496,7 @@ func (api *WorkspaceAPI) proxyWorkspacePort(opts proxyWorkspacePortOptions, rw h
 
 	proxy := httputil.NewSingleHostReverseProxy(appURL)
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		api.HandleError(rw, fmt.Sprintf("failed to proxy request to application: %s", appURL), r.URL.Path, "proxyWorkspacePort",
+		api.HandleError(rw, fmt.Sprintf("failed to proxy request to application: %s:%d", zitimesh.NetworkTypeTCP, int(opts.Port)), r.URL.Path, "proxyWorkspacePort",
 			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), opts.CallingUser.UserName,
 			callingId, http.StatusBadGateway, "internal server error", err)
 		return
