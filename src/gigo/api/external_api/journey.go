@@ -218,12 +218,6 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// attempt to load parameter from body
-	workspaceConfigRevision, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnit", "workspace_config_revision", reflect.Float64, nil, false, callingUser.(*models.User).UserName, callingId)
-	if workspaceConfigRevision == nil || !ok {
-		return
-	}
-
-	// attempt to load parameter from body
 	workspaceConfigContentI, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnit", "workspace_config_content", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
 	if !ok {
 		return
@@ -477,6 +471,277 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	s.jsonResponse(r, w, res, r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
 }
 
+func (s *HTTPServer) CreateJourneyUnitAttempt(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-journey-unit-attempt-http")
+	defer parentSpan.End()
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+	userSession := r.Context().Value("userSession")
+
+	callingId := network.GetRequestIP(r)
+	userName := network.GetRequestIP(r)
+	callingIdInt := int64(0)
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "CreateJourneyUnitAttempt", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId = strconv.FormatInt(callingUser.(*models.User).ID, 10)
+	userName = callingUser.(*models.User).UserName
+	callingIdInt = callingUser.(*models.User).ID
+
+	if userSession == nil {
+		s.handleError(w, "user session missing from context", r.URL.Path, "CreateJourneyUnitAttempt", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "CreateJourneyUnitAttempt", false, userName, callingIdInt)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load parameter from body
+	title, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "title", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if title == nil || !ok {
+		return
+	}
+
+	unitFocusT, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "unit_focus", reflect.Float64, nil, false, callingUser.(*models.User).UserName, callingId)
+	if unitFocusT == nil || !ok {
+		return
+	}
+	unitFocus := models.UnitFocus(int(unitFocusT.(float64)))
+
+	// attempt to load parameter from body
+	description, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "description", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if description == nil || !ok {
+		return
+	}
+
+	// attempt to load parameter from body
+	tier, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "tier", reflect.Float64, nil, false, callingUser.(*models.User).UserName, callingId)
+	if tier == nil || !ok {
+		return
+	}
+
+	// attempt to load parameter from body
+	langsType := reflect.Float64
+	languagesI, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "languages", reflect.Slice, &langsType, false, callingUser.(*models.User).UserName, callingId)
+	if languagesI == nil || !ok {
+		return
+	}
+
+	// create a slice to hold languages loaded from the http parameter
+	languages := make([]models.ProgrammingLanguage, 0)
+
+	// attempt to load parameter from body
+	for _, lang := range languagesI.([]interface{}) {
+		languages = append(languages, models.ProgrammingLanguage(lang.(float64)))
+	}
+
+	// attempt to load parameter from body
+	tagsType := reflect.Map
+	tagsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "tags", reflect.Slice, &tagsType, false, callingUser.(*models.User).UserName, callingId)
+	if tagsI == nil || !ok {
+		return
+	}
+
+	// create a slice to hold tags loaded from the http parameter
+	tags := make([]string, 0)
+
+	// iterate through tagsI asserting each value as a map and create a new tag
+	for _, tagI := range tagsI.([]interface{}) {
+		tag := tagI.(map[string]interface{})
+
+		// load value from tag map
+		valS, ok := tag["value"]
+		if !ok {
+			s.handleError(w, "missing tag value", r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"internal server error occurred", nil)
+			return
+		}
+
+		// assert val as string
+		val, ok := valS.(string)
+		if !ok {
+			s.handleError(w, fmt.Sprintf("invalid tag value type: %v", reflect.TypeOf(valS)), r.URL.Path,
+				"CreateJourneyUnitAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"invalid tag value type - should be string", nil,
+			)
+			return
+		}
+
+		tags = append(tags, val)
+	}
+
+	// attempt to load parameter from body
+	id, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "workspace_config_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if id == nil || !ok {
+		return
+	}
+
+	// attempt to load parameter from body
+	workspaceConfigRevisionS, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "workspace_config_revision", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigRevisionS == nil || !ok {
+		return
+	}
+
+	workspaceConfigRevision, err := strconv.ParseInt(workspaceConfigRevisionS.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse workspace config revision as int64", r.URL.Path, "CreateJourneyUnit", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// attempt to load parameter from body
+	workspaceConfigIDS, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "workspace_config_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if workspaceConfigIDS == nil || !ok {
+		return
+	}
+
+	workspaceConfigID, err := strconv.ParseInt(workspaceConfigIDS.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse workspace config id as int64", r.URL.Path, "CreateJourneyUnit", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// attempt to load parameter from body
+	repoIDS, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "repo_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if repoIDS == nil || !ok {
+		return
+	}
+
+	repoID, err := strconv.ParseInt(repoIDS.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse repo id as int64", r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// attempt to load parameter from body
+	parentIDS, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "parent_unit_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if parentIDS == nil || !ok {
+		return
+	}
+
+	parentUnit, err := strconv.ParseInt(repoIDS.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse parent unit id as int64", r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// attempt to load parameter from body
+	parentAuthorIDS, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "parent_unit_author_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if parentAuthorIDS == nil || !ok {
+		return
+	}
+
+	parentUnitAuthorID, err := strconv.ParseInt(repoIDS.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse parent unit author id as int64", r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// attempt to load parameter from body
+	workspaceSettingsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "workspace_settings", reflect.Map, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	// create variable to hold workspace settings
+	var workspaceSettings *models.WorkspaceSettings
+
+	// conditionally attempt to marshall and unmarshall the workspace settings
+	if workspaceSettingsI != nil {
+		buf, err := json.Marshal(workspaceSettingsI)
+		if err != nil {
+			s.handleError(w, fmt.Sprintf("failed to marshal workspace settings: %s", err), r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+				"internal server error occurred", err)
+			return
+		}
+
+		err = json.Unmarshal(buf, &workspaceSettings)
+		if err != nil {
+			s.handleError(w, fmt.Sprintf("failed to unmarshal workspace settings: %s", err), r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+				"internal server error occurred", err)
+			return
+		}
+
+		// ensure the validity of the settings
+		if workspaceSettings.AutoGit.CommitMessage == "" {
+			s.handleError(w, fmt.Sprintf("invalid commit message for workspace settings: %s", workspaceSettings.AutoGit.CommitMessage), r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"invalid commit message", nil)
+			return
+		}
+	}
+
+	// attempt to load parameter from body
+	visibilityI, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "project_visibility", reflect.Float64, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+	visibility := models.PublicVisibility
+	if visibilityI != nil {
+		visibility = models.PostVisibility(visibilityI.(float64))
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "CreateJourneyUnitAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.CreateJourneyUnitAttempt(ctx, s.tiDB, s.vscClient, userSession.(*models.UserSession), s.sf, callingUser.(*models.User), parentUnit, title.(string), unitFocus,
+		languages, description.(string), repoID, tags, models.TierType(int(tier.(float64))), workspaceConfigID, parentUnitAuthorID, visibility, int(workspaceConfigRevision), workspaceSettings,
+		nil)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "CreateJourneyUnitAttempt core failed", r.URL.Path, "CreateJourneyUnitAttempt", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), userName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"create-journey-unit-attempt",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingId),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "CreateJourneyUnitAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
+}
+
 func (s *HTTPServer) CreateJourneyProject(w http.ResponseWriter, r *http.Request) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-journey-project-http")
 	defer parentSpan.End()
@@ -594,11 +859,28 @@ func (s *HTTPServer) CreateJourneyProject(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	dependencies := make([]int64, 0)
+
 	// attempt to load parameter from body
-	tagsType := reflect.Map
-	tagsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyProject", "tags", reflect.Slice, &tagsType, false, callingUser.(*models.User).UserName, callingId)
-	if tagsI == nil || !ok {
+	depType := reflect.Map
+	depsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyProject", "tags", reflect.Slice, &depType, false, callingUser.(*models.User).UserName, callingId)
+	if depsI == nil || !ok {
 		return
+	}
+
+	// iterate through tagsI asserting each value as a map and create a new tag
+	for _, deps := range depsI.([]interface{}) {
+
+		dep, err := strconv.ParseInt(deps.(string), 10, 64)
+		if !ok {
+			s.handleError(w, "failed to parse dependency id as int64", r.URL.Path, "CreateJourneyProject", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+				"internal server error occurred", err)
+			return
+		}
+
+		dependencies = append(dependencies, dep)
 	}
 
 	// check if this is a test
@@ -622,7 +904,7 @@ func (s *HTTPServer) CreateJourneyProject(w http.ResponseWriter, r *http.Request
 	}
 
 	parentSpan.AddEvent(
-		"create-journey-unit",
+		"create-journey-project",
 		trace.WithAttributes(
 			attribute.Bool("success", true),
 			attribute.String("ip", network.GetRequestIP(r)),
@@ -632,4 +914,193 @@ func (s *HTTPServer) CreateJourneyProject(w http.ResponseWriter, r *http.Request
 
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "CreateJourneyProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) CreateJourneyProjectAttempt(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-journey-project-attempt-http")
+	defer parentSpan.End()
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	callingId := network.GetRequestIP(r)
+	userName := network.GetRequestIP(r)
+	callingIdInt := int64(0)
+	if callingUser != nil {
+		if callingUser.(*models.User).AuthRole != models.Admin {
+			s.handleError(w, fmt.Sprintf("incorrect permissions for acessing user: %v", callingUser.(*models.User).ID), r.URL.Path, "CreateJourneyProjectAttempt", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), "", "", http.StatusInternalServerError, "naughty naughty, you shouldn't be here nerd!", errors.New(fmt.Sprintf("incorrect permissions for acessing user: %v", callingUser.(*models.User).ID)))
+			return
+		}
+
+		callingId = strconv.FormatInt(callingUser.(*models.User).ID, 10)
+		userName = callingUser.(*models.User).UserName
+		callingIdInt = callingUser.(*models.User).ID
+	}
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "CreateJourneyProjectAttempt", false, userName, callingIdInt)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load parameter from body
+	title, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "title", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if title == nil || !ok {
+		return
+	}
+
+	// attempt to load parameter from body
+	description, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "description", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if description == nil || !ok {
+		return
+	}
+
+	// attempt to load parameter from body
+	tier, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "tier", reflect.Float64, nil, false, callingUser.(*models.User).UserName, callingId)
+	if tier == nil || !ok {
+		return
+	}
+
+	languageS, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "languages", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if languageS == nil || !ok {
+		return
+	}
+
+	language := models.ProgrammingLanguageFromString(languageS.(string))
+
+	// attempt to load parameter from body
+	tagsType := reflect.Map
+	tagsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "tags", reflect.Slice, &tagsType, false, callingUser.(*models.User).UserName, callingId)
+	if tagsI == nil || !ok {
+		return
+	}
+
+	// create a slice to hold tags loaded from the http parameter
+	tags := make([]string, 0)
+
+	// iterate through tagsI asserting each value as a map and create a new tag
+	for _, tagI := range tagsI.([]interface{}) {
+		tag := tagI.(map[string]interface{})
+
+		// load value from tag map
+		valS, ok := tag["value"]
+		if !ok {
+			s.handleError(w, "missing tag value", r.URL.Path, "CreateJourneyProjectAttempt", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"internal server error occurred", nil)
+			return
+		}
+
+		// assert val as string
+		val, ok := valS.(string)
+		if !ok {
+			s.handleError(w, fmt.Sprintf("invalid tag value type: %v", reflect.TypeOf(valS)), r.URL.Path,
+				"CreateJourneyProjectAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusUnprocessableEntity,
+				"invalid tag value type - should be string", nil,
+			)
+			return
+		}
+
+		tags = append(tags, val)
+	}
+
+	// attempt to load parameter from body
+	unitIds, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "unit_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if unitIds == nil || !ok {
+		return
+	}
+
+	unitID, err := strconv.ParseInt(unitIds.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse unit id as int64", r.URL.Path, "CreateJourneyProjectAttempt", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// attempt to load parameter from body
+	parentIds, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "parent_project_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if parentIds == nil || !ok {
+		return
+	}
+
+	parentProject, err := strconv.ParseInt(unitIds.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse parent project id as int64", r.URL.Path, "CreateJourneyProjectAttempt", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// attempt to load parameter from body
+	workingDirectory, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "working_directory", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	if workingDirectory == nil {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "CreateJourneyProjectAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	dependencies := make([]int64, 0)
+
+	// attempt to load parameter from body
+	depType := reflect.Map
+	depsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyProjectAttempt", "tags", reflect.Slice, &depType, false, callingUser.(*models.User).UserName, callingId)
+	if depsI == nil || !ok {
+		return
+	}
+
+	// iterate through tagsI asserting each value as a map and create a new tag
+	for _, deps := range depsI.([]interface{}) {
+
+		dep, err := strconv.ParseInt(deps.(string), 10, 64)
+		if !ok {
+			s.handleError(w, "failed to parse dependency id as int64", r.URL.Path, "CreateJourneyProjectAttempt", r.Method,
+				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+				"internal server error occurred", err)
+			return
+		}
+
+		dependencies = append(dependencies, dep)
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "CreateJourneyProjectAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.CreateJourneyProjectAttempt(ctx, s.tiDB, s.sf, callingUser.(*models.User), unitID, parentProject, workingDirectory.(string), title.(string), description.(string),
+		language, tags, dependencies, nil)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "CreateJourneyProjectAttempt core failed", r.URL.Path, "CreateJourneyProjectAttempt", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), userName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"create-journey-project-attempt",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingId),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "CreateJourneyProjectAttempt", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
 }

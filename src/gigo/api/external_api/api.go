@@ -1862,6 +1862,10 @@ func (s *HTTPServer) linkAPI() {
 
 	// ////////////////////////////////////Journey
 	s.router.HandleFunc("/api/journey/saveJourneyInfo", s.SaveJourneyInfo).Methods("POST")
+	s.router.HandleFunc("/api/journey/createUnit", s.CreateJourneyUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/createUnitAttempt", s.CreateJourneyUnitAttempt).Methods("POST")
+	s.router.HandleFunc("/api/journey/createProject", s.CreateJourneyProject).Methods("POST")
+	s.router.HandleFunc("/api/journey/createProjectAttempt", s.CreateJourneyProjectAttempt).Methods("POST")
 
 	// /////////////////////////////////////////// Internal
 	internalWsRouter := s.router.PathPrefix("/internal/v1/ws").Subrouter()
