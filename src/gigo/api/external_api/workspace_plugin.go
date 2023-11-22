@@ -7,6 +7,8 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -15,13 +17,15 @@ import (
 	"gigo-core/gigo/api/external_api/core"
 	"gigo-core/gigo/api/external_api/ws"
 
+	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	models2 "github.com/gage-technologies/gigo-lib/mq/models"
 	"github.com/gage-technologies/gigo-lib/mq/streams"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/nats-io/nats.go"
 	"github.com/sourcegraph/conc"
 	"go.opentelemetry.io/otel"
-	"tailscale.com/net/speedtest"
+	"golang.org/x/sync/singleflight"
 )
 
 type WorkspaceSubscribeParams struct {
@@ -61,6 +65,9 @@ func NewPluginWorkspace(ctx context.Context, s *HTTPServer, socket *masterWebSoc
 
 	// launch the resource routine
 	plugin.wg.Go(plugin.resourceUtilRoutine)
+
+	// launch the init conn ping routine
+	plugin.wg.Go(plugin.wsPingRoutine)
 
 	// return the new plugin instance
 	return plugin, nil
@@ -241,84 +248,41 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 		callerName := "WorkspaceWebSocketPlugin"
 		defer parentSpan.End()
 
+		// get the workspace agent id
 		var agentId int64
-		err = p.s.tiDB.QueryRow(ctx, &parentSpan, &callerName, "SELECT _id FROM workspace_agent WHERE workspace_id = ? limit 1", statusMsg.Workspace.ID).Scan(&agentId)
+		err := p.s.tiDB.DB.QueryRow(
+			"select _id from workspace_agent where workspace_id = ? order by created_at desc limit 1",
+			statusMsg.Workspace.ID,
+		).Scan(&agentId)
 		if err != nil {
-			p.s.logger.Errorf("failed to query workspace agent: %v", err)
-			return
-		}
-
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace start completed, acquiring connection to workspace agent", statusMsg.Workspace.ID)
-
-		// create a new http request to the workspace agent
-		r, err := http.NewRequestWithContext(p.ctx, http.MethodGet, fmt.Sprintf("http://localhost:13337/healthz"), nil)
-		if err != nil {
-			p.s.logger.Errorf("failed to create http request: %v", err)
-			return
-		}
-
-		// acquire a connection to the workspace agent
-		conn, release, err := p.s.WorkspaceAgentCache.Acquire(r, agentId)
-		if err != nil {
-			p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to acquire connection to workspace agent: %v", statusMsg.Workspace.ID, err)
-			return
-		}
-
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent connection acquired; awaiting network reachability", statusMsg.Workspace.ID)
-
-		// parse id to int
-		id, _ := strconv.ParseInt(statusMsg.Workspace.ID, 10, 64)
-
-		// wait up to 10s for the workspace agent to become reachable
-		reachableCtx, cancelReachableCtx := context.WithTimeout(context.TODO(), time.Second*10)
-		reachable := conn.AwaitReachable(reachableCtx)
-		cancelReachableCtx()
-		if !reachable {
-			p.s.logger.Errorf("WorkspaceWebSocket (%s): workspace agent connection failed to become reachable; dropping connection and re-establishing", statusMsg.Workspace.ID)
-			// release the connection from the cache and close the connection
-			// we need to create a new connection to the workspace agent
-			release()
-			p.s.WorkspaceAgentCache.ForgetAndClose(agentId)
-
-			// create a new connection to the workspace agent
-			conn, release, err = p.s.WorkspaceAgentCache.Acquire(r, agentId)
-			if err != nil {
-				p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to acquire connection to workspace agent: %v", statusMsg.Workspace.ID, err)
-				release()
+			if err != sql.ErrNoRows {
+				p.socket.logger.Errorf("init code-server conn for workspace %d: failed to query workspace agent: %v", statusMsg.Workspace.ID, err)
 				return
 			}
-
-			// make another attempt to wait for the workspace agent to become reachable
-			// but this time wait up to 30s
-			reachableCtx, cancelReachableCtx := context.WithTimeout(context.TODO(), time.Second*30)
-			reachable := conn.AwaitReachable(reachableCtx)
-			cancelReachableCtx()
-			if !reachable {
-				release()
-				// fail here since we can't connect to the workspace agent
-				p.s.logger.Errorf("WorkspaceWebSocket (%s): workspace agent is not reachable", statusMsg.Workspace.ID)
-				// mark the workspace as failed
-				err = core.WorkspaceInitializationFailure(p.ctx, p.s.tiDB, p.s.wsStatusUpdater, id,
-					models.WorkspaceInitVSCodeLaunch, "connecting to workspace", -1,
-					"", "failed to establish connection to workspace", p.s.jetstreamClient)
-				if err != nil {
-					p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to mark workspace as failed: %v", statusMsg.Workspace.ID, err)
-					return
-				}
-			}
+			p.socket.logger.Infof("no active agents found for workspace %d", statusMsg.Workspace.ID)
 		}
 
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent is reachable; running speedtest", statusMsg.Workspace.ID)
+		p.s.logger.Debugf("initializing code server connection: %d", statusMsg.Workspace.ID)
 
-		// make a direct http request to the workspace agent to initialize the connection
-		_, err = conn.Speedtest(p.ctx, speedtest.Download, time.Second)
-		if err != nil {
-			p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to initialize connection to workspace agent: %v", statusMsg.Workspace.ID, err)
-			release()
-			return
+		// create a client that will dial using the ziti mesh
+		client := http.Client{
+			Transport: &http.Transport{
+				DialContext: func(ctx context.Context, network, addr string) (netConn net.Conn, e error) {
+					// we dial the agent here using the zitimesh server which will
+					// establish a connection to the end target on the agent over
+					// the ziti net mesh ovelay
+					return p.s.zitiServer.DialAgent(agentId, zitimesh.NetworkTypeTCP, 13337)
+				},
+			},
 		}
 
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent connection initialized; waiting agent ready", statusMsg.Workspace.ID)
+		// execute a get request to the /healthz endpoint - this warms up the connection to code-server via ziti
+		resp, _ := client.Get("http://dummy/healthz")
+		if resp != nil && resp.Body != nil {
+			defer resp.Body.Close()
+		}
+
+		p.s.logger.Debugf("waiting agent ready: %d", statusMsg.Workspace.ID)
 
 		// wait for the workspace agent to become ready
 		timeout := time.After(time.Second * 30)
@@ -328,20 +292,21 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 			case <-p.ctx.Done():
 				return
 			case <-timeout:
-				p.s.logger.Errorf("WorkspaceWebSocket (%d): failed to wait agent ready", statusMsg.Workspace.ID)
+				p.s.logger.Errorf("failed to wait agent ready: %d", statusMsg.Workspace.ID)
 				exit = true
 				break
 			default:
 				// check if the agent is ready
+				var agentId int64
 				err = p.s.tiDB.QueryRowContext(ctx, &parentSpan, &callerName,
 					"select _id from workspace_agent a where workspace_id = ? and a.state = ? order by a.created_at desc limit 1",
-					id, models.WorkspaceAgentStateRunning,
+					statusMsg.Workspace.ID, models.WorkspaceAgentStateRunning,
 				).Scan(&agentId)
 				if err != nil {
 					if err != sql.ErrNoRows {
-						p.s.logger.Errorf("WorkspaceWebSocket (%s): failed to query workspace agent: %v", statusMsg.Workspace.ID, err)
+						p.s.logger.Errorf("failed to query workspace agent %d: %v", statusMsg.Workspace.ID, err)
 					}
-					p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent not ready yet", statusMsg.Workspace.ID)
+					p.s.logger.Debugf("workspace agent not ready yet: %d", statusMsg.Workspace.ID)
 					time.Sleep(time.Second)
 					continue
 				}
@@ -354,11 +319,7 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 			}
 		}
 
-		p.s.logger.Debugf("WorkspaceWebSocket (%s): workspace agent is ready", statusMsg.Workspace.ID)
-
-		// release the connection
-		release()
-		cancelReachableCtx()
+		p.s.logger.Debugf("workspace agent is ready: %d", statusMsg.Workspace.ID)
 	}
 
 	// write status to the websocket
@@ -411,15 +372,10 @@ func (p *WebSocketPluginWorkspace) resourceUtilRoutine() {
 					continue
 				}
 
-				p.socket.logger.Debugf("loading resource utilization data for workspace %d-%d", user.ID, id)
-
 				// skip if the state is not running
 				if wsState.State != models.WorkspaceActive {
-					p.socket.logger.Debugf("workspace resource utilization skipped for invalid state %d-%d: %d", user.ID, id, wsState.State)
 					continue
 				}
-
-				p.socket.logger.Debugf("attempting to retrieve resource utilization data for workspace %d-%d", user.ID, id)
 
 				// attempt to retrieve the resource utilization data for the workspace
 				ctx, cancel := context.WithTimeout(context.TODO(), time.Second*10)
@@ -451,6 +407,114 @@ func (p *WebSocketPluginWorkspace) resourceUtilRoutine() {
 						},
 					},
 				)
+			}
+		}
+	}
+}
+
+func (p *WebSocketPluginWorkspace) wsPingRoutine() {
+	// loop forever pinging workspaces in start up
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	// create a singleflight group so only one goroutine can call the ping function at once
+	var g singleflight.Group
+
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-ticker.C:
+			// iterate all the workspaces pinging the ones in a starting state
+			for id := range p.wsSubs {
+				// check if we are exiting
+				select {
+				case <-p.ctx.Done():
+					return
+				default:
+				}
+
+				// retrieve the latest state for the workspace
+				p.mu.Lock()
+				wsState, ok := p.lastStates[fmt.Sprintf("%d", id)]
+				p.mu.Unlock()
+				if !ok {
+					p.socket.logger.Warnf("skipping init conn ping for workspace %d: missing state", id)
+					continue
+				}
+				if wsState == nil {
+					p.socket.logger.Debugf("nil state in init conn  ping routine %d", id)
+					continue
+				}
+
+				p.socket.logger.Debugf("attempting to init conn ping for workspace %d", id)
+
+				// skip if the state is not running
+				if wsState.State != models.WorkspaceStarting {
+					p.socket.logger.Debugf("skipping init conn ping for workspace %d because its state is not 'starting'", id)
+					continue
+				}
+
+				p.socket.logger.Debugf("attempting to init conn ping for workspace %d", id)
+
+				// get the workspace agent id
+				var agentId int64
+				err := p.s.tiDB.DB.QueryRow(
+					"select _id from workspace_agent where workspace_id = ? order by created_at desc limit 1",
+					id,
+				).Scan(&agentId)
+				if err != nil {
+					if err != sql.ErrNoRows {
+						p.socket.logger.Errorf("init conn ping for workspace %d: failed to query workspace agent: %v", id, err)
+						continue
+					}
+					p.socket.logger.Infof("no active agents found for workspace %d", id)
+				}
+
+				// attempt to ping the init connection server on the agent
+				pingFunc := func() (interface{}, error) {
+					p.socket.logger.Debugf("attempting to ping workspace %d", id)
+
+					// create a client that will dial using the ziti mesh
+					client := http.Client{
+						Transport: &http.Transport{
+							DialContext: func(ctx context.Context, network, addr string) (netConn net.Conn, e error) {
+								// we dial the agent here using the zitimesh server which will
+								// establish a connection to the end target on the agent over
+								// the ziti net mesh ovelay
+								return p.s.zitiServer.DialAgent(agentId, zitimesh.NetworkTypeTCP, agentsdk.ZitiInitConnPort)
+							},
+						},
+					}
+
+					// execute a get request to the /ping endpoint
+					resp, _ := client.Get("http://dummy/ping")
+					if resp != nil && resp.Body != nil {
+						defer resp.Body.Close()
+					}
+
+					if resp != nil && resp.StatusCode == 200 {
+						p.socket.logger.Debugf("successfully pinged init conn workspace %d", id)
+					} else {
+						var code int
+						var buf []byte
+						if resp != nil {
+							code = resp.StatusCode
+							if resp.Body != nil {
+								buf, _ = io.ReadAll(resp.Body)
+							}
+						}
+						p.socket.logger.Errorf("failed to ping init conn for workspace %d: %d - %v - %s", id, code, err, string(buf))
+					}
+
+					// NOTE: we really don't have to handle anything here - just making the connection is good enough
+					return nil, nil
+				}
+
+				// launch the ping function via the singleflight
+				p.wg.Go(func() {
+					_, _, _ = g.Do(strconv.FormatInt(id, 10), pingFunc)
+				})
 			}
 		}
 	}

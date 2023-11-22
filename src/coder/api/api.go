@@ -16,13 +16,12 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/gage-technologies/gigo-lib/cluster"
-	"github.com/gage-technologies/gigo-lib/coder/tailnet"
-	"github.com/gage-technologies/gigo-lib/coder/wsconncache"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/git"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/mq"
 	"github.com/gage-technologies/gigo-lib/network"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	"go.opentelemetry.io/otel"
@@ -39,8 +38,6 @@ type WorkspaceAPIOptions struct {
 	Address     string
 	Ctx         context.Context
 	DerpMeshKey string
-
-	TailnetCoordinator *tailnet.Coordinator
 
 	AgentConnectionUpdateFrequency time.Duration
 	AgentInactiveDisconnectTimeout time.Duration
@@ -61,6 +58,8 @@ type WorkspaceAPIOptions struct {
 	Js          *mq.JetstreamClient
 
 	RegistryCaches []config.RegistryCacheConfig
+
+	ZitiServer *zitimesh.Server
 }
 
 // WorkspaceAPI
@@ -70,7 +69,6 @@ type WorkspaceAPIOptions struct {
 type WorkspaceAPI struct {
 	*WorkspaceAPIOptions
 	WorkspaceClientCoordinateOverride atomic.Pointer[func(rw http.ResponseWriter) bool]
-	TailnetCoordinator                atomic.Pointer[*tailnet.Coordinator]
 	DERPServer                        *derper.MeshServer
 
 	// APIHandler serves "/api/v2" and "/bin"
@@ -78,8 +76,6 @@ type WorkspaceAPI struct {
 
 	WebsocketWaitMutex sync.Mutex
 	WebsocketWaitGroup sync.WaitGroup
-
-	WorkspaceAgentCache *wsconncache.Cache
 
 	// these are functions that exist in the main project's http api server that we will back link to
 	// the workspace api. that way we can preserve our framework and system and have all auth and
@@ -148,18 +144,9 @@ func NewWorkspaceAPI(opts *WorkspaceAPIOptions) (*WorkspaceAPI, error) {
 		WorkspaceAPIOptions: opts,
 		DERPServer:          derpMeshServer,
 	}
-	wsApi.WorkspaceAgentCache, err = wsconncache.New(
-		wsconncache.CacheParams{
-			Dialer:          wsApi.dialWorkspaceAgentTailnet,
-			InactiveTimeout: time.Minute * 30,
-			Logger:          opts.Logger.WithName("wsconncache"),
-			Js:              opts.Js,
-		},
-	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workspace agent cache: %v", err)
 	}
-	wsApi.TailnetCoordinator.Store(&opts.TailnetCoordinator)
 
 	wsApi.StreakEngine = opts.StreakEngine
 
@@ -193,7 +180,6 @@ func (api *WorkspaceAPI) LinkAPI(r *mux.Router) {
 	internalWsRouter := r.PathPrefix("/internal/v1/ws").Subrouter()
 	internalWsRouter.Use(api.authenticateAgent)
 	internalWsRouter.HandleFunc("/initialize", api.InitializeAgent).Methods("POST")
-	internalWsRouter.HandleFunc("/coordinate", api.WorkspaceAgentCoordinate).Methods("GET")
 	internalWsRouter.HandleFunc("/state", api.PostWorkspaceAgentState).Methods("POST")
 	internalWsRouter.HandleFunc("/version", api.PostWorkspaceAgentVersion).Methods("POST")
 	internalWsRouter.HandleFunc("/ports", api.PostWorkspaceAgentPort).Methods("POST")

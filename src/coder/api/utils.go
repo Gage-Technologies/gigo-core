@@ -2,15 +2,11 @@ package api
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/gage-technologies/gigo-lib/cluster"
-	"github.com/gage-technologies/gigo-lib/coder/tailnet"
 	"net/textproto"
-	"nhooyr.io/websocket"
 	"strings"
-	"tailscale.com/tailcfg"
 	"time"
+
+	"nhooyr.io/websocket"
 )
 
 // Heartbeat loops to ping a WebSocket to keep it alive.
@@ -51,55 +47,4 @@ func StripGigoCookies(header string) string {
 		cookies = append(cookies, part)
 	}
 	return strings.Join(cookies, "; ")
-}
-
-// GetClusterDerpMap
-//
-//	Retrieves all the DERP servers available in the cluster
-//	and creates a new map of the embedded DERP region.
-func GetClusterDerpMap(node cluster.Node) (*tailcfg.DERPMap, error) {
-	// create base depr region with no nodes
-	region := &tailcfg.DERPRegion{
-		EmbeddedRelay: true,
-		RegionID:      999,
-		RegionCode:    "gigo",
-		RegionName:    "Gigo Embedded Relay",
-		Nodes:         make([]*tailcfg.DERPNode, 0),
-	}
-
-	// retrieve derp configs for each node in the cluster
-	clusterDerps, err := node.GetCluster("derp-node")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster derp nodes: %v", err)
-	}
-
-	// iterate through derp configs loading them into derp nodes
-	// and appending them to the main derp region
-	for _, derpConfig := range clusterDerps {
-		if len(derpConfig) == 0 {
-			continue
-		}
-		var derpNode tailcfg.DERPNode
-		err := json.Unmarshal([]byte(derpConfig[0].Value), &derpNode)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal derp node: %v", err)
-		}
-		region.Nodes = append(region.Nodes, &derpNode)
-	}
-
-	buf, _ := json.Marshal(region)
-	fmt.Println("region: ", string(buf))
-
-	// create a new derp map
-	derpMap, err := tailnet.NewDERPMap(
-		context.TODO(), region, []string{"stun.l.google.com:19302"}, "", "",
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new derp map: %v", err)
-	}
-
-	buf, _ = json.Marshal(derpMap)
-	fmt.Println("derp map: ", string(buf))
-
-	return derpMap, nil
 }

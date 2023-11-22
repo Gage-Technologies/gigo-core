@@ -794,7 +794,7 @@ func SearchComments(ctx context.Context, meili *search.MeiliSearchEngine, query 
 }
 
 func SearchWorkspaceConfigs(ctx context.Context, db *ti.Database, meili *search.MeiliSearchEngine, query string,
-	languages []models.ProgrammingLanguage, tags []int64, skip int, limit int) (map[string]interface{}, error) {
+	languages []models.ProgrammingLanguage, tags []int64, skip int, limit int, searchUser *bool, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "search-workspace-configs-core")
 	defer span.End()
 	callerName := "SearchWorkspaceConfigs"
@@ -862,6 +862,20 @@ func SearchWorkspaceConfigs(ctx context.Context, db *ti.Database, meili *search.
 			},
 			// use a logical OR for merging the language filters
 			And: false,
+		})
+	}
+
+	if searchUser != nil && *searchUser == true {
+		logger.Errorf("user id inside SearchWorkspaceConfigs: %d", callingUser.ID)
+		// append filter condition for author id
+		searchRequest.Filter.Filters = append(searchRequest.Filter.Filters, search.FilterCondition{
+			Filters: []search.Filter{
+				{
+					Attribute: "author_id",
+					Operator:  search.OperatorEquals,
+					Value:     callingUser.ID,
+				},
+			},
 		})
 	}
 

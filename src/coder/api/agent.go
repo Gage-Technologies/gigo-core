@@ -3,9 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
-	"net/netip"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -14,85 +12,8 @@ import (
 	"gigo-core/coder/api/core"
 
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
-	"github.com/gage-technologies/gigo-lib/coder/tailnet"
 	"github.com/gage-technologies/gigo-lib/network"
-	"golang.org/x/xerrors"
-	"tailscale.com/tailcfg"
 )
-
-func (api *WorkspaceAPI) dialWorkspaceAgentTailnet(r *http.Request, agentID int64) (*agentsdk.AgentConn, error) {
-	api.Logger.Debugf("(dialer: %d) dialing agent", agentID)
-	clientConn, serverConn := net.Pipe()
-
-	// retrieve latest version of the cluster derp map
-	derpMap, err := GetClusterDerpMap(api.ClusterNode)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get cluster derp map: %v", err)
-	}
-
-	for _, region := range derpMap.Regions {
-		if !region.EmbeddedRelay {
-			continue
-		}
-		var node *tailcfg.DERPNode
-		for _, n := range region.Nodes {
-			if n.STUNOnly {
-				continue
-			}
-			node = n
-			break
-		}
-		if node == nil {
-			continue
-		}
-		// TODO: This should dial directly to execute the
-		// DERP server instead of contacting localhost.
-		//
-		// This requires modification of Tailscale internals
-		// to pipe through a proxy function per-region, so
-		// this is an easy and mostly reliable hack for now.
-		cloned := node.Clone()
-		// Add p for proxy.
-		// This first node supports TLS.
-		cloned.Name += "p"
-		cloned.IPv4 = "127.0.0.1"
-		cloned.InsecureForTests = true
-		region.Nodes = append(region.Nodes, cloned.Clone())
-		// This second node forces HTTP.
-		cloned.Name += "-http"
-		cloned.ForceHTTP = true
-		region.Nodes = append(region.Nodes, cloned)
-	}
-
-	connID := api.SnowflakeNode.Generate().Int64()
-	api.Logger.Debugf("(dialer: %d) creating new connection with server id %d: %+v", agentID, connID, derpMap)
-	/// TODO check if we should convert this back to node id.
-	conn, err := tailnet.NewConn(tailnet.ConnTypeServer, &tailnet.Options{
-		NodeID:    connID,
-		Addresses: []netip.Prefix{netip.PrefixFrom(tailnet.IP(), 128)},
-		DERPMap:   derpMap,
-	}, api.Logger)
-	if err != nil {
-		return nil, xerrors.Errorf("create tailnet conn: %w", err)
-	}
-
-	api.Logger.Debugf("(dialer: %d) connecting to coordinator", agentID)
-	_ = conn.ConnectToCoordinator(clientConn)
-	go func() {
-		err := (*api.TailnetCoordinator.Load()).ServeClient(serverConn, api.ID, agentID)
-		if err != nil {
-			api.Logger.Warnf("tailnet coordinator client error: %v", err)
-			_ = conn.Close()
-		}
-	}()
-	return &agentsdk.AgentConn{
-		Conn: conn,
-		CloseFunc: func() {
-			_ = clientConn.Close()
-			_ = serverConn.Close()
-		},
-	}, nil
-}
 
 func (api *WorkspaceAPI) InitializeAgent(rw http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -138,28 +59,16 @@ func (api *WorkspaceAPI) InitializeAgent(rw http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// retrieve latest version of the cluster derp map
-	derpMap, err := GetClusterDerpMap(api.ClusterNode)
-	if err != nil {
-		api.HandleError(rw, "failed to get cluster derp map", r.URL.Path,
-			"InitializeAgent", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-			"anon", "-1", http.StatusInternalServerError, "internal server error", err)
-		return
-	}
-
-	buf, _ := json.Marshal(derpMap)
-	fmt.Println("derp map for agent:", string(buf))
-
 	// call core function to initialize agent and retrieve agent metadata
 	meta, err := core.InitializeAgent(ctx, core.InitializeAgentOptions{
 		DB:             api.DB,
 		StreakEngine:   api.StreakEngine,
 		VcsClient:      api.VcsClient,
+		AgentID:        agentId.(int64),
 		WorkspaceId:    workspaceId.(int64),
 		OwnerId:        ownerId.(int64),
 		AccessUrl:      api.AccessURL,
 		AppHostname:    api.AppHostname,
-		DERPMap:        derpMap,
 		GitUseTLS:      api.GitUseTLS,
 		RegistryCaches: api.RegistryCaches,
 		IsVNC:          req.IsVNC,
@@ -267,8 +176,6 @@ func (api *WorkspaceAPI) PostWorkspaceAgentState(rw http.ResponseWriter, r *http
 			http.StatusInternalServerError, "internal server error", err)
 		return
 	}
-
-	api.publishWorkspaceUpdate(workspaceId.(int64))
 
 	// log successful function execution
 	api.Logger.LogDebugExternalAPI(

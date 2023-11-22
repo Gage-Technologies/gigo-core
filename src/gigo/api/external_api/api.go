@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gage-technologies/gigo-lib/coder/wsconncache"
 	middleware "go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -40,7 +39,6 @@ import (
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/gage-technologies/gigo-lib/db/spice"
 	"github.com/gage-technologies/gigo-lib/git"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/mq"
@@ -48,6 +46,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/gage-technologies/gigo-lib/storage"
 	"github.com/gage-technologies/gigo-lib/utils"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/go-redis/redis/v8"
 	"github.com/go-redis/redis_rate/v9"
 	"github.com/gorilla/mux"
@@ -234,7 +233,6 @@ type HTTPServer struct {
 	listener                     *net.Listener
 	router                       *mux.Router
 	tiDB                         *ti.Database
-	spice                        *spice.Database
 	meili                        *search.MeiliSearchEngine
 	rdb                          redis.UniversalClient
 	sf                           *snowflake.Node
@@ -275,9 +273,7 @@ type HTTPServer struct {
 	curatedSecret                string
 	masterKey                    string
 	captchaSecret                string
-
-	// AGPL: Coder
-	WorkspaceAgentCache *wsconncache.Cache
+	zitiServer                   *zitimesh.Server
 }
 
 // CreateHTTPServer Creates a new HTTPServer object
@@ -313,7 +309,7 @@ func CreateHTTPServer(cfg config.HttpServerConfig, otelServiceName string, tidb 
 	rdb redis.UniversalClient, sf *snowflake.Node, giteaClient *git.VCSClient, storageEngine storage.Storage,
 	wsClient *ws.WorkspaceClient, js *mq.JetstreamClient, wsStatusUpdater *utils2.WorkspaceStatusUpdater,
 	accessUrl *url.URL, passwordFilter *utils2.PasswordFilter, githubSecret string, forceCdn bool, cdnKey string, masterKey string, captchaSecret string,
-	whitelistedIpRanges []*net.IPNet, logger logging.Logger) (*HTTPServer, error) {
+	whitelistedIpRanges []*net.IPNet, zitiServer *zitimesh.Server, logger logging.Logger) (*HTTPServer, error) {
 
 	// create MUX router to enable complex HTTP applications
 	r := mux.NewRouter()
@@ -403,6 +399,7 @@ func CreateHTTPServer(cfg config.HttpServerConfig, otelServiceName string, tidb 
 		curatedSecret:                cfg.CuratedSecret,
 		masterKey:                    masterKey,
 		captchaSecret:                captchaSecret,
+		zitiServer:                   zitiServer,
 	}
 
 	// TODO: refine a more conservative CORS policy
@@ -449,8 +446,6 @@ func (s *HTTPServer) LinkWorkspaceAPI(api *wsApi.WorkspaceAPI) {
 	api.HandleError = s.handleError
 	// link router and paths
 	api.LinkAPI(s.router)
-	// link workspace connection cache
-	s.WorkspaceAgentCache = api.WorkspaceAgentCache
 }
 
 func (s *HTTPServer) Serve() error {
@@ -1468,59 +1463,6 @@ func (s *HTTPServer) initApiCall(next http.Handler) http.Handler {
 	})
 }
 
-// Helper function used to check permissions for a certain resource and subject
-// If the function returns false then the calling function should immediately exit as the response has already been handled
-func (s *HTTPServer) checkPermission(w http.ResponseWriter, r *http.Request, callingUser *models.UserFrontend, permission spice.Permission) bool {
-	// // auto grant admins to all permissions
-	// if callingUser.AuthRole == models.Admin.String() {
-	//	return true
-	// }
-
-	// execute permission check
-	permissionCheck, _, err := s.spice.CheckPermission(permission, "")
-	if err != nil {
-		// handle permission check error
-		s.handleError(w, fmt.Sprintf("failed to check permission for user: %+v", permission), r.URL.Path,
-			"checkPermission", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-			callingUser.UserName, callingUser.ID, http.StatusInternalServerError, "internal server error occurred", err)
-		return false
-	}
-
-	// reject bad permission
-	if permissionCheck != spice.HasPermission {
-		// handle permission check error
-		s.handleError(w, fmt.Sprintf("invalid permission: %+v", permission), r.URL.Path,
-			"checkPermission", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-			callingUser.UserName, callingUser.ID, http.StatusForbidden, "you do not have permission to perform this action", err)
-		return false
-	}
-
-	return true
-}
-
-// Helper function used to check permissions for a certain resource and subject
-// This function will only return a boolean for the permission. Unlike checkPermission, this function will not write a response
-// to the HTTP channel
-func (s *HTTPServer) checkPermissionNoResponse(callingUser *models.UserFrontend, permission spice.Permission) (bool, error) {
-	// // auto grant admins to all permissions
-	// if callingUser.AuthRole == models.Admin.String() {
-	//	return true, nil
-	// }
-
-	// execute permission check
-	permissionCheck, _, err := s.spice.CheckPermission(permission, "")
-	if err != nil {
-		return false, err
-	}
-
-	// reject bad permission
-	if permissionCheck != spice.HasPermission {
-		return false, nil
-	}
-
-	return true, nil
-}
-
 // Receives a chunked file upload and assembles the file chunks into a single temporary file
 // The function returns nil if the execution requires no further action and returns the request JSON map if the
 // core function logic should be executed
@@ -1793,6 +1735,8 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/project/config", s.GetConfig).Methods("POST")
 	s.router.HandleFunc("/api/project/editConfig", s.EditConfig).Methods("POST")
 	s.router.HandleFunc("/api/project/confirmEditConfig", s.ConfirmEditConfig).Methods("POST")
+	s.router.HandleFunc("/api/public_config/create", s.CreatePublicConfigTemplate).Methods("POST")
+	s.router.HandleFunc("/api/public_config/edit", s.EditPublicConfigTemplate).Methods("POST")
 	s.router.HandleFunc("/api/project/genImage", s.GenerateProjectImage).Methods("POST")
 	s.router.HandleFunc("/api/user/createNewUser", s.CreateNewUser).Methods("POST")
 	s.router.HandleFunc("/api/user/validateUser", s.ValidateUserInfo).Methods("POST")
@@ -1835,7 +1779,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/workspace/config/create", s.CreateWorkspaceConfig).Methods("POST")
 	s.router.HandleFunc("/api/workspace/config/update", s.UpdateWorkspaceConfig).Methods("POST")
 	s.router.HandleFunc("/api/workspace/config/get", s.GetUserWorkspaceSettings).Methods("POST")
-	s.router.HandleFunc("/api/workspace/config/get", s.GetWorkspaceConfig).Methods("POST")
+	s.router.HandleFunc("/api/workspace/config/getWsConfig", s.GetWorkspaceConfig).Methods("POST")
 	s.router.HandleFunc("/api/editDescription", s.EditDescription).Methods("POST")
 	s.router.HandleFunc("/api/attempt/start", s.StartAttempt).Methods("POST")
 	s.router.HandleFunc("/api/project/closedAttempts", s.GetClosedAttempts).Methods("POST")
@@ -1897,7 +1841,6 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/project/tempGenImage/{id:[0-9]+}", s.GetGeneratedImage).Methods("GET")
 	s.router.PathPrefix("/static/ext").HandlerFunc(s.ExtensionFiles).Methods("GET")
 	s.router.PathPrefix("/static/ui").HandlerFunc(s.UiFiles).Methods("GET")
-	s.router.PathPrefix("/api/workspace/ws/{id:[0-9]+}").HandlerFunc(s.WorkspaceWebSocket).Methods("GET")
 	s.router.PathPrefix("/api/broadcast/ws/{id:[0-9]+}").HandlerFunc(s.BroadcastWebSocket).Methods("GET")
 	s.router.HandleFunc("/api/verifyResetToken/{token}/{userId}", s.VerifyEmailToken).Methods("GET")
 	s.router.HandleFunc("/api/reportIssue", s.CreateReportIssue).Methods("POST")

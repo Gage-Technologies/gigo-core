@@ -268,6 +268,98 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 	// create id for new workspace
 	wsId := snowflakeNode.Generate().Int64()
 
+	///////
+
+	var workspaceConfigId int64
+
+	if csType == models.CodeSourcePost {
+		// query attempts for the passed id and user
+		err = tidb.QueryRowContext(ctx, &span, &callerName,
+			"select workspace_config from post where _id = ?", csId,
+		).Scan(&workspaceConfigId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
+			}
+			return nil, fmt.Errorf(
+				"failed to query for ws config in post: %v\n    query: %s\n    params: %v",
+				err, nil, []interface{}{csId, callingUser.ID})
+		}
+	} else {
+		// query attempts for the passed id and user
+		err = tidb.QueryRowContext(ctx, &span, &callerName,
+			"select p.workspace_config from post p join attempt a on p._id = a.post_id where a._id = ?", csId,
+		).Scan(&workspaceConfigId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
+			}
+			return nil, fmt.Errorf(
+				"failed to query for ws config in post: %v\n    query: %s\n    params: %v",
+				err, nil, []interface{}{csId, callingUser.ID})
+		}
+	}
+
+	if workspaceConfigId > 0 {
+		var comparisonContent string
+		var wsConfigRevision int64
+
+		// query attempts for the passed id and user
+		err = tidb.QueryRowContext(ctx, &span, &callerName,
+			"select content, revision from workspace_config where _id = ? limit 1", workspaceConfigId,
+		).Scan(&comparisonContent, &wsConfigRevision)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return map[string]interface{}{"message": "Unable to locate ws config content."}, fmt.Errorf("ws config content not found")
+			}
+			return nil, fmt.Errorf(
+				"failed to query for ws config content: %v\n    query: %s\n    params: %v",
+				err, nil, []interface{}{csId, callingUser.ID})
+		}
+
+		// validate that the config is in the right format
+		var wsCfgComparison workspace_config.GigoWorkspaceConfig
+		err = yaml.Unmarshal([]byte(comparisonContent), &wsCfgComparison)
+		if err != nil {
+			return map[string]interface{}{"message": "config is not found"}, err
+		}
+
+		isSame := true
+
+		if wsCfgComparison.Version != wsConfig.Version {
+			isSame = false
+		}
+
+		if wsCfgComparison.BaseContainer != wsConfig.BaseContainer {
+			isSame = false
+		}
+
+		if wsCfgComparison.WorkingDirectory != wsConfig.WorkingDirectory {
+			isSame = false
+		}
+
+		if wsCfgComparison.Resources.CPU != wsConfig.Resources.CPU {
+			isSame = false
+		}
+
+		if wsCfgComparison.Resources.Mem != wsConfig.Resources.Mem {
+			isSame = false
+		}
+
+		if wsCfgComparison.Resources.Disk != wsConfig.Resources.Disk {
+			isSame = false
+		}
+
+		if isSame {
+			_, err = tidb.ExecContext(ctx, &span, &callerName, "Update workspace_config SET completions = completions + 1 Where _id = ? and revision = ?", workspaceConfigId, wsConfigRevision)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update workspace config uses: %v", err)
+			}
+		}
+	}
+
+	/////
+
 	// create expiration for workspace
 	expiration := time.Now().Add(time.Minute * 15)
 
@@ -1711,7 +1803,7 @@ func DeleteEphemeral(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 	ownerIds := make([]int64, 0)
 
 	for _, id := range deleteIds {
-		wsQuery := fmt.Sprintf("select code_source_id, owner_id from workspaces where _id = %d and ephemeral = true", id)
+		wsQuery := fmt.Sprintf("select code_source_id, owner_id from workspaces where _id = %d and is_ephemeral = true", id)
 
 		res, err := tidb.QueryContext(ctx, &span, &callerName, wsQuery)
 		if err != nil {
