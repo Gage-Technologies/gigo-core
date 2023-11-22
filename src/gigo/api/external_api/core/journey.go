@@ -302,6 +302,146 @@ func CreateJourneyUnit(ctx context.Context, tiDB *ti.Database, sf *snowflake.Nod
 	return map[string]interface{}{"message": "journey unit created", "journey": journey}, nil
 }
 
+//func DeleteJourneyUnit(ctx context.Context, tiDB *ti.Database, sf *snowflake.Node, vcsClient  callingUser *models.User, unitID int64) (map[string]interface{}, error) {
+//
+//	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-journey-unit-core")
+//	defer span.End()
+//	callerName := "CreateJourneyUnit"
+//
+//	// validate if the calling user is an admin
+//	if callingUser == nil || callingUser.UserName != "gigo" || callingUser.AuthRole != models.Admin {
+//		return nil, fmt.Errorf("callinguser is not an admin. CreateJourneyUnit core")
+//	}
+//
+//
+//
+//	// create repo for the project
+//	repo, err := vcsClient.CreateRepo(
+//		fmt.Sprintf("%d", callingUser.ID),
+//		fmt.Sprintf("%d", id),
+//		"",
+//		true,
+//		"",
+//		"",
+//		"",
+//		"main",
+//	)
+//	if err != nil {
+//		return map[string]interface{}{"message": "Unable to create repo"}, err
+//	}
+//
+//	// create boolean to track failure
+//	failed := true
+//
+//	// defer function to cleanup repo on failure
+//	defer func() {
+//		// skip cleanup if we succeeded
+//		if !failed {
+//			return
+//		}
+//
+//		_ = vcsClient.DeleteRepo(fmt.Sprintf("%d", callingUser.ID), fmt.Sprintf("%d", id))
+//
+//	}()
+//
+//	// encode workspace config content to base64
+//	workspaceConfigContentBase64 := base64.StdEncoding.EncodeToString([]byte(workspaceConfigContent))
+//
+//	// add workspace config to repository
+//	_, gitRes, err := vcsClient.GiteaClient.CreateFile(
+//		fmt.Sprintf("%d", callingUser.ID),
+//		fmt.Sprintf("%d", id),
+//		".gigo/workspace.yaml",
+//		gitea.CreateFileOptions{
+//			Content: workspaceConfigContentBase64,
+//			FileOptions: gitea.FileOptions{
+//				Message:    "[GIGO-INIT] workspace config",
+//				BranchName: "main",
+//				Author: gitea.Identity{
+//					Name:  "Gigo",
+//					Email: "gigo@gigo.dev",
+//				},
+//				Committer: gitea.Identity{
+//					Name:  "Gigo",
+//					Email: "gigo@gigo.dev",
+//				},
+//			},
+//		},
+//	)
+//	if err != nil {
+//		var buf []byte
+//		if gitRes != nil {
+//			buf, _ = io.ReadAll(gitRes.Body)
+//		}
+//		return nil, fmt.Errorf("failed to create workspace config in repo: %v\n    res: %v", err, string(buf))
+//	}
+//
+//	wsCfg := models.CreateWorkspaceConfig(
+//		sf.Generate().Int64(),
+//		workspaceConfigTitle,
+//		workspaceConfigDescription,
+//		workspaceConfigContent,
+//		callingUser.ID,
+//		0,
+//		nil,
+//		workspaceConfigLangs,
+//	)
+//
+//	// create new journey unit
+//	journey, err := models.CreateJourneyUnit(id, title, unitFocus, callingUser.ID, visibility, languages, description,
+//		repo.ID, time.Now(), time.Now(), tags, tier, workspaceSettings, wsCfg.ID, estimatedTutorialTime)
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to create new journey unit: %v", err)
+//	}
+//
+//	journeyInsertion, err := journey.ToSQLNative()
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to create new journey unit, failed to call journey unit to sql native, err: %v", err)
+//	}
+//
+//	// create tx for insertion
+//	tx, err := tiDB.BeginTx(ctx, &span, &callerName, nil)
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to create insert tx: %v", err)
+//	}
+//
+//	// defer rollback in case we fail
+//	defer tx.Rollback()
+//
+//	// iterate insertion statements executing insertions via tx
+//	for _, statement := range journeyInsertion {
+//		_, err := tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+//		if err != nil {
+//			return nil, fmt.Errorf("failed to insert journey unit: %v", err)
+//		}
+//	}
+//
+//	// commit tx
+//	err = tx.Commit(&callerName)
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to commit tx: %v", err)
+//	}
+//
+//	if challengeCost != nil {
+//		cost, err := strconv.ParseInt(*challengeCost, 10, 64)
+//		if err != nil {
+//			return nil, fmt.Errorf("failed to copnvert journey unit cost to int, err: %v", err)
+//		}
+//
+//		fullProjectCost := cost * 100
+//		productCost, err := CreateProduct(ctx, fullProjectCost, tiDB, journey.ID, callingUser)
+//		if err != nil {
+//			return map[string]interface{}{"message": "Journey Unit has been created. But there was an issue creating the pricing for it", "journey": journey}, fmt.Errorf("failed to create stripe price: %v", err)
+//		}
+//
+//		if productCost["message"] != "Product has been created." {
+//			return map[string]interface{}{"message": "Project has been created. But there was an issue creating the pricing for it on function", "journey": journey}, fmt.Errorf("failed to create stripe price in function: %v", productCost["message"])
+//		}
+//	}
+//
+//	return map[string]interface{}{"message": "journey unit created", "journey": journey}, nil
+//}
+
 // todo create journey unit projects
 func CreateJourneyProject(ctx context.Context, tiDB *ti.Database, sf *snowflake.Node, callingUser *models.User,
 	unitID int64, workingDirectory string, title string, description string, language models.ProgrammingLanguage, tags []string,
@@ -502,8 +642,8 @@ func CreateJourneyProjectAttempt(ctx context.Context, tiDB *ti.Database, sf *sno
 	callerName := "CreateJourneyProjectAttempt"
 
 	// validate if the calling user is an admin
-	if callingUser == nil || callingUser.UserName != "gigo" || callingUser.AuthRole != models.Admin {
-		return nil, fmt.Errorf("callinguser is not an admin. CreateJourneyProjectAttempt core")
+	if callingUser == nil {
+		return nil, fmt.Errorf("callinguser is not found. CreateJourneyProjectAttempt core")
 	}
 
 	var exists bool

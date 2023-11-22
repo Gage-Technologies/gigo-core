@@ -129,12 +129,6 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// attempt to load parameter from body
-	journeyInfoI, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnit", "journey_info", reflect.Map, nil, false, "", "")
-	if !ok {
-		return
-	}
-
-	// attempt to load parameter from body
 	title, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnit", "title", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
 	if title == nil || !ok {
 		return
@@ -406,33 +400,6 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 		return
 	}
-
-	// create variable to hold journey info initialization form
-	var journeyInfo models.JourneyInfo
-
-	// conditionally attempt to marshall and unmarshall the info init form
-	bufs, err := json.Marshal(journeyInfoI)
-	if err != nil {
-		s.handleError(w, fmt.Sprintf("failed to marshall journey info init form: %s", string(bufs)), r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), "", "", http.StatusInternalServerError, "internal server error occurred", err)
-		return
-	}
-
-	err = json.Unmarshal(bufs, &journeyInfo)
-	if err != nil {
-		s.handleError(w, fmt.Sprintf("failed to unmarshall journey info init form: %s", string(bufs)), r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), "", "", http.StatusInternalServerError, "internal server error occurred", err)
-		return
-	}
-
-	// attempt to load parameter from body
-	aptitude, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnit", "aptitude_level", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
-	if aptitude == nil || !ok {
-		return
-	}
-
-	// load the aptitude level into the journey info
-	journeyInfo.AptitudeLevel = aptitude.(string)
 
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
