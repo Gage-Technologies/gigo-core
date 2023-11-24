@@ -259,30 +259,52 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 				p.socket.logger.Errorf("init code-server conn for workspace %d: failed to query workspace agent: %v", statusMsg.Workspace.ID, err)
 				return
 			}
-			p.socket.logger.Infof("no active agents found for workspace %d", statusMsg.Workspace.ID)
+			p.socket.logger.Infof("no active agents found for workspace %s", statusMsg.Workspace.ID)
 		}
 
-		p.s.logger.Debugf("initializing code server connection: %d", statusMsg.Workspace.ID)
+		p.s.logger.Debugf("initializing code server connection: %s", statusMsg.Workspace.ID)
 
-		// create a client that will dial using the ziti mesh
-		client := http.Client{
-			Transport: &http.Transport{
-				DialContext: func(ctx context.Context, network, addr string) (netConn net.Conn, e error) {
-					// we dial the agent here using the zitimesh server which will
-					// establish a connection to the end target on the agent over
-					// the ziti net mesh ovelay
-					return p.s.zitiServer.DialAgent(agentId, zitimesh.NetworkTypeTCP, 13337)
+		// we record the start time of our ping loop so we can exit if it takes longer than 5s
+		startTime := time.Now()
+		for {
+			// exit if it's been more than five seconds since we started waiting
+			if time.Since(startTime) > 5*time.Second {
+				p.socket.logger.Warnf("timed out initializing code server connection: %s", statusMsg.Workspace.ID)
+				break
+			}
+
+			// create a client that will dial using the ziti mesh
+			client := http.Client{
+				Transport: &http.Transport{
+					DialContext: func(ctx context.Context, network, addr string) (netConn net.Conn, e error) {
+						// we dial the agent here using the zitimesh server which will
+						// establish a connection to the end target on the agent over
+						// the ziti net mesh ovelay
+						return p.s.zitiServer.DialAgent(agentId, zitimesh.NetworkTypeTCP, 13337)
+					},
 				},
-			},
+			}
+
+			// execute a get request to the /healthz endpoint - this warms up the connection to code-server via ziti
+			resp, err := client.Get("http://dummy/healthz")
+			if resp != nil && resp.Body != nil {
+				defer resp.Body.Close()
+			}
+			if err != nil {
+				p.socket.logger.Debugf("failed to warmup code-server connection for workspace %s: %v", statusMsg.Workspace.ID, err)
+				time.Sleep(time.Millisecond * 100)
+				continue
+			}
+			if resp.StatusCode != 200 {
+				p.socket.logger.Debugf("code-server healthcheck returned non-successful response for workspace %s: %s", statusMsg.Workspace.ID, resp.StatusCode)
+				time.Sleep(time.Millisecond * 100)
+				continue
+			}
+
+			break
 		}
 
-		// execute a get request to the /healthz endpoint - this warms up the connection to code-server via ziti
-		resp, _ := client.Get("http://dummy/healthz")
-		if resp != nil && resp.Body != nil {
-			defer resp.Body.Close()
-		}
-
-		p.s.logger.Debugf("waiting agent ready: %d", statusMsg.Workspace.ID)
+		p.s.logger.Debugf("waiting agent ready: %s", statusMsg.Workspace.ID)
 
 		// wait for the workspace agent to become ready
 		timeout := time.After(time.Second * 30)
@@ -292,7 +314,7 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 			case <-p.ctx.Done():
 				return
 			case <-timeout:
-				p.s.logger.Errorf("failed to wait agent ready: %d", statusMsg.Workspace.ID)
+				p.s.logger.Errorf("failed to wait agent ready: %s", statusMsg.Workspace.ID)
 				exit = true
 				break
 			default:
@@ -304,9 +326,9 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 				).Scan(&agentId)
 				if err != nil {
 					if err != sql.ErrNoRows {
-						p.s.logger.Errorf("failed to query workspace agent %d: %v", statusMsg.Workspace.ID, err)
+						p.s.logger.Errorf("failed to query workspace agent %s: %v", statusMsg.Workspace.ID, err)
 					}
-					p.s.logger.Debugf("workspace agent not ready yet: %d", statusMsg.Workspace.ID)
+					p.s.logger.Debugf("workspace agent not ready yet: %s", statusMsg.Workspace.ID)
 					time.Sleep(time.Second)
 					continue
 				}
@@ -319,7 +341,7 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 			}
 		}
 
-		p.s.logger.Debugf("workspace agent is ready: %d", statusMsg.Workspace.ID)
+		p.s.logger.Debugf("workspace agent is ready: %s", statusMsg.Workspace.ID)
 	}
 
 	// write status to the websocket
@@ -469,6 +491,7 @@ func (p *WebSocketPluginWorkspace) wsPingRoutine() {
 						continue
 					}
 					p.socket.logger.Infof("no active agents found for workspace %d", id)
+					continue
 				}
 
 				// attempt to ping the init connection server on the agent
@@ -488,7 +511,7 @@ func (p *WebSocketPluginWorkspace) wsPingRoutine() {
 					}
 
 					// execute a get request to the /ping endpoint
-					resp, _ := client.Get("http://dummy/ping")
+					resp, err := client.Get("http://dummy/ping")
 					if resp != nil && resp.Body != nil {
 						defer resp.Body.Close()
 					}
@@ -504,7 +527,7 @@ func (p *WebSocketPluginWorkspace) wsPingRoutine() {
 								buf, _ = io.ReadAll(resp.Body)
 							}
 						}
-						p.socket.logger.Errorf("failed to ping init conn for workspace %d: %d - %v - %s", id, code, err, string(buf))
+						p.socket.logger.Debugf("failed to ping init conn for workspace %d: %d - %v - %s", id, code, err, string(buf))
 					}
 
 					// NOTE: we really don't have to handle anything here - just making the connection is good enough
