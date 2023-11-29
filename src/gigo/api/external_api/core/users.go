@@ -334,6 +334,20 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 		}
 	}
 
+	inactivity, err := models.CreateUserInactivity(newUser.ID, time.Now(), time.Now(), false, false, user.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user inactivity model, err: %v", err.Error())
+	}
+
+	stmt := inactivity.ToSQLNative()
+
+	for _, statement := range stmt {
+		_, err := tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute statement for user inactivity insertion, err: %v", err.Error())
+		}
+	}
+
 	return map[string]interface{}{"message": "User Created.", "user": user}, nil
 }
 
@@ -1788,6 +1802,20 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		}
 	}
 
+	inactivity, err := models.CreateUserInactivity(newUser.ID, time.Now(), time.Now(), false, false, user.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user inactivity model, err: %v", err.Error())
+	}
+
+	stmt := inactivity.ToSQLNative()
+
+	for _, statement := range stmt {
+		_, err := tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute statement for user inactivity insertion, err: %v", err.Error())
+		}
+	}
+
 	return map[string]interface{}{"message": "Google User Added.", "user": user}, nil
 }
 
@@ -2192,6 +2220,20 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to send welcome message to user: %v", err)
+		}
+	}
+
+	inactivity, err := models.CreateUserInactivity(newUser.ID, time.Now(), time.Now(), false, false, user.Email)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create user inactivity, err: %v", err.Error())
+	}
+
+	stmt := inactivity.ToSQLNative()
+
+	for _, statement := range stmt {
+		_, err := tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to execute statement for user inactivity insertion, err: %v", err.Error())
 		}
 	}
 

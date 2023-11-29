@@ -92,3 +92,34 @@ func SendUserInactivityEmails(ctx context.Context, tidb *ti.Database, logger log
 
 	logger.Infof("Finished SendUserInactivityEmails")
 }
+
+// UpdateLastUsage
+//
+// Updates the last_login field in the user_inactivity table based on the most recent activity in web_tracking table for each user.
+func UpdateLastUsage(ctx context.Context, tidb *ti.Database, logger logging.Logger) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-last-usage-routine")
+	defer span.End()
+	callerName := "UpdateLastUsage"
+
+	logger.Infof("Starting UpdateLastUsage")
+
+	// Query to update last_login in user_inactivity table with the latest timestamp from web_tracking for each user
+	updateQuery := `
+	UPDATE user_inactivity ui 
+	JOIN (
+		SELECT user_id, MAX(timestamp) AS latest_timestamp 
+		FROM web_tracking 
+		GROUP BY user_id
+	) wt ON ui.user_id = wt.user_id
+	SET ui.last_login = wt.latest_timestamp
+	WHERE ui.last_login < wt.latest_timestamp
+	`
+
+	// Execute the update query
+	if _, err := tidb.ExecContext(ctx, &span, &callerName, updateQuery); err != nil {
+		logger.Errorf("failed to update last_login in user_inactivity: %v", err)
+		return
+	}
+
+	logger.Infof("Finished UpdateLastUsage")
+}

@@ -198,6 +198,11 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 		return nil, "", fmt.Errorf("failed to store user session: %v", err)
 	}
 
+	updateQuery := `UPDATE user_inactivity SET last_login = ?, send_week = FALSE, send_month = FALSE WHERE user_id = ?`
+	if _, err := tidb.ExecContext(ctx, &span, &callerName, updateQuery, time.Now()); err != nil {
+		return nil, "", fmt.Errorf("failed to update user last logged in for user_inactivity: %v", err)
+	}
+
 	return map[string]interface{}{
 		"auth":  valid,
 		"token": token,
@@ -394,6 +399,11 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 	//	}, token, fmt.Errorf("failed to add xp to user: %v", err)
 	// }
 
+	updateQuery := `UPDATE user_inactivity SET last_login = ?, send_week = FALSE, send_month = FALSE WHERE user_id = ?`
+	if _, err := tidb.ExecContext(ctx, &span, &callerName, updateQuery, time.Now()); err != nil {
+		return nil, "", fmt.Errorf("failed to update user last logged in for user_inactivity: %v", err)
+	}
+
 	// return response with user status and authentication success; auth token for cookie, nil error
 	return map[string]interface{}{
 		"auth":  valid,
@@ -456,6 +466,11 @@ func LoginWithGithub(ctx context.Context, tidb *ti.Database, storageEngine stora
 	})
 	if err != nil {
 		return nil, "", err
+	}
+
+	updateQuery := `UPDATE user_inactivity SET last_login = ?, send_week = FALSE, send_month = FALSE WHERE user_id = ?`
+	if _, err := tidb.ExecContext(ctx, &span, &callerName, updateQuery, time.Now()); err != nil {
+		return nil, "", fmt.Errorf("failed to update user last logged in for user_inactivity: %v", err)
 	}
 
 	// return response with user status and authentication success; auth token for cookie, nil error
