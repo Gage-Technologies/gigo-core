@@ -338,14 +338,14 @@ func TestEmailVerification(t *testing.T) {
 
 	fmt.Println("result : " + email.Result)
 
-	flag := false
-
-	if email.MailboxVerification == "unknown" || email.MailboxVerification == "false" {
-		fmt.Println("mailbox verification : " + email.MailboxVerification)
-		flag = false
-	} else if email.MailboxVerification == "true" {
-		flag = true
-		fmt.Println("flag is true : " + email.MailboxVerification)
-	}
+	//flag := false
+	//
+	//if email.MailboxVerification == "unknown" || email.MailboxVerification == "false" {
+	//	fmt.Println("mailbox verification : " + email.MailboxVerification)
+	//	flag = false
+	//} else if email.MailboxVerification == "true" {
+	//	flag = true
+	//	fmt.Println("flag is true : " + email.MailboxVerification)
+	//}
 
 }
