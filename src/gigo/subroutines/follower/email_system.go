@@ -26,7 +26,7 @@ func UserInactivityEmailCheck(ctx context.Context, tidb *ti.Database, logger log
 
 	// Monthly inactivity check
 	monthlyQuery := `UPDATE user_inactivity SET send_month = TRUE, notify_on = NOW() 
-                     WHERE last_login < ? AND last_notified < ? AND send_month = FALSE`
+                     WHERE last_login < ? AND last_notified < ? AND send_month = FALSE AND send_week = FALSE`
 	if _, err := tidb.ExecContext(ctx, &span, &callerName, monthlyQuery, oneMonthAgo, threeWeeksAgo); err != nil {
 		logger.Errorf("failed to query for users inactive for a month: %v", err)
 	}
