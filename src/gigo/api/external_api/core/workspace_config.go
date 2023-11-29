@@ -9,6 +9,8 @@ import (
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/search"
 	"go.opentelemetry.io/otel"
+	"strconv"
+	"strings"
 )
 
 func CreateWorkspaceConfig(ctx context.Context, db *ti.Database, meili *search.MeiliSearchEngine, sf *snowflake.Node,
@@ -87,6 +89,7 @@ func CreateWorkspaceConfig(ctx context.Context, db *ti.Database, meili *search.M
 		0,
 		tagIds,
 		languages,
+		0,
 	)
 
 	// format to sql insert statements
@@ -304,7 +307,7 @@ func GetWorkspaceConfig(ctx context.Context, db *ti.Database, _id int64) (map[st
 	workspaceConfigRevisions := make([]*models.WorkspaceConfigFrontend, 0)
 
 	// iterate cursor loading revisions and appending to the outer slice
-	if !res.Next() {
+	for res.Next() {
 		// load workspace config from cursor
 		workspaceConfig, err := models.WorkspaceConfigFromSQLNative(db, res)
 		if err != nil {
@@ -318,11 +321,57 @@ func GetWorkspaceConfig(ctx context.Context, db *ti.Database, _id int64) (map[st
 	if len(workspaceConfigRevisions) == 0 {
 		return map[string]interface{}{
 			"message": "Workspace Config not found.",
-		}, fmt.Errorf("failed to load existing workspace config from cursor: no revisions found")
+		}, fmt.Errorf("failed to load existing workspace config from cursor: no configs found")
+	}
+
+	revisionWithTags := make([]map[string]interface{}, 0)
+
+	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open tx for query: %v", err)
+	}
+
+	defer tx.Commit(&callerName)
+
+	for _, w := range workspaceConfigRevisions {
+		finalTags := make([]string, 0)
+
+		var tagParams []interface{}
+		tagParamSlots := make([]string, 0)
+
+		for _, t := range w.Tags {
+			tagid, err := strconv.ParseInt(t, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse tag id: %v", err)
+			}
+			tagParams = append(tagParams, tagid)
+			tagParamSlots = append(tagParamSlots, "?")
+		}
+
+		if len(tagParams) > 0 {
+			query := fmt.Sprintf("SELECT value FROM tag WHERE _id IN (%s)", strings.Join(tagParamSlots, ", "))
+			rows, err := tx.QueryContext(ctx, &callerName, query, tagParams...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to execute query: %v", err)
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var value string
+				err = rows.Scan(&value)
+				if err != nil {
+					return nil, fmt.Errorf("failed to scan row: %v", err)
+				}
+
+				finalTags = append(finalTags, value)
+			}
+
+			revisionWithTags = append(revisionWithTags, map[string]interface{}{"revision": w, "tags": finalTags})
+		}
 	}
 
 	return map[string]interface{}{
-		"workspace_config": workspaceConfigRevisions[0],
-		"revisions":        workspaceConfigRevisions,
+		"workspace_config":   workspaceConfigRevisions[0],
+		"revisions_and_tags": revisionWithTags,
 	}, nil
 }

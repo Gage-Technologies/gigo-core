@@ -31,6 +31,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/mq"
 	models2 "github.com/gage-technologies/gigo-lib/mq/models"
 	"github.com/gage-technologies/gigo-lib/mq/streams"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/nats-io/nats.go"
 	"github.com/sourcegraph/conc/pool"
 )
@@ -127,58 +128,6 @@ func boundWorkspaceAllocations(ctx context.Context, tidb *ti.Database, msg model
 	return msg, nil
 }
 
-// dropAgentConnections
-//
-//	Drops all agent connections for the given workspace
-func dropAgentConnections(ctx context.Context, span *trace.Span, tidb *ti.Database, js *mq.JetstreamClient, wsId int64, logger logging.Logger) error {
-	callerName := "dropAgentConnections"
-
-	logger.Debugf("dropping agent connections for workspace: %d", wsId)
-
-	// query workspace agents for any agents that are connected
-	var agentIds []int64
-	res, err := tidb.QueryContext(ctx, span, &callerName,
-		"select _id from workspace_agent where workspace_id = ?", wsId)
-	if err != nil {
-		return fmt.Errorf("failed to query workspace agents: %v", err)
-	}
-
-	// iterate over agents and drop connections
-	for res.Next() {
-		var agentId int64
-		err = res.Scan(&agentId)
-		if err != nil {
-			return fmt.Errorf("failed to scan agent id: %v", err)
-		}
-		agentIds = append(agentIds, agentId)
-	}
-
-	// drop agent connections
-	for _, agentId := range agentIds {
-		forgetMsg := models2.ForgetConnMsg{
-			WorkspaceID: wsId,
-			AgentID:     agentId,
-		}
-		// gob encode the message
-		var buf bytes.Buffer
-		encoder := gob.NewEncoder(&buf)
-		err = encoder.Encode(forgetMsg)
-		if err != nil {
-			return fmt.Errorf("failed to encode forget connection message: %v", err)
-		}
-
-		logger.Debugf("publishing forget connection message: %d - %d", wsId, agentId)
-
-		// publish the message
-		_, err = js.PublishAsync(streams.SubjectWsConnCacheForget, buf.Bytes())
-		if err != nil {
-			return fmt.Errorf("failed to publish forget connection message: %v", err)
-		}
-	}
-
-	return nil
-}
-
 // ///////// Helper functions to handle the provisioner call and state updates for individual workspaces
 // Note: these functions use local contexts outside the scope of the follower routine so that they can
 // complete their operations even after the follower routine has been cancelled
@@ -188,7 +137,7 @@ func dropAgentConnections(ctx context.Context, span *trace.Span, tidb *ti.Databa
 //	Handles the creation of a new workspace via the remote provisioner
 //	system (gigo-ws) and updates the database directly on completion or failure
 func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, wsStatusUpdater *utils.WorkspaceStatusUpdater,
-	js *mq.JetstreamClient, msg *nats.Msg, logger logging.Logger) {
+	js *mq.JetstreamClient, msg *nats.Msg, zitiManager *zitimesh.Manager, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-create-workspace-routine")
 	defer span.End()
 	callerName := "asyncCreateWorkspace"
@@ -286,15 +235,6 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 				nodeId, createWsMsg.WorkspaceID, err,
 			))
 		}
-
-		// drop any connections to the workspace
-		err = dropAgentConnections(ctx, &span, tidb, js, createWsMsg.WorkspaceID, logger)
-		if err != nil {
-			logger.Warn(fmt.Errorf(
-				"(workspace: %d) failed to drop connections for workspace %d on create failure: %v",
-				nodeId, createWsMsg.WorkspaceID, err,
-			))
-		}
 	}()
 
 	// bound the workspace allocations to the maximum permitted for the user's account status
@@ -327,6 +267,24 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 		return
 	}
 
+	// create a new ziti mesh agent for the new agent
+	zitiAgentID, zitiAgentToken, err := zitiManager.CreateAgent(newAgentData.ID)
+	if err != nil {
+		logger.Error(fmt.Sprintf(
+			"(workspace: %d) failed to create ziti agent for workspace %d: %v",
+			nodeId, createWsMsg.WorkspaceID, err,
+		))
+		return
+	}
+	_, err = zitiManager.CreateWorkspaceService(newAgentData.ID)
+	if err != nil {
+		logger.Error(fmt.Sprintf(
+			"(workspace: %d) failed to create ziti service for workspace %d: %v",
+			nodeId, createWsMsg.WorkspaceID, err,
+		))
+		return
+	}
+
 	// create a new agent
 	newAgent := models.CreateWorkspaceAgent(
 		newAgentData.ID,
@@ -334,6 +292,8 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 		"",
 		createWsMsg.OwnerID,
 		newAgentData.Token,
+		zitiAgentID,
+		zitiAgentToken,
 	)
 
 	// update agent id for cleanup function
@@ -458,15 +418,6 @@ func asyncStartWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspace
 			}
 			logger.Warn(fmt.Errorf(
 				"(workspace: %d) failed stop workspace %d on start failure: %v",
-				nodeId, startWsMsg.ID, err,
-			))
-		}
-
-		// drop any connections to the workspace
-		err = dropAgentConnections(ctx, &span, tidb, js, startWsMsg.ID, logger)
-		if err != nil {
-			logger.Warn(fmt.Errorf(
-				"(workspace: %d) failed to drop connections for workspace %d on start failure: %v",
 				nodeId, startWsMsg.ID, err,
 			))
 		}
@@ -622,15 +573,6 @@ func asyncStopWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceC
 	// send workspace status update
 	wsStatusUpdater.PushStatus(ctx, stopWsMsg.ID, nil)
 
-	// drop any connections to the workspace
-	err = dropAgentConnections(ctx, &span, tidb, js, stopWsMsg.ID, logger)
-	if err != nil {
-		logger.Warn(fmt.Errorf(
-			"(workspace: %d) failed to drop connections for workspace %d on stop: %v",
-			nodeId, stopWsMsg.ID, err,
-		))
-	}
-
 	// query for the workspace owner's ephemeral state
 	var ephemeralUser bool
 	err = tidb.QueryRowContext(ctx, &span, &callerName, "select is_ephemeral from users where _id = ?", stopWsMsg.OwnerID).Scan(&ephemeralUser)
@@ -657,8 +599,8 @@ func asyncStopWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceC
 //	Handles the destruction of an existing workspace via the remote provisioner
 //	system (gigo-ws) and updates the database directly on completion or failure
 func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, vcsClient *git.VCSClient,
-	wsStatusUpdater *utils.WorkspaceStatusUpdater, js *mq.JetstreamClient, rdb redis.UniversalClient, msg *nats.Msg, 
-	logger logging.Logger) {
+	wsStatusUpdater *utils.WorkspaceStatusUpdater, js *mq.JetstreamClient, rdb redis.UniversalClient, msg *nats.Msg,
+	zitiManager *zitimesh.Manager, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-destroy-workspace-routine")
 	defer span.End()
 	callerName := "asyncDestroyWorkspace"
@@ -723,13 +665,35 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 	// send workspace status update
 	wsStatusUpdater.PushStatus(ctx, destroyWsMsg.ID, nil)
 
-	// drop any connections to the workspace
-	err = dropAgentConnections(ctx, &span, tidb, js, destroyWsMsg.ID, logger)
+	// retrieve all agents for this workspace
+	res, err := tidb.QueryContext(ctx, &span, &callerName,
+		"select _id from workspace_agent where workspace_id = ?",
+		destroyWsMsg.ID,
+	)
 	if err != nil {
-		logger.Warn(fmt.Errorf(
-			"(workspace: %d) failed to drop connections for workspace %d on destroy: %v",
-			nodeId, destroyWsMsg.ID, err,
-		))
+		logger.Errorf("(workspace: %d) failed to query for workspace agents: %v", nodeId, err)
+		return
+	}
+
+	// iterate the agents (even though there should only be 1)
+	// and delete the agents on the ziti mesh
+	for res.Next() {
+		// load the agent id from the cursor
+		var id int64
+		if err := res.Scan(&id); err != nil {
+			logger.Errorf("(workspace: %d) failed to scan workspace agent id: %v", nodeId, err)
+			continue
+		}
+
+		// remove the ziti agent from the mesh
+		err = zitiManager.DeleteAgent(id)
+		if err != nil {
+			logger.Errorf("(workspace: %d) failed to delete ziti agent: %v", nodeId, err)
+		}
+		err = zitiManager.DeleteWorkspaceService(id)
+		if err != nil {
+			logger.Errorf("(workspace: %d) failed to delete ziti service: %v", nodeId, err)
+		}
 	}
 
 	// remove any ephemeral users associated with the workspace
@@ -834,7 +798,7 @@ func asyncRemoveDestroyed(nodeId int64, tidb *ti.Database, vcsClient *git.VCSCli
 
 func WorkspaceManagementOperations(ctx context.Context, nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, vcsClient *git.VCSClient,
 	js *mq.JetstreamClient, workerPool *pool.Pool, streakEngine *streak.StreakEngine, wsStatusUpdater *utils.WorkspaceStatusUpdater, rdb redis.UniversalClient,
-	logger logging.Logger) {
+	zitiManager *zitimesh.Manager, logger logging.Logger) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(ctx, "workspace-management-operations-routine")
 	defer parentSpan.End()
 
@@ -854,7 +818,7 @@ func WorkspaceManagementOperations(ctx context.Context, nodeId int64, tidb *ti.D
 		"workspace",
 		logger,
 		func(msg *nats.Msg) {
-			asyncCreateWorkspace(nodeId, tidb, wsClient, wsStatusUpdater, js, msg, logger)
+			asyncCreateWorkspace(nodeId, tidb, wsClient, wsStatusUpdater, js, msg, zitiManager, logger)
 		},
 	)
 
@@ -902,7 +866,7 @@ func WorkspaceManagementOperations(ctx context.Context, nodeId int64, tidb *ti.D
 		"workspace",
 		logger,
 		func(msg *nats.Msg) {
-			asyncDestroyWorkspace(nodeId, tidb, wsClient, vcsClient, wsStatusUpdater, js, rdb, msg, logger)
+			asyncDestroyWorkspace(nodeId, tidb, wsClient, vcsClient, wsStatusUpdater, js, rdb, msg, zitiManager, logger)
 		},
 	)
 

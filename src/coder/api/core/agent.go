@@ -30,6 +30,7 @@ type InitializeAgentOptions struct {
 	DB             *ti.Database
 	StreakEngine   *streak.StreakEngine
 	VcsClient      *git.VCSClient
+	AgentID        int64
 	WorkspaceId    int64
 	OwnerId        int64
 	AccessUrl      *url.URL
@@ -107,6 +108,8 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 	var ephemeralUser bool
 	var createdAt time.Time
 	var startTime *time.Duration
+	var zitiId string
+	var zitiToken string
 
 	// retrieve the user status for the owner
 	err := opts.DB.QueryRowContext(ctx, &span, &callerName,
@@ -132,6 +135,18 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 
 		return nil, fmt.Errorf("failed to query workspaces: %v", err)
 
+	}
+
+	// use agent id to get the ziti id and token
+	err = opts.DB.QueryRowContext(ctx, &span, &callerName,
+		"select ziti_id, ziti_token from workspace_agent where _id = ? limit 1",
+		opts.AgentID,
+	).Scan(&zitiId, &zitiToken)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("workspace agent not found")
+		}
+		return nil, fmt.Errorf("failed to query workspace agent: %v", err)
 	}
 
 	if projectType == models.CodeSourcePost {
@@ -349,6 +364,8 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		HolidaySeason:      agentsdk.Holiday(utils.DetermineHoliday()),
 		ChallengeType:      challengeType,
 		UserHolidayTheme:   enableHolidayThemes,
+		ZitiID:             zitiId,
+		ZitiToken:          zitiToken,
 	}, nil
 }
 

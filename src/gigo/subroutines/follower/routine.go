@@ -17,12 +17,14 @@ import (
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/mq"
 	"github.com/gage-technologies/gigo-lib/storage"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/sourcegraph/conc/pool"
 )
 
 func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.WorkspaceClient, vcsClient *git.VCSClient,
 	js *mq.JetstreamClient, workerPool *pool.Pool, streakEngine *streak.StreakEngine, sf *snowflake.Node,
-	wsStatusUpdater *utils.WorkspaceStatusUpdater, rdb redis.UniversalClient, storageEngine storage.Storage, logger logging.Logger) cluster.FollowerRoutine {
+	wsStatusUpdater *utils.WorkspaceStatusUpdater, rdb redis.UniversalClient, storageEngine storage.Storage, zitiManager *zitimesh.Manager,
+	logger logging.Logger) cluster.FollowerRoutine {
 	// we log fatal for all setup operation in this function
 	// because the system cannot launch if these do not complete
 	// therefore killing the process for a failure is the simplest
@@ -61,7 +63,7 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 
 		// execute workspace management operations every second
 		WorkspaceManagementOperations(ctx, nodeId, tiDB, wsClient, vcsClient, js, workerPool, streakEngine,
-			wsStatusUpdater, rdb, logger)
+			wsStatusUpdater, rdb, zitiManager, logger)
 
 		// todo possibly implement later for streak milestones
 

@@ -348,6 +348,4 @@ func TestEmailVerification(t *testing.T) {
 		fmt.Println("flag is true : " + email.MailboxVerification)
 	}
 
-	fmt.Println(flag)
-
 }

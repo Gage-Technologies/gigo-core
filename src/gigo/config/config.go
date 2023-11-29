@@ -72,6 +72,7 @@ type Config struct {
 	OTELConfig       OTELConfig                   `yaml:"otel_config"`
 	GithubSecret     string                       `yaml:"github_secret"`
 	RegistryCaches   []RegistryCacheConfig        `yaml:"registry_caches"`
+	ZitiConfig       config.ZitiConfig            `yaml:"ziti_config"`
 }
 
 func LoadConfig(path string) (*Config, error) {
