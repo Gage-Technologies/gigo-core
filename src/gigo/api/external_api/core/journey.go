@@ -245,6 +245,7 @@ func CreateJourneyUnit(ctx context.Context, tiDB *ti.Database, sf *snowflake.Nod
 		0,
 		nil,
 		workspaceConfigLangs,
+		0,
 	)
 
 	// create new journey unit
