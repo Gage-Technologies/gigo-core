@@ -112,7 +112,7 @@ func CreateJourneyUnit(ctx context.Context, tiDB *ti.Database, sf *snowflake.Nod
 	title string, unitFocus models.UnitFocus, visibility models.PostVisibility, languages []models.ProgrammingLanguage, description string,
 	tags []string, tier models.TierType, challengeCost *string, vcsClient *git.VCSClient, workspaceConfigContent string,
 	workspaceConfigTitle string, workspaceConfigDescription string, workspaceConfigLangs []models.ProgrammingLanguage,
-	workspaceSettings *models.WorkspaceSettings, estimatedTutorialTime *time.Duration) (map[string]interface{}, error) {
+	workspaceSettings *models.WorkspaceSettings, estimatedTutorialTime *time.Duration, logger logging.Logger) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-journey-unit-core")
 	defer span.End()
@@ -255,6 +255,8 @@ func CreateJourneyUnit(ctx context.Context, tiDB *ti.Database, sf *snowflake.Nod
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new journey unit: %v", err)
 	}
+
+	journey.ChallengeCost = challengeCost
 
 	journeyInsertion, err := journey.ToSQLNative()
 	if err != nil {

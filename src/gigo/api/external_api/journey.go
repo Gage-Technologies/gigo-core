@@ -368,20 +368,11 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create variable to hold parent attempt
-	var unitCost *int64
+	var unitCost *string
 	// conditionally parse parent attempt from string
 	if unitCostI != nil {
-		// parse post id to integer
-		pa, err := strconv.ParseInt(unitCostI.(string), 10, 64)
-		if err != nil {
-			// handle error internally
-			s.handleError(w, fmt.Sprintf("failed to parse parent attempt id string to integer: %s", unitCostI.(string)), r.URL.Path, "StartAttempt", r.Method, r.Context().Value(CtxKeyRequestID),
-				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
-			// exit
-			return
-		}
-
-		unitCost = &pa
+		uns := fmt.Sprintf("%v", unitCostI.(string))
+		unitCost = &uns
 	}
 
 	// attempt to load parameter from body
@@ -408,13 +399,11 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	unitCostString := fmt.Sprintf("%v", unitCost)
-
 	// execute core function logic
 	res, err := core.CreateJourneyUnit(ctx, s.tiDB, s.sf, callingUser.(*models.User), title.(string), unitFocus,
-		visibility, languages, description.(string), tags, models.TierType(int(tier.(float64))), &unitCostString,
+		visibility, languages, description.(string), tags, models.TierType(int(tier.(float64))), unitCost,
 		s.vscClient, workspaceConfigContent, workspaceConfigTitle, workspaceConfigDesc, languages, workspaceSettings,
-		nil)
+		nil, s.logger)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
