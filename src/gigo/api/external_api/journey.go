@@ -438,6 +438,80 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	s.jsonResponse(r, w, res, r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
 }
 
+func (s *HTTPServer) DeleteJourneyUnit(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "delete-journey-unit-http")
+	defer parentSpan.End()
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	callingId := network.GetRequestIP(r)
+	userName := network.GetRequestIP(r)
+	callingIdInt := int64(0)
+	if callingUser != nil {
+		if callingUser.(*models.User).AuthRole != models.Admin {
+			s.handleError(w, fmt.Sprintf("incorrect permissions for acessing user: %v", callingUser.(*models.User).ID), r.URL.Path, "DeleteJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), "", "", http.StatusInternalServerError, "naughty naughty, you shouldn't be here nerd!", errors.New(fmt.Sprintf("incorrect permissions for acessing user: %v", callingUser.(*models.User).ID)))
+			return
+		}
+
+		callingId = strconv.FormatInt(callingUser.(*models.User).ID, 10)
+		userName = callingUser.(*models.User).UserName
+		callingIdInt = callingUser.(*models.User).ID
+	}
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "DeleteJourneyUnit", false, userName, callingIdInt)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load parameter from body
+	unitIDS, ok := s.loadValue(w, r, reqJson, "DeleteJourneyUnit", "unit_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if unitIDS == nil || !ok {
+		return
+	}
+
+	unitID, err := strconv.ParseInt(unitIDS.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse unit id as int64", r.URL.Path, "CreateJourneyUnit", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "DeleteJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.DeleteJourneyUnit(ctx, s.tiDB, callingUser.(*models.User), unitID, s.logger)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "DeleteJourneyUnit core failed", r.URL.Path, "DeleteJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), userName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"delete-journey-unit",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingId),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "DeleteJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
+}
+
 func (s *HTTPServer) CreateJourneyUnitAttempt(w http.ResponseWriter, r *http.Request) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-journey-unit-attempt-http")
 	defer parentSpan.End()
@@ -881,6 +955,95 @@ func (s *HTTPServer) CreateJourneyProject(w http.ResponseWriter, r *http.Request
 
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "CreateJourneyProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) DeleteJourneyUnitProject(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "delete-journey-unit-http")
+	defer parentSpan.End()
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	callingId := network.GetRequestIP(r)
+	userName := network.GetRequestIP(r)
+	callingIdInt := int64(0)
+	if callingUser != nil {
+		if callingUser.(*models.User).AuthRole != models.Admin {
+			s.handleError(w, fmt.Sprintf("incorrect permissions for acessing user: %v", callingUser.(*models.User).ID), r.URL.Path, "DeleteJourneyUnitProject", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), "", "", http.StatusInternalServerError, "naughty naughty, you shouldn't be here nerd!", errors.New(fmt.Sprintf("incorrect permissions for acessing user: %v", callingUser.(*models.User).ID)))
+			return
+		}
+
+		callingId = strconv.FormatInt(callingUser.(*models.User).ID, 10)
+		userName = callingUser.(*models.User).UserName
+		callingIdInt = callingUser.(*models.User).ID
+	}
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "DeleteJourneyUnitProject", false, userName, callingIdInt)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load parameter from body
+	unitIDS, ok := s.loadValue(w, r, reqJson, "DeleteJourneyUnitProject", "unit_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if unitIDS == nil || !ok {
+		return
+	}
+
+	unitID, err := strconv.ParseInt(unitIDS.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse unit id as int64", r.URL.Path, "CreateJourneyUnit", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// attempt to load parameter from body
+	projectIDS, ok := s.loadValue(w, r, reqJson, "DeleteJourneyUnitProject", "project_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if projectIDS == nil || !ok {
+		return
+	}
+
+	projectID, err := strconv.ParseInt(unitIDS.(string), 10, 64)
+	if !ok {
+		s.handleError(w, "failed to parse project id as int64", r.URL.Path, "DeleteJourneyUnitProject", r.Method,
+			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+			"internal server error occurred", err)
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "DeleteJourneyUnitProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.DeleteJourneyProject(ctx, s.tiDB, callingUser.(*models.User), projectID, unitID, s.logger)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "DeleteJourneyUnitProject core failed", r.URL.Path, "DeleteJourneyUnitProject", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), userName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"delete-journey-unit-project",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingId),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "DeleteJourneyUnitProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, callingId, http.StatusOK)
 }
 
 func (s *HTTPServer) CreateJourneyProjectAttempt(w http.ResponseWriter, r *http.Request) {
