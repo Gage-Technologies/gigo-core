@@ -17,6 +17,8 @@ func UserInactivityEmailCheck(ctx context.Context, tidb *ti.Database, logger log
 	defer span.End()
 	callerName := "UserInactivityEmailCheck"
 
+	logger.Infof("Starting UserInactivityEmailCheck")
+
 	// Calculate the dates for one week and one month ago
 	oneWeekAgo := time.Now().Add(-7 * 24 * time.Hour)
 	oneMonthAgo := time.Now().Add(-30 * 24 * time.Hour)
@@ -35,12 +37,16 @@ func UserInactivityEmailCheck(ctx context.Context, tidb *ti.Database, logger log
 	if _, err := tidb.ExecContext(ctx, &span, &callerName, weeklyQuery, oneWeekAgo, oneWeekAgo); err != nil {
 		logger.Errorf("failed to query for users inactive for a week: %v", err)
 	}
+
+	logger.Infof("Finished UserInactivityEmailCheck")
 }
 
 func SendUserInactivityEmails(ctx context.Context, tidb *ti.Database, logger logging.Logger, mailGunKey string, mailGunDomain string) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "send-user-inactivity-emails")
 	defer span.End()
 	callerName := "SendUserInactivityEmails"
+
+	logger.Infof("Starting SendUserInactivityEmails")
 
 	// Query for users who need to be notified
 	query := `SELECT user_id, email, send_week, send_month FROM user_inactivity 
@@ -62,10 +68,12 @@ func SendUserInactivityEmails(ctx context.Context, tidb *ti.Database, logger log
 
 		// Send the appropriate email and update the record
 		if sendMonth {
+			logger.Infof("Sending month inactivity email to %s", email)
 			if err := core.SendMonthInactiveMessage(ctx, mailGunKey, mailGunDomain, email); err != nil {
 				logger.Errorf("failed to send month inactive email: %v user_id: %v", err, userID)
 			}
 		} else if sendWeek {
+			logger.Infof("Sending week inactivity email to %s", email)
 			if err := core.SendWeekInactiveMessage(ctx, mailGunKey, mailGunDomain, email); err != nil {
 				logger.Errorf("failed to send week inactive email: %v user_id: %v", err, userID)
 			}
@@ -81,4 +89,6 @@ func SendUserInactivityEmails(ctx context.Context, tidb *ti.Database, logger log
 	if err = rows.Err(); err != nil {
 		logger.Errorf("error iterating over rows: %v", err)
 	}
+
+	logger.Infof("Finished SendUserInactivityEmails")
 }
