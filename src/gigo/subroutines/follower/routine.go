@@ -31,7 +31,7 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 	// create integer to track execution count
 	execCount := 0
 
-	// connect the 
+	// connect the
 
 	// this function will be executed approximately once every second.
 	// when defining routine logic that will execute on interval
@@ -51,6 +51,12 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 		if execCount%2 == 0 {
 			RemoveExpiredSessionKeys(ctx, nodeId, tiDB, js, logger)
 			GenerateSiteMap(ctx, tiDB, js, storageEngine, nodeId, cfg.HTTPServerConfig.Hostname, logger)
+		}
+
+		// execute once every 5 minutes
+		if execCount%300 == 0 {
+			UserInactivityEmailCheck(ctx, tiDB, logger)
+			SendUserInactivityEmails(ctx, tiDB, logger, cfg.HTTPServerConfig.MailGunApiKey, cfg.HTTPServerConfig.MailGunDomain)
 		}
 
 		// execute workspace management operations every second
