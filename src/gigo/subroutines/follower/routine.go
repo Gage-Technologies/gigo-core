@@ -55,6 +55,13 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 			GenerateSiteMap(ctx, tiDB, js, storageEngine, nodeId, cfg.HTTPServerConfig.Hostname, logger)
 		}
 
+		// execute once every 5 minutes
+		if execCount%300 == 0 {
+			UpdateLastUsage(ctx, tiDB, logger)
+			UserInactivityEmailCheck(ctx, tiDB, logger)
+			SendUserInactivityEmails(ctx, tiDB, logger, cfg.HTTPServerConfig.MailGunApiKey, cfg.HTTPServerConfig.MailGunDomain)
+		}
+
 		// execute workspace management operations every second
 		WorkspaceManagementOperations(ctx, nodeId, tiDB, wsClient, vcsClient, js, workerPool, streakEngine,
 			wsStatusUpdater, rdb, zitiManager, logger)

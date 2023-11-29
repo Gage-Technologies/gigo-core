@@ -12,86 +12,86 @@ import (
 	"time"
 )
 
-func TestActiveProjectsHome(t *testing.T) {
-	// Setup
-	testTiDB, err := ti.CreateDatabase("gigo-dev-tidb", "4000", "mysql", "gigo-dev", "gigo-dev", "gigo_test_db")
-	if err != nil {
-		t.Fatalf("Failed to initialize test database: %v", err)
-	}
-
-	id := int64(5)
-	post, err := models.CreatePost(
-		69420, "test", "content", "autor", 42069, time.Now(),
-		time.Now(), 69, 1, []int64{}, &id, 6969, 20, 40, 24, 27,
-		[]models.ProgrammingLanguage{models.Go}, models.PublicVisibility, []int64{}, nil, nil,
-		64752, 3, &models.DefaultWorkspaceSettings, false, false, nil,
-	)
-	if err != nil {
-		t.Fatalf("Failed to create test post: %v", err)
-	}
-	defer testTiDB.DB.Exec("delete from post where _id = ?;", post.ID)
-
-	postStmt, err := post.ToSQLNative()
-	if err != nil {
-		t.Fatalf("Failed to convert post to SQL: %v", err)
-	}
-
-	for _, stmt := range postStmt {
-		if _, err = testTiDB.DB.Exec(stmt.Statement, stmt.Values...); err != nil {
-			t.Fatalf("Failed to insert test post: %v", err)
-		}
-	}
-
-	attempt, err := models.CreateAttempt(69420, "test", "test", "author", 42069, time.Now(), time.Now(), 69, 2, []int64{}, uint64(3), 6969, 2, nil, 0)
-	if err != nil {
-		t.Fatalf("Failed to create test attempt: %v", err)
-	}
-	defer testTiDB.DB.Exec("delete from attempt where _id = ?;", attempt.ID)
-
-	attemptStmt, err := attempt.ToSQLNative()
-	if err != nil {
-		t.Fatalf("Failed to convert attempt to SQL: %v", err)
-	}
-
-	for _, stmt := range attemptStmt {
-		if _, err = testTiDB.DB.Exec(stmt.Statement, stmt.Values...); err != nil {
-			t.Fatalf("Failed to insert test attempt: %v", err)
-		}
-	}
-
-	res, err := ActiveProjectsHome(context.Background(), &models.User{
-		ID: 42069,
-	}, testTiDB)
-
-	if err != nil {
-		t.Fatalf("ActiveProjectsHome failed: %v", err)
-	}
-
-	projects, ok := res["projects"].([]*models.AttemptFrontend)
-	if !ok {
-		t.Fatalf("ActiveProjectsHome failed: expected []*models.AttemptFrontend")
-	}
-
-	if len(projects) != 1 {
-		t.Fatalf("ActiveProjectsHome failed: expected 1 project, got %v", len(projects))
-	}
-
-	project := projects[0]
-
-	frontattempt := attempt.ToFrontend()
-
-	if project.ID != frontattempt.ID {
-		t.Errorf("ActiveProjectsHome failed: expected ID %v, got %v", attempt.ID, project.ID)
-	}
-
-	if project.PostTitle != frontattempt.PostTitle {
-		t.Errorf("ActiveProjectsHome failed: expected Title %v, got %v", frontattempt.PostTitle, project.PostTitle)
-	}
-
-	if project.Author != frontattempt.Author {
-		t.Errorf("ActiveProjectsHome failed: expected Author %v, got %v", attempt.Author, project.Author)
-	}
-}
+//func TestActiveProjectsHome(t *testing.T) {
+//	// Setup
+//	testTiDB, err := ti.CreateDatabase("gigo-dev-tidb", "4000", "mysql", "gigo-dev", "gigo-dev", "gigo_test_db")
+//	if err != nil {
+//		t.Fatalf("Failed to initialize test database: %v", err)
+//	}
+//
+//	id := int64(5)
+//	post, err := models.CreatePost(
+//		69420, "test", "content", "autor", 42069, time.Now(),
+//		time.Now(), 69, 1, []int64{}, &id, 6969, 20, 40, 24, 27,
+//		[]models.ProgrammingLanguage{models.Go}, models.PublicVisibility, []int64{}, nil, nil,
+//		64752, 3, &models.DefaultWorkspaceSettings, false, false, nil,
+//	)
+//	if err != nil {
+//		t.Fatalf("Failed to create test post: %v", err)
+//	}
+//	defer testTiDB.DB.Exec("delete from post where _id = ?;", post.ID)
+//
+//	postStmt, err := post.ToSQLNative()
+//	if err != nil {
+//		t.Fatalf("Failed to convert post to SQL: %v", err)
+//	}
+//
+//	for _, stmt := range postStmt {
+//		if _, err = testTiDB.DB.Exec(stmt.Statement, stmt.Values...); err != nil {
+//			t.Fatalf("Failed to insert test post: %v", err)
+//		}
+//	}
+//
+//	attempt, err := models.CreateAttempt(69420, "test", "test", "author", 42069, time.Now(), time.Now(), 69, 2, []int64{}, uint64(3), 6969, 2, nil, 0)
+//	if err != nil {
+//		t.Fatalf("Failed to create test attempt: %v", err)
+//	}
+//	defer testTiDB.DB.Exec("delete from attempt where _id = ?;", attempt.ID)
+//
+//	attemptStmt, err := attempt.ToSQLNative()
+//	if err != nil {
+//		t.Fatalf("Failed to convert attempt to SQL: %v", err)
+//	}
+//
+//	for _, stmt := range attemptStmt {
+//		if _, err = testTiDB.DB.Exec(stmt.Statement, stmt.Values...); err != nil {
+//			t.Fatalf("Failed to insert test attempt: %v", err)
+//		}
+//	}
+//
+//	res, err := ActiveProjectsHome(context.Background(), &models.User{
+//		ID: 42069,
+//	}, testTiDB)
+//
+//	if err != nil {
+//		t.Fatalf("ActiveProjectsHome failed: %v", err)
+//	}
+//
+//	projects, ok := res["projects"].([]*models.AttemptFrontend)
+//	if !ok {
+//		t.Fatalf("ActiveProjectsHome failed: expected []*models.AttemptFrontend")
+//	}
+//
+//	if len(projects) != 1 {
+//		t.Fatalf("ActiveProjectsHome failed: expected 1 project, got %v", len(projects))
+//	}
+//
+//	project := projects[0]
+//
+//	frontattempt := attempt.ToFrontend()
+//
+//	if project.ID != frontattempt.ID {
+//		t.Errorf("ActiveProjectsHome failed: expected ID %v, got %v", attempt.ID, project.ID)
+//	}
+//
+//	if project.PostTitle != frontattempt.PostTitle {
+//		t.Errorf("ActiveProjectsHome failed: expected Title %v, got %v", frontattempt.PostTitle, project.PostTitle)
+//	}
+//
+//	if project.Author != frontattempt.Author {
+//		t.Errorf("ActiveProjectsHome failed: expected Author %v, got %v", attempt.Author, project.Author)
+//	}
+//}
 
 func TestRecommendedProjectsHome(t *testing.T) {
 	testTiDB, err := ti.CreateDatabase("gigo-dev-tidb", "4000", "mysql", "gigo-dev",

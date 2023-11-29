@@ -40,7 +40,7 @@ func TestSendPasswordVerificationEmail(t *testing.T) {
 	// set the preconfigured email template
 	message.SetTemplate(templateName)
 
-	err = message.AddTemplateVariable("username", "Preston")
+	err = message.AddTemplateVariable("username", "")
 	if err != nil {
 		t.Fatalf("Failed to add variables%v", err)
 	}
@@ -80,7 +80,7 @@ func TestSendSignUpMessage(t *testing.T) {
 	// set the preconfigured email template
 	message.SetTemplate(welcomeTemplate)
 
-	err := message.AddTemplateVariable("username", "Preston")
+	err := message.AddTemplateVariable("username", "")
 	if err != nil {
 		t.Fatalf("Failed to add variables%v", err)
 	}
@@ -99,6 +99,93 @@ func TestSendSignUpMessage(t *testing.T) {
 
 	fmt.Println("Message is : " + resp)
 	fmt.Println("Id is : " + id + "\nSuccessfully sent email")
+}
+
+func TestSendStreakExpirationMessage(t *testing.T) {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(domain, apiKey)
+
+	// configure verification email content
+	message := mg.NewMessage("GIGO", "", "", "")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+	defer cancel()
+
+	// set the preconfigured email template
+	message.SetTemplate("streakending")
+
+	err := message.AddTemplateVariable("username", "")
+	if err != nil {
+		t.Fatalf("Failed to add variables%v", err)
+	}
+
+	// send the message
+	resp, id, err := mg.Send(ctx, message)
+	if err != nil {
+		if resp != "" {
+			fmt.Println("Message is : " + resp)
+		}
+		if id != "" {
+			fmt.Println("Id is : " + id)
+		}
+		t.Fatalf("Failed to send email%v", err)
+	}
+
+	fmt.Println("Message is : " + resp)
+	fmt.Println("Id is : " + id + "\nSuccessfully sent email")
+}
+
+func TestSendWeekInactiveMessage(t *testing.T) {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(domain, apiKey)
+
+	// configure verification email content
+	message := mg.NewMessage("GIGO", "", "", "")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+	defer cancel()
+
+	// set the preconfigured email template
+	message.SetTemplate("inactivehtml")
+
+	// send the message
+	resp, id, err := mg.Send(ctx, message)
+	if err != nil {
+		if resp != "" {
+			fmt.Println("Message is : " + resp)
+		}
+		if id != "" {
+			fmt.Println("Id is : " + id)
+		}
+		t.Fatalf("Failed to send email%v", err)
+	}
+
+	fmt.Println("Message is : " + resp)
+	fmt.Println("Id is : " + id + "\nSuccessfully sent email")
+}
+
+func TestSendMonthInactiveMessage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+	defer cancel()
+
+	err := SendMonthInactiveMessage(ctx, apiKey, domain, "")
+	if err != nil {
+		t.Fatalf("Failed to send email%v", err)
+	}
+}
+
+func TestSendMessageReceivedEmail(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+	defer cancel()
+
+	err := SendMessageReceivedEmail(ctx, apiKey, domain, "")
+	if err != nil {
+		t.Fatalf("Failed to send email%v", err)
+	}
 }
 
 func TestListActiveTemplates(t *testing.T) {
@@ -251,14 +338,14 @@ func TestEmailVerification(t *testing.T) {
 
 	fmt.Println("result : " + email.Result)
 
-	flag := false
-
-	if email.MailboxVerification == "unknown" || email.MailboxVerification == "false" {
-		fmt.Println("mailbox verification : " + email.MailboxVerification)
-		flag = false
-	} else if email.MailboxVerification == "true" {
-		flag = true
-		fmt.Println("flag is true : " + email.MailboxVerification)
-	}
+	//flag := false
+	//
+	//if email.MailboxVerification == "unknown" || email.MailboxVerification == "false" {
+	//	fmt.Println("mailbox verification : " + email.MailboxVerification)
+	//	flag = false
+	//} else if email.MailboxVerification == "true" {
+	//	flag = true
+	//	fmt.Println("flag is true : " + email.MailboxVerification)
+	//}
 
 }

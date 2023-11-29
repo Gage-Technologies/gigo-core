@@ -79,6 +79,122 @@ func SendSignUpMessage(ctx context.Context, mailGunKey string, mailGunDomain str
 	return nil
 }
 
+// SendStreakExpirationMessage sends a message to a user informing them that their streak is about to expire
+func SendStreakExpirationMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string, username string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// validate email addresses
+	_, err := mail.ParseAddress(recipient)
+	if err != nil {
+		return fmt.Errorf("invalid recipient email: %v", err)
+	}
+
+	// configure verification email content
+	message := mg.NewMessage("", "", "", recipient)
+
+	// set the preconfigured email template
+	message.SetTemplate("streakending")
+
+	// add template variables
+	err = message.AddTemplateVariable("username", username)
+	if err != nil {
+		return fmt.Errorf("failed to add template username variable: %v", err)
+	}
+
+	// send the message
+	_, _, err = mg.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("failed to send welcome email: %v", err)
+	}
+
+	return nil
+}
+
+// SendWeekInactiveMessage sends a message to a user that has not been active for one week
+func SendWeekInactiveMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// validate email addresses
+	_, err := mail.ParseAddress(recipient)
+	if err != nil {
+		return fmt.Errorf("invalid recipient email: %v", err)
+	}
+
+	// configure verification email content
+	message := mg.NewMessage("", "", "", recipient)
+
+	// set the preconfigured email template
+	message.SetTemplate("inactivehtml")
+
+	// set the email template version
+	message.SetTemplateVersion("inactiveoneweek")
+
+	// send the message
+	_, _, err = mg.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("failed to send welcome email: %v", err)
+	}
+
+	return nil
+}
+
+// SendMonthInactiveMessage sends a message to a user that has not been active for one month
+func SendMonthInactiveMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// validate email addresses
+	_, err := mail.ParseAddress(recipient)
+	if err != nil {
+		return fmt.Errorf("invalid recipient email: %v", err)
+	}
+
+	// configure verification email content
+	message := mg.NewMessage("", "", "", recipient)
+
+	// set the preconfigured email template
+	message.SetTemplate("monthinactivehtml")
+
+	// set the email template version
+	message.SetTemplateVersion("monthinactive")
+
+	// send the message
+	_, _, err = mg.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("failed to send welcome email: %v", err)
+	}
+
+	return nil
+}
+
+// SendMessageReceivedEmail sends a message to a user that received a message on gigo
+func SendMessageReceivedEmail(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// validate email addresses
+	_, err := mail.ParseAddress(recipient)
+	if err != nil {
+		return fmt.Errorf("invalid recipient email: %v", err)
+	}
+
+	// configure verification email content
+	message := mg.NewMessage("", "", "", recipient)
+
+	// set the preconfigured email template
+	message.SetTemplate("messagereceived")
+
+	// send the message
+	_, _, err = mg.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("failed to send welcome email: %v", err)
+	}
+
+	return nil
+}
+
 // ListActiveTemplates iterates over all templates on a given domain. Useful for finding template info programmatically
 func ListActiveTemplates(mg *mailgun.MailgunImpl) (*[]mailgun.Template, error) {
 

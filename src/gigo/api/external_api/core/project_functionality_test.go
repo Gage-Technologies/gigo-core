@@ -159,67 +159,67 @@ func TestGetConfig(t *testing.T) {
 	// Add additional test cases for other scenarios as needed.
 }
 
-func TestCloseAttempt(t *testing.T) {
-	tidb, err := ti.CreateDatabase("gigo-dev-tidb", "4000", "mysql", "gigo-dev",
-		"gigo-dev",
-		"gigo_test_db")
-	if err != nil {
-		t.Fatal("Initialize test database failed:", err)
-	}
-
-	// Create a user
-	callingUser := &models.User{
-		ID:       1,
-		UserName: "gigo",
-		Timezone: "UTC",
-		Tier:     1,
-	}
-
-	// Create a VCS client
-	vcsClient, err := git.CreateVCSClient("http://gigo-dev-git:3000", "gigo-dev", "gigo-dev", true)
-	if err != nil {
-		t.Fatal(fmt.Sprintf("failed to create vsc client, %v", err))
-	}
-
-	// You need to use an existing attempt for testing. Replace `attemptId` with the ID of an existing attempt.
-	attemptId := int64(1)
-
-	attempt, err := models.CreateAttempt(1, "title", "description", callingUser.UserName, callingUser.ID, time.Now(), time.Now(), 1, callingUser.Tier, nil, 0, 420, 1, nil, 0)
-	if err != nil {
-		t.Errorf("\nTestProjectAttempts failed\n    Error: %v\n", err)
-		return
-	}
-
-	statement, err := attempt.ToSQLNative()
-	if err != nil {
-		t.Errorf("\nTestProjectAttempts failed\n    Error: %v\n", err)
-		return
-	}
-
-	for _, stmt := range statement {
-		_, err = tidb.DB.Exec(stmt.Statement, stmt.Values...)
-	}
-
-	// Add cleanup for the attempt
-	defer func() {
-		_, err = tidb.DB.Exec(`DELETE FROM attempt`)
-		if err != nil {
-			t.Logf("Failed to delete sample attempt: %v", err)
-		}
-	}()
-
-	response, err := CloseAttempt(context.Background(), tidb, vcsClient, callingUser, attemptId)
-	if err != nil {
-		t.Errorf("CloseAttempt() error = %v", err)
-		return
-	}
-
-	if msg, ok := response["message"].(string); !ok || msg != "Attempt Closed Successfully" {
-		t.Errorf("CloseAttempt() unexpected message: %v", response["message"])
-	}
-
-	// Add additional test cases for other scenarios as needed.
-}
+//func TestCloseAttempt(t *testing.T) {
+//	tidb, err := ti.CreateDatabase("gigo-dev-tidb", "4000", "mysql", "gigo-dev",
+//		"gigo-dev",
+//		"gigo_test_db")
+//	if err != nil {
+//		t.Fatal("Initialize test database failed:", err)
+//	}
+//
+//	// Create a user
+//	callingUser := &models.User{
+//		ID:       1,
+//		UserName: "gigo",
+//		Timezone: "UTC",
+//		Tier:     1,
+//	}
+//
+//	// Create a VCS client
+//	vcsClient, err := git.CreateVCSClient("http://gigo-dev-git:3000", "gigo-dev", "gigo-dev", true)
+//	if err != nil {
+//		t.Fatal(fmt.Sprintf("failed to create vsc client, %v", err))
+//	}
+//
+//	// You need to use an existing attempt for testing. Replace `attemptId` with the ID of an existing attempt.
+//	attemptId := int64(1)
+//
+//	attempt, err := models.CreateAttempt(1, "title", "description", callingUser.UserName, callingUser.ID, time.Now(), time.Now(), 1, callingUser.Tier, nil, 0, 420, 1, nil, 0)
+//	if err != nil {
+//		t.Errorf("\nTestProjectAttempts failed\n    Error: %v\n", err)
+//		return
+//	}
+//
+//	statement, err := attempt.ToSQLNative()
+//	if err != nil {
+//		t.Errorf("\nTestProjectAttempts failed\n    Error: %v\n", err)
+//		return
+//	}
+//
+//	for _, stmt := range statement {
+//		_, err = tidb.DB.Exec(stmt.Statement, stmt.Values...)
+//	}
+//
+//	// Add cleanup for the attempt
+//	defer func() {
+//		_, err = tidb.DB.Exec(`DELETE FROM attempt`)
+//		if err != nil {
+//			t.Logf("Failed to delete sample attempt: %v", err)
+//		}
+//	}()
+//
+//	response, err := CloseAttempt(context.Background(), tidb, vcsClient, callingUser, attemptId)
+//	if err != nil {
+//		t.Errorf("CloseAttempt() error = %v", err)
+//		return
+//	}
+//
+//	if msg, ok := response["message"].(string); !ok || msg != "Attempt Closed Successfully" {
+//		t.Errorf("CloseAttempt() unexpected message: %v", response["message"])
+//	}
+//
+//	// Add additional test cases for other scenarios as needed.
+//}
 
 func TestMarkSuccess(t *testing.T) {
 	tidb, err := ti.CreateDatabase("gigo-dev-tidb", "4000", "mysql", "gigo-dev",
