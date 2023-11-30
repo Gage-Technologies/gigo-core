@@ -313,7 +313,7 @@ func DeleteJourneyUnit(ctx context.Context, tidb *ti.Database, callingUser *mode
 	callerName := "DeleteProject"
 
 	logger.Infof("attempting to delete project with id: %d from user: %v", unitID, callingUser.UserName)
-	res, err := tidb.ExecContext(ctx, &span, &callerName, "update journey_unit set deleted = true where _id = ? and author_id = ?", unitID, callingUser.ID)
+	res, err := tidb.ExecContext(ctx, &span, &callerName, "update journey_units set deleted = true where _id = ? and author_id = ?", unitID, callingUser.ID)
 	if err != nil {
 		logger.Errorf("failed to delete project: %v by updating database row: %v", unitID, err)
 		return nil, fmt.Errorf("failed to delete project by updating database row: %v", err)
@@ -501,7 +501,7 @@ func DeleteJourneyProject(ctx context.Context, tidb *ti.Database, callingUser *m
 func CreateJourneyUnitAttempt(ctx context.Context, tiDB *ti.Database, vcsClient *git.VCSClient, userSession *models.UserSession, sf *snowflake.Node, callingUser *models.User,
 	parentUnit int64, title string, unitFocus models.UnitFocus, languages []models.ProgrammingLanguage,
 	description string, repoID int64, tags []string, tier models.TierType,
-	workspaceConfig int64, parentUnitAuthorID int64, parentUnitVisibility models.PostVisibility,
+	workspaceConfig int64, parentUnitVisibility models.PostVisibility,
 	workspaceConfigRevision int, workspaceSettings *models.WorkspaceSettings,
 	estimatedTutorialTime *time.Duration) (map[string]interface{}, error) {
 

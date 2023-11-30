@@ -676,22 +676,7 @@ func (s *HTTPServer) CreateJourneyUnitAttempt(w http.ResponseWriter, r *http.Req
 			"internal server error occurred", err)
 		return
 	}
-
-	// attempt to load parameter from body
-	parentAuthorIDS, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "parent_unit_author_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
-	if parentAuthorIDS == nil || !ok {
-		return
-	}
-
-	parentUnitAuthorID, err := strconv.ParseInt(repoIDS.(string), 10, 64)
-	if !ok {
-		s.handleError(w, "failed to parse parent unit author id as int64", r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
-			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-			callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
-			"internal server error occurred", err)
-		return
-	}
-
+	
 	// attempt to load parameter from body
 	workspaceSettingsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "workspace_settings", reflect.Map, nil, true, callingUser.(*models.User).UserName, callingId)
 	if !ok {
@@ -747,7 +732,7 @@ func (s *HTTPServer) CreateJourneyUnitAttempt(w http.ResponseWriter, r *http.Req
 
 	// execute core function logic
 	res, err := core.CreateJourneyUnitAttempt(ctx, s.tiDB, s.vscClient, userSession.(*models.UserSession), s.sf, callingUser.(*models.User), parentUnit, title.(string), unitFocus,
-		languages, description.(string), repoID, tags, models.TierType(int(tier.(float64))), workspaceConfigID, parentUnitAuthorID, visibility, int(workspaceConfigRevision), workspaceSettings,
+		languages, description.(string), repoID, tags, models.TierType(int(tier.(float64))), workspaceConfigID, visibility, int(workspaceConfigRevision), workspaceSettings,
 		nil)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
