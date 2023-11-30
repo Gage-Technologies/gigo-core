@@ -276,14 +276,6 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 		))
 		return
 	}
-	_, err = zitiManager.CreateWorkspaceService(newAgentData.ID)
-	if err != nil {
-		logger.Error(fmt.Sprintf(
-			"(workspace: %d) failed to create ziti service for workspace %d: %v",
-			nodeId, createWsMsg.WorkspaceID, err,
-		))
-		return
-	}
 
 	// create a new agent
 	newAgent := models.CreateWorkspaceAgent(
@@ -689,10 +681,6 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 		err = zitiManager.DeleteAgent(id)
 		if err != nil {
 			logger.Errorf("(workspace: %d) failed to delete ziti agent: %v", nodeId, err)
-		}
-		err = zitiManager.DeleteWorkspaceService(id)
-		if err != nil {
-			logger.Errorf("(workspace: %d) failed to delete ziti service: %v", nodeId, err)
 		}
 	}
 

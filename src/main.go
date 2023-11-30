@@ -395,6 +395,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create ziti policy: %v", err)
 	}
+	_, err = zitiManager.CreateWorkspaceService()
+	if err != nil {
+		log.Fatalf("failed to create ziti service: %v", err)
+	}
 
 	fmt.Println("Creating cluster node")
 	// create cluster node
