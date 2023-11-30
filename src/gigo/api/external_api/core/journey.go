@@ -303,6 +303,8 @@ func CreateJourneyUnit(ctx context.Context, tiDB *ti.Database, sf *snowflake.Nod
 		}
 	}
 
+	failed = false
+
 	return map[string]interface{}{"message": "journey unit created", "journey": journey}, nil
 }
 
@@ -529,11 +531,11 @@ func CreateJourneyUnitAttempt(ctx context.Context, tiDB *ti.Database, vcsClient 
 
 	// retrieve post
 	err := tiDB.QueryRowContext(ctx, &span, &callerName,
-		"select title, description, author_id, visibility from journey_units where _id = ? limit 1", parentUnit,
+		"select title, description, author_id, visibility from journey_units where _id = ?", parentUnit,
 	).Scan(&unitTitle, &unitDesc, &unitAuthorId, &unitVisibility)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for post: %v\n    query: %s\n    params: %v", err,
-			"select repo_id from journey_units where _id = ?", []interface{}{parentUnit})
+			"select title, description, author_id, visibility from journey_units where _id = ? limit 1", []interface{}{parentUnit})
 	}
 
 	// create source repo path
@@ -602,13 +604,11 @@ func CreateJourneyUnitAttempt(ctx context.Context, tiDB *ti.Database, vcsClient 
 		return nil, fmt.Errorf("failed to create insert tx: %v", err)
 	}
 
-	// defer rollback in case we fail
-	defer tx.Rollback()
-
 	// iterate insertion statements executing insertions via tx
 	for _, statement := range journeyInsertion {
 		_, err := tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
 		if err != nil {
+			tx.Rollback()
 			return nil, fmt.Errorf("failed to insert journey unit: %v", err)
 		}
 	}
@@ -616,6 +616,7 @@ func CreateJourneyUnitAttempt(ctx context.Context, tiDB *ti.Database, vcsClient 
 	// commit tx
 	err = tx.Commit(&callerName)
 	if err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("failed to commit tx: %v", err)
 	}
 
@@ -679,13 +680,11 @@ func CreateJourneyProjectAttempt(ctx context.Context, tiDB *ti.Database, sf *sno
 		return nil, fmt.Errorf("failed to create insert tx: %v", err)
 	}
 
-	// defer rollback in case we fail
-	defer tx.Rollback()
-
 	// iterate insertion statements executing insertions via tx
 	for _, statement := range journeyInsertion {
 		_, err := tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
 		if err != nil {
+			tx.Rollback()
 			return nil, fmt.Errorf("failed to insert journey unit: %v", err)
 		}
 	}
@@ -693,6 +692,7 @@ func CreateJourneyProjectAttempt(ctx context.Context, tiDB *ti.Database, sf *sno
 	// commit tx
 	err = tx.Commit(&callerName)
 	if err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("failed to commit tx: %v", err)
 	}
 

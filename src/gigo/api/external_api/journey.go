@@ -668,7 +668,7 @@ func (s *HTTPServer) CreateJourneyUnitAttempt(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	parentUnit, err := strconv.ParseInt(repoIDS.(string), 10, 64)
+	parentUnit, err := strconv.ParseInt(parentIDS.(string), 10, 64)
 	if !ok {
 		s.handleError(w, "failed to parse parent unit id as int64", r.URL.Path, "CreateJourneyUnitAttempt", r.Method,
 			r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
@@ -676,7 +676,7 @@ func (s *HTTPServer) CreateJourneyUnitAttempt(w http.ResponseWriter, r *http.Req
 			"internal server error occurred", err)
 		return
 	}
-	
+
 	// attempt to load parameter from body
 	workspaceSettingsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyUnitAttempt", "workspace_settings", reflect.Map, nil, true, callingUser.(*models.User).UserName, callingId)
 	if !ok {
@@ -877,25 +877,27 @@ func (s *HTTPServer) CreateJourneyProject(w http.ResponseWriter, r *http.Request
 	dependencies := make([]int64, 0)
 
 	// attempt to load parameter from body
-	depType := reflect.Map
-	depsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyProject", "tags", reflect.Slice, &depType, false, callingUser.(*models.User).UserName, callingId)
-	if depsI == nil || !ok {
+	depType := reflect.String
+	depsI, ok := s.loadValue(w, r, reqJson, "CreateJourneyProject", "deps", reflect.Slice, &depType, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
 		return
 	}
 
-	// iterate through tagsI asserting each value as a map and create a new tag
-	for _, deps := range depsI.([]interface{}) {
+	if depsI != nil {
+		// iterate through tagsI asserting each value as a map and create a new tag
+		for _, deps := range depsI.([]interface{}) {
 
-		dep, err := strconv.ParseInt(deps.(string), 10, 64)
-		if !ok {
-			s.handleError(w, "failed to parse dependency id as int64", r.URL.Path, "CreateJourneyProject", r.Method,
-				r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-				callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
-				"internal server error occurred", err)
-			return
+			dep, err := strconv.ParseInt(deps.(string), 10, 64)
+			if err != nil {
+				s.handleError(w, "failed to parse dependency id as int64", r.URL.Path, "CreateJourneyProject", r.Method,
+					r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+					callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError,
+					"internal server error occurred", err)
+				return
+			}
+
+			dependencies = append(dependencies, dep)
 		}
-
-		dependencies = append(dependencies, dep)
 	}
 
 	// check if this is a test
