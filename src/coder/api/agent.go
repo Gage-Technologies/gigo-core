@@ -340,7 +340,7 @@ func (api *WorkspaceAPI) PostWorkspaceAgentPort(rw http.ResponseWriter, r *http.
 		len(req.Ports), agentId.(int64), workspaceId.(int64), ownerId.(int64),
 	))
 
-	err = core.UpdateWorkspaceAgentPorts(ctx, api.DB, workspaceId.(int64), req.Ports)
+	err = core.UpdateWorkspaceAgentPorts(ctx, api.DB, api.WsStatusUpdater, workspaceId.(int64), req.Ports)
 	if err != nil {
 		api.HandleError(rw, "failed to update workspace agent ports", r.URL.Path,
 			"PostWorkspaceAgentPort", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),

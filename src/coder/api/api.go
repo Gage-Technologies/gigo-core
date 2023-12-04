@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"gigo-core/gigo/config"
-	"gigo-core/gigo/derper"
 	"gigo-core/gigo/streak"
+	"gigo-core/gigo/utils"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -37,7 +37,6 @@ type WorkspaceAPIOptions struct {
 	ClusterNode cluster.Node
 	Address     string
 	Ctx         context.Context
-	DerpMeshKey string
 
 	AgentConnectionUpdateFrequency time.Duration
 	AgentInactiveDisconnectTimeout time.Duration
@@ -59,7 +58,8 @@ type WorkspaceAPIOptions struct {
 
 	RegistryCaches []config.RegistryCacheConfig
 
-	ZitiServer *zitimesh.Server
+	ZitiServer      *zitimesh.Server
+	WsStatusUpdater *utils.WorkspaceStatusUpdater
 }
 
 // WorkspaceAPI
@@ -69,7 +69,6 @@ type WorkspaceAPIOptions struct {
 type WorkspaceAPI struct {
 	*WorkspaceAPIOptions
 	WorkspaceClientCoordinateOverride atomic.Pointer[func(rw http.ResponseWriter) bool]
-	DERPServer                        *derper.MeshServer
 
 	// APIHandler serves "/api/v2" and "/bin"
 	APIHandler *mux.Router
@@ -113,42 +112,13 @@ func prepWorkspaceAPIOptions(options *WorkspaceAPIOptions) *WorkspaceAPIOptions 
 //
 //	Creates a new NewWorkspaceAPI and initializes the http routes
 func NewWorkspaceAPI(opts *WorkspaceAPIOptions) (*WorkspaceAPI, error) {
-	// assemble derp server
-	accessUrlPort := 0
-	if opts.AccessURL.Port() != "" {
-		aup, err := strconv.ParseInt(opts.AccessURL.Port(), 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse access url port to int: %v", err)
-		}
-		accessUrlPort = int(aup)
-	}
-
-	// create a new derp server
-	derpMeshServer, err := derper.NewMeshServer(
-		opts.Ctx,
-		opts.ClusterNode,
-		opts.AccessURL.Scheme == "http",
-		opts.DerpMeshKey,
-		accessUrlPort,
-		opts.Logger,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create derp server: %v", err)
-	}
-
 	// prep options to ensure everything is initialized
 	opts = prepWorkspaceAPIOptions(opts)
 
 	// create a new workspace api
 	wsApi := &WorkspaceAPI{
 		WorkspaceAPIOptions: opts,
-		DERPServer:          derpMeshServer,
 	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to create workspace agent cache: %v", err)
-	}
-
-	wsApi.StreakEngine = opts.StreakEngine
 
 	return wsApi, nil
 }
@@ -167,10 +137,6 @@ func (api *WorkspaceAPI) LinkAPI(r *mux.Router) {
 	// r.PathPrefix("/port/{user:[0-9]+}/{workspace:[0-9]+}/{port:[0-9]+}").HandlerFunc(api.WorkspacePortProxy)
 	r.Host(fmt.Sprintf("{user:[0-9]+}-{workspace:[0-9]+}-{port:[0-9]+}.%s", api.AppHostname)).HandlerFunc(api.WorkspacePortProxy)
 
-	// create derp endpoints - not sure why both endpoints are necessary
-	// but it seems to make a difference
-	r.HandleFunc("/derp", derper.Handler(api.DERPServer).ServeHTTP).Methods("GET")
-	r.HandleFunc("/derp/", derper.Handler(api.DERPServer).ServeHTTP).Methods("GET")
 	// This is used when UDP is blocked, and latency must be checked via HTTP(s).
 	r.HandleFunc("/derp/latency-check", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

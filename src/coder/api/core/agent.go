@@ -424,7 +424,7 @@ func UpdateWorkspaceAgentVersion(ctx context.Context, db *ti.Database, agent int
 	return nil
 }
 
-func UpdateWorkspaceAgentPorts(ctx context.Context, db *ti.Database, workspaceID int64, newPorts []agentsdk.ListeningPort) error {
+func UpdateWorkspaceAgentPorts(ctx context.Context, db *ti.Database, wsStatusUpdater *utils.WorkspaceStatusUpdater, workspaceID int64, newPorts []agentsdk.ListeningPort) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-workspace-agent-ports")
 	defer span.End()
 	callerName := "UpdateWorkspaceAgentPorts"
@@ -516,6 +516,10 @@ func UpdateWorkspaceAgentPorts(ctx context.Context, db *ti.Database, workspaceID
 	if err != nil {
 		return fmt.Errorf("failed to update workspace ports: %v", err)
 	}
+
+	// forward the update to the user
+	wsStatusUpdater.PushStatus(ctx, workspaceID, nil)
+
 	return nil
 }
 

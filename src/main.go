@@ -108,6 +108,11 @@ func shutdown(server *external_api.HTTPServer, zitiManager *zitimesh.Manager, cl
 	logger.Info("received termination - shutting down gracefully")
 	fmt.Println("received termination - shutting down gracefully")
 
+	// delete ziti mesh node
+	logger.Info("delete ziti server")
+	fmt.Println("delete ziti server")
+	zitiManager.DeleteServer(clusterNode.GetSelfMetadata().ID)
+
 	// close server gracefully
 	logger.Info("closing server")
 	fmt.Println("closing server")
@@ -126,11 +131,6 @@ func shutdown(server *external_api.HTTPServer, zitiManager *zitimesh.Manager, cl
 		logger.Errorf("failed to close cluster node gracefully: %v", err)
 		fmt.Printf("failed to close cluster node gracefully: %v\n", err)
 	}
-
-	// delete ziti mesh node
-	logger.Info("delete ziti server")
-	fmt.Println("delete ziti server")
-	zitiManager.DeleteServer(clusterNode.GetSelfMetadata().ID)
 
 	// wait for all workers of the follower routine to exit
 	logger.Info("waiting for follower workers to exit")
@@ -482,23 +482,23 @@ func main() {
 		ID:          nodeID,
 		ClusterNode: clusterNode,
 		Ctx:         ctx,
-		DerpMeshKey: cfg.DerpMeshKey,
 		// we assume that the node ip will always be set at this
 		// env var - this is really designed to be operated on k8s
 		// but could theoretically be set manually if deployed by hand
-		Address:        os.Getenv("GIGO_POD_IP"),
-		Logger:         httpLogger,
-		DB:             tiDB,
-		StreakEngine:   streakEngine,
-		RDB:            rdb,
-		VcsClient:      vcsClient,
-		SnowflakeNode:  snowflakeNode,
-		AccessURL:      parsedAccessUrl,
-		AppHostname:    cfg.HTTPServerConfig.Hostname,
-		GitUseTLS:      strings.Contains(cfg.GiteaConfig.HostUrl, "https://"),
-		Js:             js,
-		RegistryCaches: cfg.RegistryCaches,
-		ZitiServer:     zitiServer,
+		Address:         os.Getenv("GIGO_POD_IP"),
+		Logger:          httpLogger,
+		DB:              tiDB,
+		StreakEngine:    streakEngine,
+		RDB:             rdb,
+		VcsClient:       vcsClient,
+		SnowflakeNode:   snowflakeNode,
+		AccessURL:       parsedAccessUrl,
+		AppHostname:     cfg.HTTPServerConfig.Hostname,
+		GitUseTLS:       strings.Contains(cfg.GiteaConfig.HostUrl, "https://"),
+		Js:              js,
+		RegistryCaches:  cfg.RegistryCaches,
+		ZitiServer:      zitiServer,
+		WsStatusUpdater: wsStatusUpdater,
 	}
 	wsApiServer, err := api.NewWorkspaceAPI(wsApiOpts)
 	if err != nil {
