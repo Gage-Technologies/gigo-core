@@ -480,6 +480,8 @@ func UpdateWorkspaceAgentPorts(ctx context.Context, db *ti.Database, wsStatusUpd
 			Name:   p.ProcessName,
 			Port:   p.Port,
 			Active: true,
+			HTTP:   p.HTTP,
+			SSL:    p.SSL,
 		}
 
 		// handle a configured port
