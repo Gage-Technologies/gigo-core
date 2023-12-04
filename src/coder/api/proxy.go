@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
 	"embed"
 	"fmt"
 	"net"
@@ -72,6 +73,7 @@ type proxyWorkspacePortOptions struct {
 	CallingUser *models.User
 	AgentID     int64
 	Port        uint16
+	SSL         bool
 }
 
 // WorkspaceEditorProxy
@@ -440,7 +442,7 @@ func (api *WorkspaceAPI) WorkspacePortProxy(rw http.ResponseWriter, r *http.Requ
 	}
 
 	// retrieve workspace and agent
-	agent, err := core.PortProxyGetWorkspaceAgentID(ctx, api.DB, workspaceID, callingUser.(*models.User).ID, port)
+	agent, portData, err := core.PortProxyGetWorkspaceAgentID(ctx, api.DB, workspaceID, callingUser.(*models.User).ID, port)
 	if err != nil {
 		if err.Error() == "port not found" {
 			api.HandleError(rw, "port not found", r.URL.Path, "WorkspacePortProxy",
@@ -454,10 +456,13 @@ func (api *WorkspaceAPI) WorkspacePortProxy(rw http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// TODO: maybe filter non-http ports?
+
 	api.proxyWorkspacePort(proxyWorkspacePortOptions{
 		CallingUser: callingUser.(*models.User),
 		AgentID:     agent,
 		Port:        port,
+		SSL:         portData.SSL,
 	}, rw, r)
 
 	parentSpan.AddEvent(
@@ -483,10 +488,16 @@ func (api *WorkspaceAPI) proxyWorkspacePort(opts proxyWorkspacePortOptions, rw h
 	// format user id to string
 	callingId := fmt.Sprintf("%d", opts.CallingUser.ID)
 
+	// select the protocol based on ssl or not
+	protocol := "http"
+	if opts.SSL {
+		protocol = "https"
+	}
+
 	// the only thing that matters in the app url is the scheme since
 	// we are offloading to the zitinet which will handle the port and
 	// host on the agent side of the zitinet
-	appURL, err := url.Parse("http://dummy-host")
+	appURL, err := url.Parse(fmt.Sprintf("%s://dummy-host", protocol))
 	if err != nil {
 		api.HandleError(rw, "failed to parse internal app url", r.URL.Path, "proxyWorkspacePort",
 			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), opts.CallingUser.UserName,
@@ -510,6 +521,8 @@ func (api *WorkspaceAPI) proxyWorkspacePort(opts proxyWorkspacePortOptions, rw h
 			// the ziti net mesh ovelay
 			return api.ZitiServer.DialAgent(opts.AgentID, zitimesh.NetworkTypeTCP, int(opts.Port))
 		},
+		// insecure verify for our internal port
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
 	// This strips the session token from a workspace app request.
