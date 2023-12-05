@@ -666,10 +666,11 @@ func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 		return nil, fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
+	logger.Infof("extractMentionedUsers params passed: %v", params.Content)
 	// New code to handle mentioned users
 	mentionedUsers := extractMentionedUsers(params.Content)
 	logger.Infof("extractMentionedUsers extracted these usernames: %v", mentionedUsers)
-	
+
 	for _, username := range mentionedUsers {
 		userEmail, err := queryUserEmailByUsername(ctx, db, username)
 		if err != nil {
