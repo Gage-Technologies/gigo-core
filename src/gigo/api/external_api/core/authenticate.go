@@ -153,7 +153,7 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 		}
 	}
 
-	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*30, 0, map[string]interface{}{
+	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*1000, 0, map[string]interface{}{
 		"user_status":         user.UserStatus,
 		"email":               user.Email,
 		"phone":               user.Phone,
@@ -338,7 +338,7 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 		}
 	}
 
-	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*30, 0, map[string]interface{}{
+	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*1000, 0, map[string]interface{}{
 		"user_status":         user.UserStatus,
 		"email":               user.Email,
 		"phone":               user.Phone,
@@ -572,7 +572,7 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 		}
 	}
 
-	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*30, 0, map[string]interface{}{
+	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, 24*1000, 0, map[string]interface{}{
 		"user_status":         callingUser.UserStatus,
 		"email":               callingUser.Email,
 		"phone":               callingUser.Phone,
