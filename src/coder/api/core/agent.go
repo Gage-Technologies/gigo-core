@@ -77,6 +77,10 @@ func handleRegistryCaches(containerName string, caches []config.RegistryCacheCon
 	// if the container name has no host prefix and the docker cache exists
 	// then we assume the container is from docker.io and prepend the cache
 	if dockerCache.Source == "docker.io" && strings.Count(containerName, "/") <= 1 {
+		// if the container name does not contain an organization then we prepend library/
+		if !strings.Contains(containerName, "/") {
+			return fmt.Sprintf("%s/library/%s", dockerCache.Cache, containerName)
+		}
 		return fmt.Sprintf("%s/%s", dockerCache.Cache, containerName)
 	}
 
