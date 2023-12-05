@@ -692,11 +692,11 @@ func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 // extractMentionedUsers parses the content of the chat message and returns a slice of @'ed usernames
 func extractMentionedUsers(content string) []string {
 	var mentionedUsers []string
-	re := regexp.MustCompile(`@\w+`)
+	re := regexp.MustCompile(`@<\w+>`)
 	matches := re.FindAllString(content, -1)
 
 	for _, match := range matches {
-		username := match[1:] // remove the '@' character
+		username := match[2 : len(match)-1] // remove the '@<' and '>' characters
 		mentionedUsers = append(mentionedUsers, username)
 	}
 
