@@ -668,6 +668,8 @@ func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 
 	// New code to handle mentioned users
 	mentionedUsers := extractMentionedUsers(params.Content)
+	logger.Infof("extractMentionedUsers extracted these usernames: %v", mentionedUsers)
+	
 	for _, username := range mentionedUsers {
 		userEmail, err := queryUserEmailByUsername(ctx, db, username)
 		if err != nil {
