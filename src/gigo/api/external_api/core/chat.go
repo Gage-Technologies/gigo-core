@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	models2 "github.com/gage-technologies/gigo-lib/mq/models"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -571,7 +572,7 @@ type SendMessageParams struct {
 	MessageType models.ChatMessageType `json:"message_type" validate:"gte=0,lte=1"`
 }
 
-func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Node, callingUser *models.User, params SendMessageParams) (*models.ChatMessage, error) {
+func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Node, callingUser *models.User, params SendMessageParams, mailgunKey string, mailgunDomain string) (*models.ChatMessage, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "send-message-core")
 	defer span.End()
 	callerName := "SendMessage"
@@ -664,8 +665,53 @@ func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 		return nil, fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
+	// New code to handle mentioned users
+	mentionedUsers := extractMentionedUsers(params.Content)
+	for _, username := range mentionedUsers {
+		userEmail, err := queryUserEmailByUsername(ctx, db, username)
+		if err != nil {
+			// don't fail the entire operation
+			continue
+		}
+
+		err = SendMessageReceivedEmail(ctx, mailgunKey, mailgunDomain, userEmail)
+		if err != nil {
+			// don't fail the entire operation
+			continue
+		}
+	}
+
 	// return nil
 	return message, nil
+}
+
+// extractMentionedUsers parses the content of the chat message and returns a slice of @'ed usernames
+func extractMentionedUsers(content string) []string {
+	var mentionedUsers []string
+	re := regexp.MustCompile(`@\w+`)
+	matches := re.FindAllString(content, -1)
+
+	for _, match := range matches {
+		username := match[1:] // remove the '@' character
+		mentionedUsers = append(mentionedUsers, username)
+	}
+
+	return mentionedUsers
+}
+
+// queryUserEmailByUsername queries the database for a user's email by their username
+func queryUserEmailByUsername(ctx context.Context, db *ti.Database, username string) (string, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "query-user-by-username-core")
+	defer span.End()
+	callerName := "QueryUserEmailByUsername"
+
+	var email string
+	err := db.QueryRowContext(ctx, &span, &callerName, "select email from users where user_name = ?", username).Scan(&email)
+	if err != nil {
+		return "", fmt.Errorf("failed to query for users email: %v", err)
+	}
+
+	return email, nil
 }
 
 type GetMessagesParams struct {

@@ -454,7 +454,7 @@ func (p *WebSocketPluginChat) handleOutgoingChatMessage(msg *ws.Message[any]) {
 	}
 
 	// execute core function logic
-	message, err := core.SendMessageInternal(p.ctx, p.s.tiDB, p.s.sf, p.socket.user.Load(), sendMessage)
+	message, err := core.SendMessageInternal(p.ctx, p.s.tiDB, p.s.sf, p.socket.user.Load(), sendMessage, p.s.mailGunKey, p.s.mailGunDomain)
 	if err != nil {
 		p.socket.logger.Errorf("failed to execute send message internal: %v", err)
 		// handle internal server error via websocket
