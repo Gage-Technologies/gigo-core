@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/gage-technologies/gigo-lib/logging"
 	models2 "github.com/gage-technologies/gigo-lib/mq/models"
 	"regexp"
 	"strconv"
@@ -572,7 +573,7 @@ type SendMessageParams struct {
 	MessageType models.ChatMessageType `json:"message_type" validate:"gte=0,lte=1"`
 }
 
-func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Node, callingUser *models.User, params SendMessageParams, mailgunKey string, mailgunDomain string) (*models.ChatMessage, error) {
+func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Node, logger logging.Logger, callingUser *models.User, params SendMessageParams, mailgunKey string, mailgunDomain string) (*models.ChatMessage, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "send-message-core")
 	defer span.End()
 	callerName := "SendMessage"
@@ -670,13 +671,13 @@ func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 	for _, username := range mentionedUsers {
 		userEmail, err := queryUserEmailByUsername(ctx, db, username)
 		if err != nil {
-			// don't fail the entire operation
+			logger.Errorf("queryUserEmailByUsername failed for username: %v in SendMessageInternal: %v", username, err)
 			continue
 		}
 
 		err = SendMessageReceivedEmail(ctx, mailgunKey, mailgunDomain, userEmail)
 		if err != nil {
-			// don't fail the entire operation
+			logger.Errorf("SendMessageReceivedEmail failed for Email: %v in SendMessageInternal: %v", err)
 			continue
 		}
 	}
