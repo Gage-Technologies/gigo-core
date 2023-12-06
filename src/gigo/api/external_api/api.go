@@ -189,14 +189,6 @@ var cacheEndpoints = []*EndpointCache{
 		RefreshOnHit: false,
 	},
 	{
-		Path:         regexp.MustCompile("^/api/discussion/getDiscussions$"),
-		Method:       "POST",
-		TTL:          5 * time.Minute,
-		KeyFields:    []string{"post_id", "skip", "limit"},
-		UserKey:      true,
-		RefreshOnHit: false,
-	},
-	{
 		Path:         regexp.MustCompile("^/api/attempt/getProject$"),
 		Method:       "POST",
 		TTL:          5 * time.Minute,
