@@ -299,6 +299,16 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
 		}
+
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
 	} else {
 		_, err = CreateTrialSubscription(ctx, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
 		if err != nil {
@@ -1762,6 +1772,16 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
 		}
+
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
 	} else {
 		_, err = CreateTrialSubscription(ctx, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
 		if err != nil {
@@ -2182,6 +2202,16 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
+		}
+
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	} else {
 		_, err = CreateTrialSubscription(ctx, email, tidb, tx, newUser.ID, name, " ")

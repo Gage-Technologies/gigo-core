@@ -222,6 +222,70 @@ func SendMessageReceivedEmail(ctx context.Context, rdb redis.UniversalClient, ma
 	return nil
 }
 
+// SendReferredFriendMessage sends a message after a user successfully refers another account
+func SendReferredFriendMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string, referredUser string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// validate email addresses
+	_, err := mail.ParseAddress(recipient)
+	if err != nil {
+		return fmt.Errorf("invalid recipient email: %v", err)
+	}
+
+	// configure  email content
+	message := mg.NewMessage("", "", "", recipient)
+
+	// set the preconfigured email template
+	message.SetTemplate("referredfriend")
+
+	// add template variables
+	err = message.AddTemplateVariable("username", referredUser)
+	if err != nil {
+		return fmt.Errorf("failed to add template username variable: %v", err)
+	}
+
+	// send the message
+	_, _, err = mg.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("failed to send referral email: %v", err)
+	}
+
+	return nil
+}
+
+// SendWasReferredMessage sends a message after a user successfully uses another users referral link
+func SendWasReferredMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string, referringUser string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// validate email addresses
+	_, err := mail.ParseAddress(recipient)
+	if err != nil {
+		return fmt.Errorf("invalid recipient email: %v", err)
+	}
+
+	// configure  email content
+	message := mg.NewMessage("", "", "", recipient)
+
+	// set the preconfigured email template
+	message.SetTemplate("wasreferred")
+
+	// add template variables
+	err = message.AddTemplateVariable("username", referringUser)
+	if err != nil {
+		return fmt.Errorf("failed to add template username variable: %v", err)
+	}
+
+	// send the message
+	_, _, err = mg.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("failed to send referral email: %v", err)
+	}
+
+	return nil
+}
+
 // ListActiveTemplates iterates over all templates on a given domain. Useful for finding template info programmatically
 func ListActiveTemplates(mg *mailgun.MailgunImpl) (*[]mailgun.Template, error) {
 
