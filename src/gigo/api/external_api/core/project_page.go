@@ -184,7 +184,7 @@ func ProjectInformation(ctx context.Context, tidb *ti.Database, vcsClient *git.V
 		return nil, fmt.Errorf("failed to format post to frontend: %v", err)
 	}
 
-	if post.Published != true && callingUser.ID != post.AuthorID {
+	if post.Published != true && (callingUser == nil || callingUser.ID != post.AuthorID) {
 		return map[string]interface{}{
 			"post": "user is not authorized to view this post.",
 		}, nil

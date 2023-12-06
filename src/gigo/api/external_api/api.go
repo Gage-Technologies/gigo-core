@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -867,7 +868,7 @@ func (s *HTTPServer) validateOrigin(w http.ResponseWriter, r *http.Request) bool
 // Helper function used to remove the authentication token using the http response writer
 func (s *HTTPServer) revokeCookie(w http.ResponseWriter, ip string) {
 	// log cookie revocation
-	s.logger.Warn(fmt.Sprintf("cookie revoked: %s", ip), map[string]interface{}{"function": "Web API revokeCookie", "ip of cookie": ip, "removal time": time.Now().Unix()})
+	s.logger.Warn(fmt.Sprintf("cookie revoked: %s", ip))
 
 	// conditionally set cookie with insecure settings
 	if s.developmentMode {
@@ -1201,10 +1202,19 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 	userSession, err := models.LoadUserSession(s.tiDB, s.rdb, callingUser.ID)
 	if err != nil {
 		if err.Error() == "no session" {
+			// revoke cookie to clear the session if this is not a websocket, implicit action, or web tracking request
+			// since all 3 of these api systems are managed in abnormal ways on the frontend we can't use them to trigger
+			// a logout event
+			if !strings.HasPrefix(r.URL.Path, "/api/ws") &&
+				!strings.HasPrefix(r.URL.Path, "/api/implicit") &&
+				!strings.HasPrefix(r.URL.Path, "/api/recordUsage") {
+				s.revokeCookie(w, network.GetRequestIP(r))
+			}
+
 			// handle validation error
 			s.handleError(w, "user not logged in", r.URL.Path, "authenticateUserSession",
 				r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,
-				http.StatusUnauthorized, "login", err)
+				http.StatusUnauthorized, "logout", err)
 			return nil
 		}
 		// handle validation error
