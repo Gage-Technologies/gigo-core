@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/gage-technologies/gigo-lib/logging"
 	models2 "github.com/gage-technologies/gigo-lib/mq/models"
+	"github.com/go-redis/redis/v8"
 	"regexp"
 	"strconv"
 	"time"
@@ -573,7 +574,7 @@ type SendMessageParams struct {
 	MessageType models.ChatMessageType `json:"message_type" validate:"gte=0,lte=1"`
 }
 
-func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Node, logger logging.Logger, callingUser *models.User, params SendMessageParams, mailgunKey string, mailgunDomain string) (*models.ChatMessage, error) {
+func SendMessageInternal(ctx context.Context, db *ti.Database, rdb redis.UniversalClient, sf *snowflake.Node, logger logging.Logger, callingUser *models.User, params SendMessageParams, mailgunKey string, mailgunDomain string) (*models.ChatMessage, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "send-message-core")
 	defer span.End()
 	callerName := "SendMessage"
@@ -676,7 +677,7 @@ func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 			continue
 		}
 
-		err = SendMessageReceivedEmail(ctx, mailgunKey, mailgunDomain, userEmail, callingUser.UserName)
+		err = SendMessageReceivedEmail(ctx, rdb, mailgunKey, mailgunDomain, userEmail, callingUser.UserName)
 		if err != nil {
 			logger.Errorf("SendMessageReceivedEmail failed for Email: %v in SendMessageInternal: %v", err)
 			continue
