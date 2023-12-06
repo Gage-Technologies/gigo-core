@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	ti "github.com/gage-technologies/gigo-lib/db"
+	"github.com/go-redis/redis/v8"
 	"github.com/mailgun/mailgun-go/v4"
 	"go.opentelemetry.io/otel"
 	"net/mail"
@@ -169,8 +170,22 @@ func SendMonthInactiveMessage(ctx context.Context, mailGunKey string, mailGunDom
 	return nil
 }
 
-// SendMessageReceivedEmail sends a message to a user that received a message on gigo
-func SendMessageReceivedEmail(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string, username string) error {
+// SendMessageReceivedEmail sends a message to a user that received a message on gigo. Limited to not send a user more than one message-received email per hour.
+func SendMessageReceivedEmail(ctx context.Context, rdb redis.UniversalClient, mailGunKey string, mailGunDomain string, recipient string, username string) error {
+	// Define a more specific Redis key
+	redisKey := fmt.Sprintf("email:message:received:%v", username)
+
+	// Check if the key exists in Redis
+	exists, err := rdb.Exists(ctx, redisKey).Result()
+	if err != nil {
+		return fmt.Errorf("failed to check Redis for key existence: %v", err)
+	}
+
+	// If the key exists, return without sending the email
+	if exists > 0 {
+		return nil
+	}
+
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
@@ -196,6 +211,12 @@ func SendMessageReceivedEmail(ctx context.Context, mailGunKey string, mailGunDom
 	_, _, err = mg.Send(ctx, message)
 	if err != nil {
 		return fmt.Errorf("failed to send welcome email: %v", err)
+	}
+
+	// After successfully sending the email, set the key in Redis with a 1-hour expiration
+	err = rdb.Set(ctx, redisKey, "sent", time.Hour).Err()
+	if err != nil {
+		return fmt.Errorf("failed to set key in Redis: %v", err)
 	}
 
 	return nil
