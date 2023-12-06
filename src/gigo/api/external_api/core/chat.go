@@ -676,7 +676,7 @@ func SendMessageInternal(ctx context.Context, db *ti.Database, sf *snowflake.Nod
 			continue
 		}
 
-		err = SendMessageReceivedEmail(ctx, mailgunKey, mailgunDomain, userEmail)
+		err = SendMessageReceivedEmail(ctx, mailgunKey, mailgunDomain, userEmail, callingUser.UserName)
 		if err != nil {
 			logger.Errorf("SendMessageReceivedEmail failed for Email: %v in SendMessageInternal: %v", err)
 			continue

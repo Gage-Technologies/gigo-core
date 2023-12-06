@@ -170,7 +170,7 @@ func SendMonthInactiveMessage(ctx context.Context, mailGunKey string, mailGunDom
 }
 
 // SendMessageReceivedEmail sends a message to a user that received a message on gigo
-func SendMessageReceivedEmail(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string) error {
+func SendMessageReceivedEmail(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string, username string) error {
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
@@ -185,6 +185,12 @@ func SendMessageReceivedEmail(ctx context.Context, mailGunKey string, mailGunDom
 
 	// set the preconfigured email template
 	message.SetTemplate("messagereceived")
+
+	// add template variables
+	err = message.AddTemplateVariable("username", username)
+	if err != nil {
+		return fmt.Errorf("failed to add template username variable: %v", err)
+	}
 
 	// send the message
 	_, _, err = mg.Send(ctx, message)

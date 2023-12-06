@@ -182,7 +182,7 @@ func TestSendMessageReceivedEmail(t *testing.T) {
 
 	defer cancel()
 
-	err := SendMessageReceivedEmail(ctx, apiKey, domain, "")
+	err := SendMessageReceivedEmail(ctx, apiKey, domain, "", "")
 	if err != nil {
 		t.Fatalf("Failed to send email%v", err)
 	}
