@@ -190,7 +190,7 @@ func SendMessageReceivedEmail(ctx context.Context, rdb redis.UniversalClient, ma
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
 	// validate email addresses
-	_, err := mail.ParseAddress(recipient)
+	_, err = mail.ParseAddress(recipient)
 	if err != nil {
 		return fmt.Errorf("invalid recipient email: %v", err)
 	}
