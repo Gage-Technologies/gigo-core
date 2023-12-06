@@ -1432,8 +1432,8 @@ func WorkspaceInitializationStepCompleted(ctx context.Context, tidb *ti.Database
 
 	// perform update directly on the workspace row
 	_, err := tidb.ExecContext(ctx, &span, &callerName,
-		"update workspaces set init_state = ?, state = ?, last_state_update = ? where _id = ?",
-		step, state, time.Now(), wsId,
+		"update workspaces set init_state = ?, state = ?, last_state_update = ? where _id = ? and state in (?, ?)",
+		step, state, time.Now(), wsId, models.WorkspaceStarting, models.WorkspaceActive,
 	)
 	if err != nil {
 		// handle not found
