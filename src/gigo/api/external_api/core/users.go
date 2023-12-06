@@ -337,6 +337,22 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 
 	// only send email if email is present and not test
 	if user.Email != "" && user.Email != "test" {
+		// create a new email subscription record for the new user
+		emailSub, err := models.CreateEmailSubscription(newUser.ID, newUser.Email, true, true, true, true, true, true, true, true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create email subscription: %v", err)
+		}
+
+		// email subscription to sql insertion
+		subStatement := emailSub.ToSQLNative()
+		// attempt to insert new email subscription
+		for _, subStmt := range subStatement {
+			_, err = tx.ExecContext(ctx, &callerName, subStmt.Statement, subStmt.Values...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to insert email subscription: %v", err)
+			}
+		}
+
 		// send user sign up message after creation
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
 		if err != nil {
@@ -1520,6 +1536,10 @@ func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.Meili
 	if err != nil {
 		return nil, fmt.Errorf("failed to edit post description: %v", err)
 	}
+	_, err = tx.ExecContext(ctx, &callerName, "delete from email_subscription where user_id = ?", callingUser.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete the email_subscription record: %v", err)
+	}
 
 	// perform deletion via tx
 	_, err = tx.ExecContext(ctx, &callerName, "delete from users where _id = ?", callingUser.ID)
@@ -1815,10 +1835,26 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 
 	// only send email if email is present and not test
 	if user.Email != "" && user.Email != "test" {
+		// create a new email subscription record for the new user
+		emailSub, err := models.CreateEmailSubscription(newUser.ID, newUser.Email, true, true, true, true, true, true, true, true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create email subscription: %v", err)
+		}
+
+		// email subscription to sql insertion
+		subStatement := emailSub.ToSQLNative()
+		// attempt to insert new email subscription
+		for _, subStmt := range subStatement {
+			_, err = tx.ExecContext(ctx, &callerName, subStmt.Statement, subStmt.Values...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to insert email subscription: %v", err)
+			}
+		}
+
 		// send user sign up message after creation
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to send welcome message to user: %v", err)
+			logger.Errorf("failed to send sign up message to user: %v, err: %v", user.ID, err)
 		}
 	}
 
@@ -2246,11 +2282,25 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 
 	// only send email if email is present and not test
 	if user.Email != "" && user.Email != "test" {
+		// create a new email subscription record for the new user
+		emailSub, err := models.CreateEmailSubscription(newUser.ID, newUser.Email, true, true, true, true, true, true, true, true)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to create email subscription: %v", err)
+		}
+
+		// email subscription to sql insertion
+		subStatement := emailSub.ToSQLNative()
+		// attempt to insert new email subscription
+		for _, subStmt := range subStatement {
+			_, err = tx.ExecContext(ctx, &callerName, subStmt.Statement, subStmt.Values...)
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to insert email subscription: %v", err)
+			}
+		}
+
 		// send user sign up message after creation
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to send welcome message to user: %v", err)
-		}
+		logger.Errorf("failed to send sign up message to user: %v, err: %v", user.ID, err)
 	}
 
 	inactivity, err := models.CreateUserInactivity(newUser.ID, time.Now(), time.Now(), false, false, user.Email)
