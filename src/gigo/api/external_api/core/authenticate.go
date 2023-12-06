@@ -186,7 +186,7 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 		sf.Generate().Int64(),
 		user.ID,
 		serviceKey,
-		time.Now().Add(time.Hour*24*30),
+		time.Now().Add(time.Hour*24*1000),
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create user session: %v", err)
@@ -371,7 +371,7 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 		sf.Generate().Int64(),
 		user.ID,
 		serviceKey,
-		time.Now().Add(time.Hour*24*30),
+		time.Now().Add(time.Hour*24*1000),
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create user session: %v", err)
@@ -606,7 +606,7 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 		sf.Generate().Int64(),
 		callingUser.ID,
 		serviceKey,
-		time.Now().Add(time.Hour*24*30),
+		time.Now().Add(time.Hour*24*1000),
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create user session: %v", err)
