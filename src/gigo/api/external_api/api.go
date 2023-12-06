@@ -1204,7 +1204,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 			// handle validation error
 			s.handleError(w, "user not logged in", r.URL.Path, "authenticateUserSession",
 				r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,
-				http.StatusUnauthorized, "please login", err)
+				http.StatusUnauthorized, "login", err)
 			return nil
 		}
 		// handle validation error
