@@ -210,19 +210,25 @@ func RecommendedProjectsHome(ctx context.Context, callingUser *models.User, tidb
 	var res *sql.Rows
 	var err error
 
-	if callingUser == nil {
-		// query attempt and projects with the user id as author id and sort by date last edited
-		res, err = tidb.QueryContext(ctx, &span, &callerName, recommendedProjectsHomeQueryNoLogin, req.Skip)
-		if err != nil {
-			return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core no login.    Error: %v", err)
-		}
+	// while there are < 200 or so projecs on the platform we are disabled recommendations
+	// if callingUser == nil {
+	// 	// query attempt and projects with the user id as author id and sort by date last edited
+	// 	res, err = tidb.QueryContext(ctx, &span, &callerName, recommendedProjectsHomeQueryNoLogin, req.Skip)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core no login.    Error: %v", err)
+	// 	}
 
-	} else {
-		// query attempt and projects with the user id as author id and sort by date last edited
-		res, err = tidb.QueryContext(ctx, &span, &callerName, recommendedProjectsHomeQuery, callingUser.ID, req.Skip)
-		if err != nil {
-			return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core.    Error: %v", err)
-		}
+	// } else {
+	// 	// query attempt and projects with the user id as author id and sort by date last edited
+	// 	res, err = tidb.QueryContext(ctx, &span, &callerName, recommendedProjectsHomeQuery, callingUser.ID, req.Skip)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core.    Error: %v", err)
+	// 	}
+	// }
+	// query attempt and projects with the user id as author id and sort by date last edited
+	res, err = tidb.QueryContext(ctx, &span, &callerName, recommendedProjectsHomeQueryNoLogin, req.Skip)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for any attempts. recommended Project Home core no login.    Error: %v", err)
 	}
 
 	projects := make([]*query_models.RecommendedPostMergeFrontend, 0)

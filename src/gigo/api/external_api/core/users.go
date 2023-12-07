@@ -316,16 +316,6 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 		}
 	}
 
-	// commit insertion transaction to database
-	err = tx.Commit(&callerName)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
-	}
-
-	// mark failed as false to block cleanup operation
-	failed = false
-
 	resp, err := http.Get(fmt.Sprintf("%v/%v", initialRecUrl, user.ID))
 	if err != nil {
 		logger.Errorf("failed to get initial recommendations for user: %v, err: %v", user.ID, err)
@@ -368,11 +358,21 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	stmt := inactivity.ToSQLNative()
 
 	for _, statement := range stmt {
-		_, err := tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+		_, err := tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute statement for user inactivity insertion, err: %v", err.Error())
 		}
 	}
+
+	// commit insertion transaction to database
+	err = tx.Commit(&callerName)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
+	}
+
+	// mark failed as false to block cleanup operation
+	failed = false
 
 	return map[string]interface{}{"message": "User Created.", "user": user}, nil
 }
@@ -1814,16 +1814,6 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	//	return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 	// }
 
-	// commit insertion transaction to database
-	err = tx.Commit(&callerName)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
-	}
-
-	// mark failed as false to block cleanup operation
-	failed = false
-
 	resp, err := http.Get(fmt.Sprintf("%v/%v", initialRecUrl, user.ID))
 	if err != nil {
 		logger.Errorf("failed to get initial recommendations for user: %v, err: %v", user.ID, err)
@@ -1866,11 +1856,21 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	stmt := inactivity.ToSQLNative()
 
 	for _, statement := range stmt {
-		_, err := tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+		_, err := tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute statement for user inactivity insertion, err: %v", err.Error())
 		}
 	}
+
+	// commit insertion transaction to database
+	err = tx.Commit(&callerName)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
+	}
+
+	// mark failed as false to block cleanup operation
+	failed = false
 
 	return map[string]interface{}{"message": "Google User Added.", "user": user}, nil
 }
@@ -2261,16 +2261,6 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	//	return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 	// }
 
-	// commit insertion transaction to database
-	err = tx.Commit(&callerName)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, "", fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
-	}
-
-	// mark failed as false to block cleanup operation
-	failed = false
-
 	resp, err := http.Get(fmt.Sprintf("%v/%v", initialRecUrl, user.ID))
 	if err != nil {
 		logger.Errorf("failed to get initial recommendations for user: %v, err: %v", user.ID, err)
@@ -2311,7 +2301,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	stmt := inactivity.ToSQLNative()
 
 	for _, statement := range stmt {
-		_, err := tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+		_, err := tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to execute statement for user inactivity insertion, err: %v", err.Error())
 		}
@@ -2323,6 +2313,17 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	if err != nil {
 		return nil, "", err
 	}
+
+
+	// commit insertion transaction to database
+	err = tx.Commit(&callerName)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, "", fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
+	}
+
+	// mark failed as false to block cleanup operation
+	failed = false
 
 	return map[string]interface{}{"message": "Github User Added.", "user": user}, token, nil
 }
