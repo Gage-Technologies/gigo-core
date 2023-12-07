@@ -389,3 +389,85 @@ func EmailVerification(ctx context.Context, mailGunVerificationKey string, addre
 
 	return map[string]interface{}{"valid": flag}, nil
 }
+
+// CheckUnsubscribeEmail
+//
+// Checks if an email exists in the users table and returns the user's ID if found.
+func CheckUnsubscribeEmail(ctx context.Context, tidb *ti.Database, email string) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "check-unsubscribe-email-core")
+	defer span.End()
+	callerName := "CheckUnsubscribeEmail"
+
+	// Require that email be present
+	if email == "" {
+		return nil, fmt.Errorf("email must be provided")
+	}
+
+	// Build query to check if email already exists and get user ID
+	emailQuery := "SELECT _id FROM users WHERE email = ?"
+
+	// Query users to check if email already exists
+	response, err := tidb.QueryContext(ctx, &span, &callerName, emailQuery, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for existing email: %v", err)
+	}
+
+	// Ensure the closure of the rows
+	defer response.Close()
+
+	// Check if the email exists and retrieve the user ID
+	var userID int64
+	if response.Next() {
+		if err := response.Scan(&userID); err != nil {
+			return nil, fmt.Errorf("failed to retrieve user ID: %v", err)
+		}
+		return map[string]interface{}{
+			"userFound": true,
+			"userID":    fmt.Sprintf("%d", userID), // Convert int64 to string
+		}, nil
+	}
+
+	return map[string]interface{}{"userFound": false}, nil
+}
+
+// UpdateEmailPreferences
+//
+// Updates the email preferences for a given user.
+func UpdateEmailPreferences(ctx context.Context, tidb *ti.Database, userID int64, allEmails bool, streak bool, pro bool, newsletter bool, inactivity bool, messages bool, referrals bool, promotional bool) error {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-email-preferences-core")
+	defer span.End()
+	callerName := "UpdateEmailPreferences"
+
+	// If all_emails is set to false, set all other preferences to false
+	if !allEmails {
+		streak = false
+		pro = false
+		newsletter = false
+		inactivity = false
+		messages = false
+		referrals = false
+		promotional = false
+	}
+
+	// Build the update query
+	updateQuery := `
+	UPDATE email_subscription
+	SET 
+		all_emails = ?,
+		streak = ?,
+		pro = ?,
+		newsletter = ?,
+		inactivity = ?,
+		messages = ?,
+		referrals = ?,
+		promotional = ?
+	WHERE user_id = ?
+	`
+
+	// Execute the update query
+	if _, err := tidb.ExecContext(ctx, &span, &callerName, updateQuery, allEmails, streak, pro, newsletter, inactivity, messages, referrals, promotional, userID); err != nil {
+		return fmt.Errorf("failed to update email preferences: %v", err)
+	}
+
+	return nil
+}

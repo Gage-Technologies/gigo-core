@@ -102,6 +102,9 @@ var publicRoutes = []*regexp.Regexp{
 	regexp.MustCompile("^/static/ui/.*$"),
 	//permit access to the sitemap
 	regexp.MustCompile("^/sitemap/sitemap.xml$"),
+	// permit access to unsubscribe check and modify for non-logged-in users
+	regexp.MustCompile("^/api/unsubscribe/check$"),
+	regexp.MustCompile("^/api/unsubscribe/modify$"),
 
 	// TODO: REMOVE THIS!!!! SUPER INSECURE!!!!
 	// regexp.MustCompile("^/debug"),
@@ -1831,6 +1834,8 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/curated/getPostsAdmin", s.GetCuratedPostsForAdmin).Methods("POST")
 	s.router.HandleFunc("/api/curated/auth", s.CurationAuth).Methods("POST")
 	s.router.HandleFunc("/api/email/verify", s.EmailVerification).Methods("POST")
+	s.router.HandleFunc("/api/unsubscribe/check", s.CheckUnsubscribeEmail).Methods("POST")
+	s.router.HandleFunc("/api/unsubscribe/modify", s.UpdateEmailPreferences).Methods("POST")
 	s.router.HandleFunc("/api/notification/acknowledge", s.AcknowledgeNotification).Methods("POST")
 	s.router.HandleFunc("/api/notification/acknowledgeGroup", s.AcknowledgeUserNotificationGroup).Methods("POST")
 	s.router.HandleFunc("/api/notification/clearAll", s.ClearUserNotifications).Methods("POST")

@@ -5,6 +5,7 @@ import (
 	"gigo-core/gigo/api/external_api/core"
 	"net/http"
 	"reflect"
+	"strconv"
 
 	"github.com/gage-technologies/gigo-lib/network"
 	"github.com/gorilla/mux"
@@ -118,4 +119,129 @@ func (s *HTTPServer) EmailVerification(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	s.jsonResponse(r, w, res, r.URL.Path, "EmailVerification", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
+}
+
+func (s *HTTPServer) CheckUnsubscribeEmail(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "check-unsubscribe-email-http")
+	defer parentSpan.End()
+
+	// Attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "CheckUnsubscribeEmail", false, "", -1)
+	if reqJson == nil {
+		return
+	}
+
+	// Attempt to load email from body
+	email, ok := s.loadValue(w, r, reqJson, "CheckUnsubscribeEmail", "email", reflect.String, nil, true, "", "")
+	if !ok {
+		return
+	}
+
+	// Check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// Return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "CheckUnsubscribeEmail", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
+		return
+	}
+
+	// Execute core function logic
+	res, err := core.CheckUnsubscribeEmail(ctx, s.tiDB, email.(string))
+	if err != nil {
+		// Handle error internally
+		s.handleError(w, "CheckUnsubscribeEmail core failed", r.URL.Path, "CheckUnsubscribeEmail", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "", "", http.StatusInternalServerError, "internal server error occurred", err)
+		// Exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"check-unsubscribe-email",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+		),
+	)
+
+	// Return response
+	s.jsonResponse(r, w, res, r.URL.Path, "CheckUnsubscribeEmail", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
+}
+
+func (s *HTTPServer) UpdateEmailPreferences(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "update-email-preferences-http")
+	defer parentSpan.End()
+
+	// Attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "UpdateEmailPreferences", false, "", -1)
+	if reqJson == nil {
+		return
+	}
+
+	// Attempt to load user ID and email preferences from body
+	userID, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "userID", reflect.Int64, nil, true, "", "")
+	if !ok {
+		return
+	}
+
+	// Convert userID to int64
+	userIDInt64, err := strconv.ParseInt(userID.(string), 10, 64)
+	if err != nil {
+		s.handleError(w, "Invalid user ID format", r.URL.Path, "UpdateEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "", "", http.StatusBadRequest, "invalid user ID", err)
+		return
+	}
+
+	// Load all boolean preferences with proper checking
+	allEmails, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "allEmails", reflect.Bool, nil, true, "", "")
+	if !ok {
+		return
+	}
+	streak, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "streak", reflect.Bool, nil, true, "", "")
+	if !ok {
+		return
+	}
+	pro, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "pro", reflect.Bool, nil, true, "", "")
+	if !ok {
+		return
+	}
+	newsletter, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "newsletter", reflect.Bool, nil, true, "", "")
+	if !ok {
+		return
+	}
+	inactivity, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "inactivity", reflect.Bool, nil, true, "", "")
+	if !ok {
+		return
+	}
+	messages, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "messages", reflect.Bool, nil, true, "", "")
+	if !ok {
+		return
+	}
+	referrals, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "referrals", reflect.Bool, nil, true, "", "")
+	if !ok {
+		return
+	}
+	promotional, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "promotional", reflect.Bool, nil, true, "", "")
+	if !ok {
+		return
+	}
+
+	// Execute core function logic
+	err = core.UpdateEmailPreferences(ctx, s.tiDB, userIDInt64, allEmails.(bool), streak.(bool), pro.(bool), newsletter.(bool), inactivity.(bool), messages.(bool), referrals.(bool), promotional.(bool))
+	if err != nil {
+		// Handle error internally
+		s.handleError(w, "UpdateEmailPreferences core failed", r.URL.Path, "UpdateEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "", "", http.StatusInternalServerError, "internal server error occurred", err)
+		// Exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"update-email-preferences",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+		),
+	)
+
+	// Return success response
+	s.jsonResponse(r, w, map[string]interface{}{"success": true}, r.URL.Path, "UpdateEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
 }
