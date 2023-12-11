@@ -1147,7 +1147,7 @@ func (s *HTTPServer) CodeServerPullThroughCache(w http.ResponseWriter, r *http.R
 	}
 
 	// attempt to retrieve file from storage
-	buf, err := s.storageEngine.GetFile(fmt.Sprintf("ext/code-server-cache/%s-%s-%s-%s", version, arch, os, installType))
+	buf, err := s.storageEngine.GetFile(fmt.Sprintf("ext/gigo-code-server-cache/%s-%s-%s-%s", version, arch, os, installType))
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to retrieve extension file", r.URL.Path, "CodeServerPullThroughCache", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -1186,7 +1186,7 @@ func (s *HTTPServer) CodeServerPullThroughCache(w http.ResponseWriter, r *http.R
 		// if we are downloading then we need to invalidate the cache
 		if download {
 			// delete the file from storage
-			_ = s.storageEngine.DeleteFile(fmt.Sprintf("ext/code-server-cache/%s-%s-%s-%s", version, arch, os, installType))
+			_ = s.storageEngine.DeleteFile(fmt.Sprintf("ext/gigo-code-server-cache/%s-%s-%s-%s", version, arch, os, installType))
 		}
 
 		// handle error internally

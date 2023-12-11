@@ -1586,17 +1586,17 @@ func CodeServerPullThroughCache(ctx context.Context, storageEngine storage.Stora
 	switch installType {
 	case "tar":
 		url = fmt.Sprintf(
-			"https://github.com/coder/code-server/releases/download/v%s/code-server-%s-%s-%s.tar.gz",
+			"https://github.com/gage-technologies/gigo-code-server/releases/download/v%s/code-server-%s-%s-%s.tar.gz",
 			version, version, os, arch,
 		)
 	case "deb":
 		url = fmt.Sprintf(
-			"https://github.com/coder/code-server/releases/download/v%s/code-server_%s_%s.deb",
+			"https://github.com/gage-technologies/gigo-code-server/releases/download/v%s/code-server_%s_%s.deb",
 			version, version, arch,
 		)
 	case "rpm":
 		url = fmt.Sprintf(
-			"https://github.com/coder/code-server/releases/download/v%s/code-server-%s-%s.rpm",
+			"https://github.com/gage-technologies/gigo-code-server/releases/download/v%s/code-server-%s-%s.rpm",
 			version, version, arch,
 		)
 	default:
@@ -1638,7 +1638,7 @@ func CodeServerPullThroughCache(ctx context.Context, storageEngine storage.Stora
 	go func() {
 		// TODO: reconsider how to handle this error
 		_ = storageEngine.CreateFileStreamed(
-			fmt.Sprintf("ext/code-server-cache/%s-%s-%s-%s", version, arch, os, installType),
+			fmt.Sprintf("ext/gigo-code-server-cache/%s-%s-%s-%s", version, arch, os, installType),
 			contentLength, relayBuffer)
 	}()
 

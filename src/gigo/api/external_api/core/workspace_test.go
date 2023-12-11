@@ -315,9 +315,9 @@ func TestCodeServerPullThroughCache(t *testing.T) {
 		t.Fatalf("failed to create storage engine: %v", err)
 	}
 
-	defer storageEngine.DeleteFile("ext/code-server-cache/4.16.1-amd64-linux-tar")
+	defer storageEngine.DeleteFile("ext/gigo-code-server-cache/0.1.0-amd64-linux-tar")
 
-	buf, err := CodeServerPullThroughCache(context.TODO(), storageEngine, "4.16.1", "amd64", "linux", "tar")
+	buf, err := CodeServerPullThroughCache(context.TODO(), storageEngine, "0.1.0", "amd64", "linux", "tar")
 	if err != nil {
 		t.Fatalf("failed to pull through cache: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestCodeServerPullThroughCache(t *testing.T) {
 	// time.Sleep(5 * time.Second)
 
 	// retrieve the cached file
-	buf, err = storageEngine.GetFile("ext/code-server-cache/4.16.1-amd64-linux-tar")
+	buf, err = storageEngine.GetFile("ext/gigo-code-server-cache/0.1.0-amd64-linux-tar")
 	if err != nil {
 		t.Fatalf("failed to retrieve cached file: %v", err)
 	}
