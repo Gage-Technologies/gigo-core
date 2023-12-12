@@ -105,6 +105,7 @@ var publicRoutes = []*regexp.Regexp{
 	// permit access to unsubscribe check and modify for non-logged-in users
 	regexp.MustCompile("^/api/unsubscribe/check$"),
 	regexp.MustCompile("^/api/unsubscribe/modify$"),
+	regexp.MustCompile("^/api/unsubscribe/get$"),
 
 	// TODO: REMOVE THIS!!!! SUPER INSECURE!!!!
 	// regexp.MustCompile("^/debug"),
@@ -1836,6 +1837,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/email/verify", s.EmailVerification).Methods("POST")
 	s.router.HandleFunc("/api/unsubscribe/check", s.CheckUnsubscribeEmail).Methods("POST")
 	s.router.HandleFunc("/api/unsubscribe/modify", s.UpdateEmailPreferences).Methods("POST")
+	s.router.HandleFunc("/api/unsubscribe/get", s.GetUserEmailPreferences).Methods("POST")
 	s.router.HandleFunc("/api/notification/acknowledge", s.AcknowledgeNotification).Methods("POST")
 	s.router.HandleFunc("/api/notification/acknowledgeGroup", s.AcknowledgeUserNotificationGroup).Methods("POST")
 	s.router.HandleFunc("/api/notification/clearAll", s.ClearUserNotifications).Methods("POST")

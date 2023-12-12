@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/go-redis/redis/v8"
@@ -470,4 +471,52 @@ func UpdateEmailPreferences(ctx context.Context, tidb *ti.Database, userID int64
 	}
 
 	return nil
+}
+
+// GetUserEmailPreferences
+//
+// Retrieves the email preferences for a given user.
+func GetUserEmailPreferences(ctx context.Context, tidb *ti.Database, userID int64) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-user-email-preferences-core")
+	defer span.End()
+	callerName := "GetUserEmailPreferences"
+
+	// Build the query to retrieve email preferences
+	query := `
+	SELECT all_emails, streak, pro, newsletter, inactivity, messages, referrals, promotional
+	FROM email_subscription
+	WHERE user_id = ?
+	`
+
+	// Execute the query
+	var preferences struct {
+		AllEmails   bool
+		Streak      bool
+		Pro         bool
+		Newsletter  bool
+		Inactivity  bool
+		Messages    bool
+		Referrals   bool
+		Promotional bool
+	}
+	err := tidb.QueryRowContext(ctx, &span, &callerName, query, userID).Scan(&preferences.AllEmails, &preferences.Streak, &preferences.Pro, &preferences.Newsletter, &preferences.Inactivity, &preferences.Messages, &preferences.Referrals, &preferences.Promotional)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No preferences found for the user
+			return nil, fmt.Errorf("no email preferences found for user ID: %d", userID)
+		}
+		return nil, fmt.Errorf("failed to retrieve email preferences: %v", err)
+	}
+
+	// Return the preferences as a map
+	return map[string]interface{}{
+		"allEmails":   preferences.AllEmails,
+		"streak":      preferences.Streak,
+		"pro":         preferences.Pro,
+		"newsletter":  preferences.Newsletter,
+		"inactivity":  preferences.Inactivity,
+		"messages":    preferences.Messages,
+		"referrals":   preferences.Referrals,
+		"promotional": preferences.Promotional,
+	}, nil
 }
