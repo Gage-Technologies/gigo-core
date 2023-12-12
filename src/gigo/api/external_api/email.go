@@ -245,3 +245,49 @@ func (s *HTTPServer) UpdateEmailPreferences(w http.ResponseWriter, r *http.Reque
 	// Return success response
 	s.jsonResponse(r, w, map[string]interface{}{"success": true}, r.URL.Path, "UpdateEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
 }
+
+func (s *HTTPServer) GetUserEmailPreferences(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "get-user-email-preferences-http")
+	defer parentSpan.End()
+
+	// Attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "GetUserEmailPreferences", false, "", -1)
+	if reqJson == nil {
+		return
+	}
+
+	// Attempt to load user ID from body
+	userID, ok := s.loadValue(w, r, reqJson, "GetUserEmailPreferences", "userID", reflect.String, nil, true, "", "")
+	if !ok {
+		return
+	}
+
+	// Convert userID to int64
+	userIDInt64, err := strconv.ParseInt(userID.(string), 10, 64)
+	if err != nil {
+		s.handleError(w, "Invalid user ID format", r.URL.Path, "GetUserEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "", "", http.StatusBadRequest, "invalid user ID", err)
+		return
+	}
+
+	// Execute core function logic
+	preferences, err := core.GetUserEmailPreferences(ctx, s.tiDB, userIDInt64)
+	if err != nil {
+		// Handle error internally
+		s.handleError(w, "GetUserEmailPreferences core failed", r.URL.Path, "GetUserEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "", "", http.StatusInternalServerError, "internal server error occurred", err)
+		// Exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"get-user-email-preferences",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+		),
+	)
+
+	// Return response
+	s.jsonResponse(r, w, preferences, r.URL.Path, "GetUserEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
+}
