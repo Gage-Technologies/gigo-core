@@ -893,11 +893,12 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	var postType models.ChallengeType
 	var workspaceConfig int64
 	var workspaceConfigRevision int64
+	var tier models.TierType
 
 	// retrieve post
 	err = tidb.QueryRowContext(ctx, &span, &callerName,
-		"select _id, title, description, author_id, visibility, post_type, workspace_config, workspace_config_revision from post where _id = ? limit 1", postId,
-	).Scan(&postId, &postTitle, &postDesc, &postAuthorId, &postVisibility, &postType, &workspaceConfig, &workspaceConfigRevision)
+		"select _id, title, description, author_id, visibility, post_type, workspace_config, workspace_config_revision, tier from post where _id = ? limit 1", postId,
+	).Scan(&postId, &postTitle, &postDesc, &postAuthorId, &postVisibility, &postType, &workspaceConfig, &workspaceConfigRevision, &tier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for post: %v\n    query: %s\n    params: %v", err,
 			"select repo_id from post where _id = ?", []interface{}{postId})
@@ -945,7 +946,7 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 
 	// create a new attempt
 	attempt, err := models.CreateAttempt(sf.Generate().Int64(), postTitle, postDesc, callingUser.UserName,
-		callingUser.ID, time.Now(), time.Now(), -1, callingUser.Tier, nil, 0, postId, 0, parentAttempt, postType)
+		callingUser.ID, time.Now(), time.Now(), -1, callingUser.Tier, nil, 0, postId, tier, parentAttempt, postType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create attemp struct: %v", err)
 	}
