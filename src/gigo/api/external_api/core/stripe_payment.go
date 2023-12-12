@@ -3,28 +3,30 @@ package core
 import (
 	"context"
 	"fmt"
+	"gigo-core/gigo/config"
+	"log"
+	"strconv"
+	"time"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/go-redis/redis/v8"
 	"github.com/jinzhu/now"
 	"github.com/kisielk/sqlstruct"
-	"github.com/stripe/stripe-go/v74"
-	"github.com/stripe/stripe-go/v74/account"
-	"github.com/stripe/stripe-go/v74/accountlink"
-	"github.com/stripe/stripe-go/v74/billingportal/session"
-	checkoutSession "github.com/stripe/stripe-go/v74/checkout/session"
-	"github.com/stripe/stripe-go/v74/customer"
-	"github.com/stripe/stripe-go/v74/invoiceitem"
-	"github.com/stripe/stripe-go/v74/loginlink"
-	"github.com/stripe/stripe-go/v74/price"
-	"github.com/stripe/stripe-go/v74/product"
-	"github.com/stripe/stripe-go/v74/subscription"
-	"github.com/stripe/stripe-go/v74/transfer"
+	"github.com/stripe/stripe-go/v76"
+	"github.com/stripe/stripe-go/v76/account"
+	"github.com/stripe/stripe-go/v76/accountlink"
+	"github.com/stripe/stripe-go/v76/billingportal/session"
+	checkoutSession "github.com/stripe/stripe-go/v76/checkout/session"
+	"github.com/stripe/stripe-go/v76/customer"
+	"github.com/stripe/stripe-go/v76/invoiceitem"
+	"github.com/stripe/stripe-go/v76/loginlink"
+	"github.com/stripe/stripe-go/v76/price"
+	"github.com/stripe/stripe-go/v76/product"
+	"github.com/stripe/stripe-go/v76/subscription"
+	"github.com/stripe/stripe-go/v76/transfer"
 	"go.opentelemetry.io/otel"
-	"log"
-	"strconv"
-	"time"
 )
 
 type Product struct {
@@ -32,22 +34,6 @@ type Product struct {
 	PriceID   string
 	Price     int64
 }
-
-// func GetProducts() (map[string]interface{}, error) {
-//	products := make([]Product, 0)
-//
-//	priceParams := &stripe.PriceListParams{}
-//	priceIterator := price.List(priceParams)
-//	for priceIterator.Next() {
-//		products = append(products, Product{
-//			ProductID: priceIterator.Price().Product.ID,
-//			PriceID:   priceIterator.Price().ID,
-//			Price:     priceIterator.Price().UnitAmount,
-//		})
-//	}
-//
-//	return map[string]interface{}{"products": products}, nil
-// }
 
 func CreateCustomer(ctx context.Context, callingUser *models.User, db *ti.Database) (*string, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-customer-core")
@@ -67,14 +53,14 @@ func CreateCustomer(ctx context.Context, callingUser *models.User, db *ti.Databa
 
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Error starting transaction failed: %s", err.Error())
+		return nil, fmt.Errorf("error starting transaction failed: %s", err.Error())
 	}
+	defer tx.Rollback()
 
 	// increment tag column usage_count in database
 	_, err = tx.ExecContext(ctx, &callerName, "update users set stripe_user = ? where _id = ?", c.ID, callingUser.UserName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
-		tx.Rollback()
 	}
 
 	err = tx.Commit(&callerName)
@@ -161,40 +147,9 @@ func GetProjectPriceId(ctx context.Context, postId int64, db *ti.Database) (map[
 	return map[string]interface{}{"priceId": &priceId}, nil
 }
 
-// func SetupNewCard(customerID string) (secret *string, err error) {
-//	params := &stripe.SetupIntentParams{
-//		PaymentMethodTypes: []*string{
-//			stripe.String("card"),
-//		},
-//		Customer: &customerID,
-//	}
-//	si, err := setupintent.New(params)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return &si.ClientSecret, nil
-// }
-
 func UpdateClientPayment(ctx context.Context, callingUser *models.User, db *ti.Database, sourceToken string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-client-payment-core")
 	defer span.End()
-	// //query attempt and projects with the user id as author id and sort by date last edited
-	// res, err := db.DB.Query("select stripe_user from user where _id = ?", callingUser.ID)
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to query for any attempts. GetCommentSideThread Core.    Error: %v", err)
-	// }
-	//
-	// var customerId *string
-	//
-	// defer res.Close()
-	//
-	// for res.Next() {
-	//	err = sqlstruct.Scan(&customerId, res)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("failed to decode query for resulsts. GetCommentSideThread Core.    Error: %v", err)
-	//	}
-	// }
 
 	params := &stripe.CustomerParams{Source: stripe.String(sourceToken)}
 	_, err := customer.Update(*callingUser.StripeUser, params)
@@ -225,7 +180,7 @@ func CreatePortalSession(ctx context.Context, callingUser *models.User) (map[str
 	return map[string]interface{}{"session": s.URL}, nil
 }
 
-func CreateTrialSubscription(ctx context.Context, email string, db *ti.Database, tx *ti.Tx, id int64, firstName string, lastName string) (map[string]interface{}, error) {
+func CreateTrialSubscription(ctx context.Context, monthlyPriceID string, email string, db *ti.Database, tx *ti.Tx, id int64, firstName string, lastName string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-trial-subscription")
 	defer span.End()
 	callerName := "CreateTrialSubscription"
@@ -247,15 +202,16 @@ func CreateTrialSubscription(ctx context.Context, email string, db *ti.Database,
 	oneMonthFromNow := now.AddDate(0, 1, 0)
 	unixTimestamp := oneMonthFromNow.Unix()
 
+	missingPayment := "cancel"
 	subscriptionParams := &stripe.SubscriptionParams{
 		Customer: stripe.String(result.ID),
 		Items: []*stripe.SubscriptionItemsParams{
-			&stripe.SubscriptionItemsParams{Price: stripe.String("price_1NUvPrKRClXv1ERH7DzdSyge")},
+			{Price: stripe.String(monthlyPriceID)},
 		},
 		TrialEnd: stripe.Int64(unixTimestamp),
-		Params: stripe.Params{
-			Metadata: map[string]string{
-				"missing_payment_method": "pause",
+		TrialSettings: &stripe.SubscriptionTrialSettingsParams{
+			EndBehavior: &stripe.SubscriptionTrialSettingsEndBehaviorParams{
+				MissingPaymentMethod: &missingPayment,
 			},
 		},
 	}
@@ -281,7 +237,7 @@ func CreateTrialSubscription(ctx context.Context, email string, db *ti.Database,
 	return map[string]interface{}{"response": "stripe trial is started"}, nil
 }
 
-func CreateTrialSubscriptionReferral(ctx context.Context, email string, db *ti.Database, tx *ti.Tx, id int64, firstName string, lastName string) (map[string]interface{}, error) {
+func CreateTrialSubscriptionReferral(ctx context.Context, monthlyPriceID string, email string, db *ti.Database, tx *ti.Tx, id int64, firstName string, lastName string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-trial-subscription")
 	defer span.End()
 	callerName := "CreateTrialSubscription"
@@ -303,15 +259,16 @@ func CreateTrialSubscriptionReferral(ctx context.Context, email string, db *ti.D
 	oneMonthFromNow := now.AddDate(0, 2, 0)
 	unixTimestamp := oneMonthFromNow.Unix()
 
+	missingPayment := "cancel"
 	subscriptionParams := &stripe.SubscriptionParams{
 		Customer: stripe.String(result.ID),
 		Items: []*stripe.SubscriptionItemsParams{
-			&stripe.SubscriptionItemsParams{Price: stripe.String("price_1NUvPrKRClXv1ERH7DzdSyge")},
+			{Price: stripe.String(monthlyPriceID)},
 		},
 		TrialEnd: stripe.Int64(unixTimestamp),
-		Params: stripe.Params{
-			Metadata: map[string]string{
-				"missing_payment_method": "pause",
+		TrialSettings: &stripe.SubscriptionTrialSettingsParams{
+			EndBehavior: &stripe.SubscriptionTrialSettingsEndBehaviorParams{
+				MissingPaymentMethod: &missingPayment,
 			},
 		},
 	}
@@ -342,23 +299,6 @@ func CancelSubscription(ctx context.Context, db *ti.Database, callingUser *model
 	defer span.End()
 	callerName := "CancelSubscription"
 
-	// //query attempt and projects with the user id as author id and sort by date last edited
-	// res, err := db.DB.Query("select stripe_subscription from users where _id = ?", callingUser.ID)
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to query for any attempts. GetCommentSideThread Core.    Error: %v", err)
-	// }
-	//
-	// var subscriptionID *string
-	//
-	// defer res.Close()
-	//
-	// for res.Next() {
-	//	err = sqlstruct.Scan(&subscriptionID, res)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("failed to decode query for resulsts. GetCommentSideThread Core.    Error: %v", err)
-	//	}
-	// }
-
 	cancel := true
 	subscriptionParams := &stripe.SubscriptionParams{
 		CancelAtPeriodEnd: &cancel,
@@ -372,7 +312,7 @@ func CancelSubscription(ctx context.Context, db *ti.Database, callingUser *model
 	// open tx to execute insertions
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Error starting transaction failed: %s", err.Error())
+		return nil, fmt.Errorf("error starting transaction failed: %s", err.Error())
 	}
 	defer tx.Rollback()
 
@@ -380,7 +320,6 @@ func CancelSubscription(ctx context.Context, db *ti.Database, callingUser *model
 	_, err = tx.ExecContext(ctx, &callerName, "update users set user_status = ? where _id = ?", 0, callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
-		tx.Rollback()
 	}
 
 	err = tx.Commit(&callerName)
@@ -400,8 +339,9 @@ func CreateSubscription(ctx context.Context, stripeUser string, subscription str
 	// open tx to execute insertions
 	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Error starting transaction failed: %s", err.Error())
+		return nil, fmt.Errorf("error starting transaction failed: %s", err.Error())
 	}
+	defer tx.Rollback()
 
 	userId, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
@@ -412,37 +352,7 @@ func CreateSubscription(ctx context.Context, stripeUser string, subscription str
 	_, err = tx.ExecContext(ctx, &callerName, "update users set stripe_user = ?, stripe_subscription = ?, user_status = ? where _id = ?", stripeUser, subscription, 1, userId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
-		tx.Rollback()
 	}
-
-	fmt.Println("made it beyond the update : ", stripeUser)
-	fmt.Println("testing it more: ", subscription)
-
-	// paymentSettings := &stripe.SubscriptionPaymentSettingsParams{
-	//	SaveDefaultPaymentMethod: stripe.String("on_subscription"),
-	// }
-	//
-	// subscriptionParams := &stripe.SubscriptionParams{
-	//	Customer: customerID,
-	//	Items: []*stripe.SubscriptionItemsParams{
-	//		{
-	//			Plan: &priceID,
-	//		},
-	//	},
-	//	PaymentSettings:      paymentSettings,
-	//	DefaultPaymentMethod: &paymentMethodID,
-	// }
-	// sb, err := subscription.New(subscriptionParams)
-	// if err != nil {
-	//	return nil, err
-	// }
-	//
-	// // increment tag column usage_count in database
-	// _, err = tx.Exec("update users set stripe_subscription = ? where _id = ?", &sb.ID, callingUser.ID)
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to increment tag usage count: %v", err)
-	//	tx.Rollback()
-	// }
 
 	err = tx.Commit(&callerName)
 	if err != nil {
@@ -599,7 +509,7 @@ func StripeCheckoutSession(ctx context.Context, priceId string, postId string, c
 	return map[string]interface{}{"return url": s.URL}, nil
 }
 
-func StripePremiumMembershipSession(callingUser *models.User) (map[string]interface{}, error) {
+func StripePremiumMembershipSession(monthlyPriceID string, yearlyPriceID string, callingUser *models.User) (map[string]interface{}, error) {
 
 	successUrl := "https://www.gigo.dev/successMembership"
 
@@ -611,7 +521,7 @@ func StripePremiumMembershipSession(callingUser *models.User) (map[string]interf
 		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			&stripe.CheckoutSessionLineItemParams{
-				Price: stripe.String("price_1NUvPrKRClXv1ERH7DzdSyge"),
+				Price: stripe.String(monthlyPriceID),
 				// For metered billing, do not pass quantity
 				Quantity: stripe.Int64(1),
 			},
@@ -632,7 +542,7 @@ func StripePremiumMembershipSession(callingUser *models.User) (map[string]interf
 		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			&stripe.CheckoutSessionLineItemParams{
-				Price: stripe.String("price_1Nfl8rKRClXv1ERHu3OnRu63"),
+				Price: stripe.String(yearlyPriceID),
 				// For metered billing, do not pass quantity
 				Quantity: stripe.Int64(1),
 			},
@@ -649,7 +559,7 @@ func StripePremiumMembershipSession(callingUser *models.User) (map[string]interf
 	return map[string]interface{}{"return url": s.URL, "return year": z.URL}, nil
 }
 
-func FreeMonthUpdate(callingUser *models.User, tidb *ti.Database, ctx context.Context) (map[string]interface{}, error) {
+func FreeMonthUpdate(callingUser *models.User, tidb *ti.Database, stripeSubConfig config.StripeSubscriptionConfig, ctx context.Context) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "free-mont-referral-core")
 	defer span.End()
 	callerName := "FreeMonthReferral"
@@ -712,7 +622,7 @@ func FreeMonthUpdate(callingUser *models.User, tidb *ti.Database, ctx context.Co
 				}
 			} else {
 				if subscriptions.Status == "canceled" {
-					_, err = CreateTrialSubscription(ctx, callingUser.Email, tidb, nil, callingUser.ID, callingUser.FirstName, callingUser.LastName)
+					_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, callingUser.Email, tidb, nil, callingUser.ID, callingUser.FirstName, callingUser.LastName)
 					if err != nil {
 						return map[string]interface{}{"message": "Error creating free trial in referral"}, fmt.Errorf("error creating stripe free trial in referral: %v", err)
 					}
@@ -740,7 +650,7 @@ func FreeMonthUpdate(callingUser *models.User, tidb *ti.Database, ctx context.Co
 	return map[string]interface{}{"subscription": "free month"}, nil
 }
 
-func FreeMonthReferral(subscriptionId string, userStatus int, referralUserId int64, tidb *ti.Database, ctx context.Context, logger logging.Logger, firstName string, lastName string, email string) (map[string]interface{}, error) {
+func FreeMonthReferral(stripeSubConfig config.StripeSubscriptionConfig, subscriptionId string, userStatus int, referralUserId int64, tidb *ti.Database, ctx context.Context, logger logging.Logger, firstName string, lastName string, email string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "free-mont-referral-core")
 	defer span.End()
 	callerName := "FreeMonthReferral"
@@ -804,7 +714,7 @@ func FreeMonthReferral(subscriptionId string, userStatus int, referralUserId int
 				if subscriptions.Status == "canceled" {
 					logger.Infof("free month referral, cancelled")
 					logger.Infof("user id: %v", referralUserId)
-					_, err = CreateTrialSubscription(ctx, email, tidb, nil, referralUserId, firstName, lastName)
+					_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, nil, referralUserId, firstName, lastName)
 					if err != nil {
 						return map[string]interface{}{"message": "Error creating free trial in referral"}, fmt.Errorf("error creating stripe free trial in referral: %v", err)
 					}

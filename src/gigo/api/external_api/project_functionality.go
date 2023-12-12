@@ -442,6 +442,7 @@ func (s *HTTPServer) CreateProject(w http.ResponseWriter, r *http.Request) {
 		ctx,
 		s.tiDB,
 		s.meili,
+		s.stripeSubscriptions,
 		s.vscClient,
 		s.storageEngine,
 		s.rdb,
@@ -1230,7 +1231,7 @@ func (s *HTTPServer) StartAttempt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.StartAttempt(ctx, s.tiDB, s.vscClient, s.jetstreamClient, s.rdb, callingUser.(*models.User), userSession.(*models.UserSession), s.sf, postId, parentAttempt, s.logger, s.storageEngine)
+	res, err := core.StartAttempt(ctx, s.tiDB, s.vscClient, s.jetstreamClient, s.rdb, s.stripeSubscriptions, callingUser.(*models.User), userSession.(*models.UserSession), s.sf, postId, parentAttempt, s.logger, s.storageEngine)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
@@ -1926,7 +1927,7 @@ func (s *HTTPServer) MarkSuccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// execute core function logic
-	res, err := core.MarkSuccess(ctx, s.tiDB, s.jetstreamClient, s.rdb, s.sf, attemptId, s.logger, callingUser.(*models.User))
+	res, err := core.MarkSuccess(ctx, s.tiDB, s.jetstreamClient, s.rdb, s.sf, s.stripeSubscriptions, attemptId, s.logger, callingUser.(*models.User))
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})

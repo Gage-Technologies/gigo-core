@@ -302,7 +302,7 @@ func (s *HTTPServer) CreateAccountFromEphemeral(w http.ResponseWriter, r *http.R
 
 	//user := &models.User{}
 
-	res, err := core.CreateAccountFromEphemeral(ctx, s.tiDB, s.meili, s.streakEngine, s.domain, userName.(string), password.(string),
+	res, err := core.CreateAccountFromEphemeral(ctx, s.tiDB, s.meili, s.stripeSubscriptions, s.streakEngine, s.domain, userName.(string), password.(string),
 		email.(string), phone.(string), bio.(string), firstName.(string), lastName.(string),
 		s.vscClient, userInitForm, timeZoneI.(string), thumbnailTempPath, s.storageEngine, avatarSetting,
 		s.passwordFilter, forcePass.(bool), s.initialRecUrl, s.logger, s.mailGunKey, s.mailGunDomain, referral, callingUser.(*models.User))
@@ -463,7 +463,7 @@ func (s *HTTPServer) CreateAccountFromEphemeralGoogle(w http.ResponseWriter, r *
 	}
 
 	// execute core function logic
-	res, err := core.CreateAccountFromEphemeralGoogle(ctx, s.tiDB, s.meili, s.sf, s.streakEngine, s.domain, externalAuth.(string),
+	res, err := core.CreateAccountFromEphemeralGoogle(ctx, s.tiDB, s.meili, s.sf,  s.stripeSubscriptions, s.streakEngine, s.domain, externalAuth.(string),
 		password.(string), s.vscClient, *workspaceSettings, timeZoneI.(string), avatarSetting, thumbnailTempPath,
 		s.storageEngine, s.mailGunKey, s.mailGunDomain, s.initialRecUrl, referral, callingUser.(*models.User), s.logger)
 	if err != nil {
@@ -625,7 +625,7 @@ func (s *HTTPServer) CreateAccountFromEphemeralGithub(w http.ResponseWriter, r *
 	}
 
 	// execute core function logic
-	res, err := core.CreateAccountFromEphemeralGithub(ctx, s.tiDB, s.meili, s.sf, s.streakEngine, s.domain, externalAuth.(string),
+	res, err := core.CreateAccountFromEphemeralGithub(ctx, s.tiDB, s.meili, s.sf, s.streakEngine,  s.stripeSubscriptions, s.domain, externalAuth.(string),
 		password.(string), s.vscClient, *workspaceSettings, timeZoneI.(string), avatarSetting, s.githubSecret,
 		thumbnailTempPath, s.storageEngine, s.mailGunKey, s.mailGunDomain, s.initialRecUrl, referral, callingUser.(*models.User), s.logger)
 	if err != nil {

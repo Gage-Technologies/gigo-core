@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/config"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
+
+	"github.com/gage-technologies/gigo-lib/config"
+	"gopkg.in/yaml.v2"
 )
 
 type HttpServerConfig struct {
@@ -50,29 +51,35 @@ type RegistryCacheConfig struct {
 	Cache  string `yaml:"cache"`
 }
 
+type StripeSubscriptionConfig struct {
+	MonthlyPriceID string `yaml:"monthly_price_id"`
+	YearlyPriceID  string `yaml:"yearly_price_id"`
+}
+
 type Config struct {
-	Cluster          bool                         `yaml:"cluster"`
-	StorageConfig    config.StorageConfig         `yaml:"storage_config"`
-	TitaniumConfig   config.TitaniumConfig        `yaml:"ti_config"`
-	MeiliConfig      config.MeiliConfig           `yaml:"meili_config"`
-	ESConfig         config.ElasticConfig         `yaml:"elastic_config"`
-	EtcdConfig       config.EtcdConfig            `yaml:"etcd_config"`
-	MasterKey        string                       `yaml:"master_key"`
-	CaptchaSecret    string                       `yaml:"captcha_secret"`
-	JetstreamConfig  config.JetstreamConfig       `yaml:"jetstream_config"`
-	HTTPServerConfig HttpServerConfig             `yaml:"http_server_config"`
-	LoggerID         string                       `yaml:"logger_id"`
-	RedisConfig      config.RedisConfig           `yaml:"redis_config"`
-	GiteaConfig      config.GiteaConfig           `yaml:"gitea_config"`
-	WsConfig         []WorkspaceProvisionerConfig `yaml:"ws_config"`
-	NodeID           int64                        `yaml:"node_id"`
-	StripeKey        string                       `yaml:"stripe_key"`
-	AccessUrl        string                       `yaml:"access_url"`
-	DerpMeshKey      string                       `yaml:"derp_mesh_key"`
-	OTELConfig       OTELConfig                   `yaml:"otel_config"`
-	GithubSecret     string                       `yaml:"github_secret"`
-	RegistryCaches   []RegistryCacheConfig        `yaml:"registry_caches"`
-	ZitiConfig       config.ZitiConfig            `yaml:"ziti_config"`
+	Cluster            bool                         `yaml:"cluster"`
+	StorageConfig      config.StorageConfig         `yaml:"storage_config"`
+	TitaniumConfig     config.TitaniumConfig        `yaml:"ti_config"`
+	MeiliConfig        config.MeiliConfig           `yaml:"meili_config"`
+	ESConfig           config.ElasticConfig         `yaml:"elastic_config"`
+	EtcdConfig         config.EtcdConfig            `yaml:"etcd_config"`
+	MasterKey          string                       `yaml:"master_key"`
+	CaptchaSecret      string                       `yaml:"captcha_secret"`
+	JetstreamConfig    config.JetstreamConfig       `yaml:"jetstream_config"`
+	HTTPServerConfig   HttpServerConfig             `yaml:"http_server_config"`
+	LoggerID           string                       `yaml:"logger_id"`
+	RedisConfig        config.RedisConfig           `yaml:"redis_config"`
+	GiteaConfig        config.GiteaConfig           `yaml:"gitea_config"`
+	WsConfig           []WorkspaceProvisionerConfig `yaml:"ws_config"`
+	NodeID             int64                        `yaml:"node_id"`
+	StripeKey          string                       `yaml:"stripe_key"`
+	AccessUrl          string                       `yaml:"access_url"`
+	DerpMeshKey        string                       `yaml:"derp_mesh_key"`
+	OTELConfig         OTELConfig                   `yaml:"otel_config"`
+	GithubSecret       string                       `yaml:"github_secret"`
+	RegistryCaches     []RegistryCacheConfig        `yaml:"registry_caches"`
+	ZitiConfig         config.ZitiConfig            `yaml:"ziti_config"`
+	StripeSubscription StripeSubscriptionConfig     `yaml:"stripe_subscription_config"`
 }
 
 func LoadConfig(path string) (*Config, error) {

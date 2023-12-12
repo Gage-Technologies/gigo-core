@@ -270,6 +270,7 @@ type HTTPServer struct {
 	masterKey                    string
 	captchaSecret                string
 	zitiServer                   *zitimesh.Server
+	stripeSubscriptions          config.StripeSubscriptionConfig
 }
 
 // CreateHTTPServer Creates a new HTTPServer object
@@ -305,7 +306,7 @@ func CreateHTTPServer(cfg config.HttpServerConfig, otelServiceName string, tidb 
 	rdb redis.UniversalClient, sf *snowflake.Node, giteaClient *git.VCSClient, storageEngine storage.Storage,
 	wsClient *ws.WorkspaceClient, js *mq.JetstreamClient, wsStatusUpdater *utils2.WorkspaceStatusUpdater,
 	accessUrl *url.URL, passwordFilter *utils2.PasswordFilter, githubSecret string, forceCdn bool, cdnKey string, masterKey string, captchaSecret string,
-	whitelistedIpRanges []*net.IPNet, zitiServer *zitimesh.Server, logger logging.Logger) (*HTTPServer, error) {
+	whitelistedIpRanges []*net.IPNet, zitiServer *zitimesh.Server, stripeSubConfig config.StripeSubscriptionConfig, logger logging.Logger) (*HTTPServer, error) {
 
 	// create MUX router to enable complex HTTP applications
 	r := mux.NewRouter()
@@ -396,6 +397,7 @@ func CreateHTTPServer(cfg config.HttpServerConfig, otelServiceName string, tidb 
 		masterKey:                    masterKey,
 		captchaSecret:                captchaSecret,
 		zitiServer:                   zitiServer,
+		stripeSubscriptions:          stripeSubConfig,
 	}
 
 	// TODO: refine a more conservative CORS policy

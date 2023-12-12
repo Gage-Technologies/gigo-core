@@ -38,7 +38,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/go-redis/redis/v8"
 	"github.com/sourcegraph/conc/pool"
-	"github.com/stripe/stripe-go/v74"
+	"github.com/stripe/stripe-go/v76"
 	"github.com/syossan27/tebata"
 	etcd "go.etcd.io/etcd/client/v3"
 
@@ -412,7 +412,7 @@ func main() {
 			// but could theoretically be set manually if deployed by hand
 			os.Getenv("GIGO_POD_IP"),
 			leader.Routine(nodeID, cfg, tiDB, js, rdb, wsStatusUpdater, routineLogger),
-			follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, zitiManager, routineLogger),
+			follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, zitiManager, cfg.StripeSubscription, routineLogger),
 			// we use a 1s tick for the cluster routines
 			time.Second,
 			clusterLogger,
@@ -437,7 +437,7 @@ func main() {
 				Password:  cfg.EtcdConfig.Password,
 			},
 			LeaderRoutine:   leader.Routine(nodeID, cfg, tiDB, js, rdb, wsStatusUpdater, routineLogger),
-			FollowerRoutine: follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, zitiManager, routineLogger),
+			FollowerRoutine: follower.Routine(nodeID, cfg, tiDB, wsClient, vcsClient, js, followerWorkerPool, streakEngine, snowflakeNode, wsStatusUpdater, rdb, storageEngine, zitiManager, cfg.StripeSubscription, routineLogger),
 			// we use a 1s tick for the cluster routines
 			RoutineTick: time.Second,
 			Logger:      clusterLogger,
@@ -471,7 +471,8 @@ func main() {
 	// create HTTP server
 	externalServer, err := external_api.CreateHTTPServer(cfg.HTTPServerConfig, cfg.OTELConfig.ServiceName, tiDB, meili, rdb, snowflakeNode,
 		vcsClient, storageEngine, wsClient, js, wsStatusUpdater, parsedAccessUrl, passwordFilter, cfg.GithubSecret,
-		cfg.HTTPServerConfig.ForceCdnAccess, cfg.HTTPServerConfig.CdnAccessKey, cfg.MasterKey, cfg.CaptchaSecret, whitelistedIpRanges, zitiServer, httpLogger)
+		cfg.HTTPServerConfig.ForceCdnAccess, cfg.HTTPServerConfig.CdnAccessKey, cfg.MasterKey, cfg.CaptchaSecret, whitelistedIpRanges, zitiServer,
+		cfg.StripeSubscription, httpLogger)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("failed to create http server, %v", err))
 	}

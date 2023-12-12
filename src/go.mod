@@ -74,7 +74,7 @@ require (
 	github.com/nats-io/nats.go v1.25.0
 	github.com/sourcegraph/conc v0.2.0
 	github.com/stretchr/testify v1.8.4
-	github.com/stripe/stripe-go/v74 v74.4.0
+	github.com/stripe/stripe-go/v76 v76.8.0
 	github.com/syossan27/tebata v0.0.0-20180602121909-b283fe4bc5ba
 	go.etcd.io/etcd/client/v3 v3.5.7
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.42.0

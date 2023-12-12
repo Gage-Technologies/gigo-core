@@ -3,15 +3,17 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/go-redis/redis/v8"
-	"github.com/stripe/stripe-go/v74/customer"
-	"github.com/stripe/stripe-go/v74/subscription"
-	"go.opentelemetry.io/otel"
+	"gigo-core/gigo/config"
 	"log"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/stripe/stripe-go/v76/customer"
+	"github.com/stripe/stripe-go/v76/subscription"
+	"go.opentelemetry.io/otel"
 
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
@@ -32,7 +34,7 @@ type XPUpdate struct {
 	MaxXpForLvl   uint64           `json:"max_xp_for_lvl"`
 }
 
-func AddXP(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, userID int64, source string, renownOfChallenge *models.TierType, nemesisBasesCaptured *int, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
+func AddXP(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, userID int64, source string, renownOfChallenge *models.TierType, nemesisBasesCaptured *int, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
 	// create variables to load query data into
 	var exp uint64
 	var oldRenown models.TierType
@@ -284,7 +286,7 @@ func AddXP(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 		update.OldLevel = oldLevel
 		update.NewLevel = newLevel
 
-		levelUpReward, err = LevelUpLoot(ctx, tidb, sf, userID, logger, callingUser)
+		levelUpReward, err = LevelUpLoot(ctx, tidb, sf, stripeSubConfig, userID, logger, callingUser)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get loot from level up, err: %v", err)
 		}
@@ -368,7 +370,7 @@ func GetXP(ctx context.Context, tidb *ti.Database, userID int64) (map[string]int
 	return map[string]interface{}{"current_xp": exp, "max_xp": max, "min_xp": min}, nil
 }
 
-func LevelUpLoot(ctx context.Context, db *ti.Database, sf *snowflake.Node, userID int64, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
+func LevelUpLoot(ctx context.Context, db *ti.Database, sf *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, userID int64, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "level-up-loot-core")
 	defer span.End()
 	callerName := "LevelUpLoot"
@@ -439,14 +441,14 @@ func LevelUpLoot(ctx context.Context, db *ti.Database, sf *snowflake.Node, userI
 				}
 				return map[string]interface{}{"reward_type": "streak_freeze", "reward": "streak_freeze"}, nil
 			} else {
-				_, err := FreeMonthUpdate(callingUser, db, ctx)
+				_, err := FreeMonthUpdate(callingUser, db, stripeSubConfig, ctx)
 				if err != nil {
 					return nil, fmt.Errorf("failed to update free month in LevelUpLoot Core: %v", err)
 				}
 			}
 
 		} else {
-			_, err := CreateTrialSubscription(ctx, callingUser.Email, db, nil, callingUser.ID, callingUser.FirstName, callingUser.LastName)
+			_, err := CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, callingUser.Email, db, nil, callingUser.ID, callingUser.FirstName, callingUser.LastName)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create trial subscription in LevelUpLoot Core: %v", err)
 			}

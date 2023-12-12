@@ -11,6 +11,7 @@ import (
 	"log"
 	"math/rand"
 
+	"gigo-core/gigo/config"
 	"gigo-core/gigo/streak"
 
 	"github.com/gage-technologies/gigo-lib/logging"
@@ -40,9 +41,9 @@ import (
 	utils2 "github.com/gage-technologies/gigo-lib/utils"
 	"github.com/gage-technologies/gitea-go/gitea"
 	"github.com/kisielk/sqlstruct"
-	"github.com/stripe/stripe-go/v74"
-	"github.com/stripe/stripe-go/v74/customer"
-	"github.com/stripe/stripe-go/v74/subscription"
+	"github.com/stripe/stripe-go/v76"
+	"github.com/stripe/stripe-go/v76/customer"
+	"github.com/stripe/stripe-go/v76/subscription"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/oauth2/v2"
 )
@@ -52,7 +53,7 @@ type DateCount struct {
 	PostDate string
 }
 
-func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, streakEngine *streak.StreakEngine,
+func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, stripeSubConfig config.StripeSubscriptionConfig, streakEngine *streak.StreakEngine,
 	snowflakeNode *snowflake.Node, domain string, userName string, password string, email string, phone string, bio string,
 	firstName string, lastName string, vcsClient *git.VCSClient, starterUserInfo models.UserStart, timezone string, thumbnailPath string,
 	storageEngine storage.Storage, avatarSettings models.AvatarSettings, filter *utils3.PasswordFilter, forcePass bool, initialRecUrl string,
@@ -287,14 +288,14 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 		}
 
 		// give teh created user the extra free month, 2 in total
-		_, err = CreateTrialSubscriptionReferral(ctx, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
 
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
-			_, err = FreeMonthReferral(*userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
@@ -310,7 +311,7 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	} else {
-		_, err = CreateTrialSubscription(ctx, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
@@ -1547,6 +1548,22 @@ func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.Meili
 		return nil, fmt.Errorf("failed to update otp for user: Error: %v", err)
 	}
 
+	// delete the user's subscription
+	if callingUser.StripeSubscription != nil {
+		_, err = subscription.Cancel(*callingUser.StripeSubscription, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to cancel Stripe subscription: %v", err)
+		}
+	}
+
+	// delete the user's stripe account
+	if callingUser.StripeAccount != nil {
+		_, err = customer.Del(*callingUser.StripeAccount, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to delete Stripe account: %v", err)
+		}
+	}
+
 	// todo don't delete user but archive all projects
 	// err = vcsClient.DeleteUser(fmt.Sprintf("%d", callingUser.ID))
 	// if err != nil {
@@ -1566,7 +1583,7 @@ func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.Meili
 	return map[string]interface{}{"message": "Account has been deleted."}, nil
 }
 
-func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, snowflakeNode *snowflake.Node, streakEngine *streak.StreakEngine,
+func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, snowflakeNode *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, streakEngine *streak.StreakEngine,
 	domain string, externalAuth string, password string, vcsClient *git.VCSClient, starterUserInfo models.UserStart, timezone string, avatarSettings models.AvatarSettings, thumbnailPath string,
 	storageEngine storage.Storage, mgKey string, mgDomain string, initialRecUrl string, referralUser *string, logger logging.Logger) (map[string]interface{}, error) {
 
@@ -1780,14 +1797,14 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		_, err = CreateTrialSubscriptionReferral(ctx, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
 
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
-			_, err = FreeMonthReferral(*userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
@@ -1803,7 +1820,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	} else {
-		_, err = CreateTrialSubscription(ctx, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
@@ -2002,7 +2019,7 @@ func GetGithubId(githubCode string, githubSecret string) ([]byte, string, error)
 	return userResBody, primaryEmail, nil
 }
 
-func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, snowflakeNode *snowflake.Node, streakEngine *streak.StreakEngine,
+func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, snowflakeNode *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, streakEngine *streak.StreakEngine,
 	domain string, externalAuth string, password string, vcsClient *git.VCSClient, starterUserInfo models.UserStart,
 	timezone string, avatarSetting models.AvatarSettings, githubSecret string, thumbnailPath string,
 	storageEngine storage.Storage, mgKey string, mgDomain string, initialRecUrl string, referralUser *string, ip string, logger logging.Logger) (map[string]interface{}, string, error) {
@@ -2227,14 +2244,14 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			return nil, "", fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		_, err = CreateTrialSubscriptionReferral(ctx, email, tidb, tx, newUser.ID, name, " ")
+		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, name, " ")
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
 
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
-			_, err = FreeMonthReferral(*userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
@@ -2250,7 +2267,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	} else {
-		_, err = CreateTrialSubscription(ctx, email, tidb, tx, newUser.ID, name, " ")
+		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, name, " ")
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
@@ -2313,7 +2330,6 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	if err != nil {
 		return nil, "", err
 	}
-
 
 	// commit insertion transaction to database
 	err = tx.Commit(&callerName)

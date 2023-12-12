@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"gigo-core/gigo/api/external_api/core"
+	"gigo-core/gigo/config"
 
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
@@ -23,7 +24,7 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
-func asyncAddStreakXP(ctx context.Context, nodeId int64, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, msg *nats.Msg, logger logging.Logger) {
+func asyncAddStreakXP(ctx context.Context, nodeId int64, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, msg *nats.Msg, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "async-add-streak-xp-routine")
 	defer span.End()
 
@@ -38,7 +39,7 @@ func asyncAddStreakXP(ctx context.Context, nodeId int64, tidb *ti.Database, js *
 	logger.Debugf("(streak follower: %d) adding xp to user %d", nodeId, addStreakMsg.ID)
 
 	// execute AddXP
-	_, err = core.AddXP(ctx, tidb, js, rdb, sf, addStreakMsg.OwnerID, "streak", nil, nil, logger, nil)
+	_, err = core.AddXP(ctx, tidb, js, rdb, sf, stripeSubConfig, addStreakMsg.OwnerID, "streak", nil, nil, logger, nil)
 	if err != nil {
 		logger.Errorf("(streak follower: %d) failed to add xp to user %d: %v", nodeId, addStreakMsg.ID, err)
 	}
@@ -50,7 +51,7 @@ func asyncAddStreakXP(ctx context.Context, nodeId int64, tidb *ti.Database, js *
 	}
 }
 
-func XpManagementOperations(ctx context.Context, nodeId int64, tidb *ti.Database, sf *snowflake.Node, js *mq.JetstreamClient, rdb redis.UniversalClient, workerPool *pool.Pool, logger logging.Logger) {
+func XpManagementOperations(ctx context.Context, nodeId int64, tidb *ti.Database, sf *snowflake.Node, js *mq.JetstreamClient, rdb redis.UniversalClient, workerPool *pool.Pool, stripeSubConfig config.StripeSubscriptionConfig, logger logging.Logger) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(ctx, "xp-management-operations-routine")
 	defer parentSpan.End()
 
@@ -65,7 +66,7 @@ func XpManagementOperations(ctx context.Context, nodeId int64, tidb *ti.Database
 		"streak follower",
 		logger,
 		func(msg *nats.Msg) {
-			asyncAddStreakXP(ctx, nodeId, tidb, js, rdb, sf, msg, logger)
+			asyncAddStreakXP(ctx, nodeId, tidb, js, rdb, sf, stripeSubConfig, msg, logger)
 		},
 	)
 

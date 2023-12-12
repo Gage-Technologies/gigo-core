@@ -3,10 +3,13 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/stripe/stripe-go/v74"
-	"github.com/stripe/stripe-go/v74/customer"
-	"github.com/stripe/stripe-go/v74/subscription"
 	"log"
+
+	"github.com/stripe/stripe-go/v76"
+	"github.com/stripe/stripe-go/v76/customer"
+	"github.com/stripe/stripe-go/v76/subscription"
+
+	"time"
 
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
@@ -14,7 +17,6 @@ import (
 	"github.com/gage-technologies/gigo-lib/utils"
 	"github.com/gage-technologies/gotp"
 	"go.opentelemetry.io/otel"
-	"time"
 )
 
 func GenerateUserOtpUri(ctx context.Context, callingUser *models.User, db *ti.Database) (map[string]interface{}, error) {

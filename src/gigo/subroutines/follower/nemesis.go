@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"gigo-core/gigo/api/external_api/core"
+	"gigo-core/gigo/config"
 
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
@@ -28,7 +29,7 @@ const (
 	notificationMsg = "Notification Initiated"
 )
 
-func LaunchNemesisListener(ctx context.Context, db *ti.Database, sf *snowflake.Node, rdb redis.UniversalClient, workerPool *pool.Pool, js *mq.JetstreamClient, nodeId int64, logger logging.Logger) {
+func LaunchNemesisListener(ctx context.Context, db *ti.Database, sf *snowflake.Node, rdb redis.UniversalClient, workerPool *pool.Pool, js *mq.JetstreamClient, stripeSubConfig config.StripeSubscriptionConfig, nodeId int64, logger logging.Logger) {
 	// logger.Errorf("(nemesis_stat_change: %d) starting LaunchUserStatsManagementRoutine", nodeId)
 	// create subscription for session key management
 
@@ -74,7 +75,7 @@ func LaunchNemesisListener(ctx context.Context, db *ti.Database, sf *snowflake.N
 
 	// logger.Errorf("(nemesis_stat_change: %d) executing worker pool on handleInactiveUserDayRollover", nodeId)
 	workerPool.Go(func() {
-		err := handleNemesisChanges(ctx, db, rdb, sf, js, logger)
+		err := handleNemesisChanges(ctx, db, rdb, sf, js, stripeSubConfig, logger)
 		if err != nil {
 			logger.Errorf("failed to handleNemesisChange: %v", err)
 		}
@@ -96,7 +97,7 @@ func LaunchNemesisListener(ctx context.Context, db *ti.Database, sf *snowflake.N
 	}
 }
 
-func handleNemesisChanges(ctx context.Context, db *ti.Database, rdb redis.UniversalClient, sf *snowflake.Node, js *mq.JetstreamClient, logger logging.Logger) error {
+func handleNemesisChanges(ctx context.Context, db *ti.Database, rdb redis.UniversalClient, sf *snowflake.Node, js *mq.JetstreamClient, stripeSubConfig config.StripeSubscriptionConfig, logger logging.Logger) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "handle-nemesis-changes")
 	defer span.End()
 	callerName := "handle-nemesis-changes"
@@ -308,25 +309,25 @@ func handleNemesisChanges(ctx context.Context, db *ti.Database, rdb redis.Univer
 
 			if victor == nemesis.AntagonistID {
 				// AddXP 'nemesis_victory' for nemesis.AntagonistID
-				_, err = core.AddXP(ctx, db, js, rdb, sf, nemesis.AntagonistID, "nemesis_victory", nil, &antagCapturedTowers, logger, nil)
+				_, err = core.AddXP(ctx, db, js, rdb, sf, stripeSubConfig, nemesis.AntagonistID, "nemesis_victory", nil, &antagCapturedTowers, logger, nil)
 				if err != nil {
 					return fmt.Errorf("handleNemesisChanges. Failed to add XP: %v", err)
 				}
 
 				// AddXP 'nemesis_defeat' for nemesis.ProtagonistID
-				_, err = core.AddXP(ctx, db, js, rdb, sf, nemesis.ProtagonistID, "nemesis_defeat", nil, &protagCapturedTowers, logger, nil)
+				_, err = core.AddXP(ctx, db, js, rdb, sf, stripeSubConfig, nemesis.ProtagonistID, "nemesis_defeat", nil, &protagCapturedTowers, logger, nil)
 				if err != nil {
 					return fmt.Errorf("handleNemesisChanges. Failed to add XP: %v", err)
 				}
 			} else {
 				// AddXP 'nemesis_victory' for nemesis.ProtagonistID
-				_, err = core.AddXP(ctx, db, js, rdb, sf, nemesis.ProtagonistID, "nemesis_victory", nil, &protagCapturedTowers, logger, nil)
+				_, err = core.AddXP(ctx, db, js, rdb, sf, stripeSubConfig, nemesis.ProtagonistID, "nemesis_victory", nil, &protagCapturedTowers, logger, nil)
 				if err != nil {
 					return fmt.Errorf("handleNemesisChanges. Failed to add XP: %v", err)
 				}
 
 				// AddXP 'nemesis_defeat' for nemesis.AntagonistID
-				_, err = core.AddXP(ctx, db, js, rdb, sf, nemesis.AntagonistID, "nemesis_defeat", nil, &antagCapturedTowers, logger, nil)
+				_, err = core.AddXP(ctx, db, js, rdb, sf, stripeSubConfig, nemesis.AntagonistID, "nemesis_defeat", nil, &antagCapturedTowers, logger, nil)
 				if err != nil {
 					return fmt.Errorf("handleNemesisChanges. Failed to add XP: %v", err)
 				}

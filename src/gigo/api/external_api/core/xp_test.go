@@ -2,9 +2,11 @@ package core
 
 import (
 	"context"
+	"gigo-core/gigo/config"
+	"testing"
+
 	config2 "github.com/gage-technologies/gigo-lib/config"
 	"github.com/go-redis/redis/v8"
-	"testing"
 
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
@@ -110,7 +112,7 @@ func TestAddXP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := AddXP(context.Background(), testTiDB, js, rdb, sf, user.ID, tt.source, tt.renownOfChallenge, tt.nemesisBasesCaptured, logger, user)
+			result, err := AddXP(context.Background(), testTiDB, js, rdb, sf, config.StripeSubscriptionConfig{}, user.ID, tt.source, tt.renownOfChallenge, tt.nemesisBasesCaptured, logger, user)
 			if err != nil {
 				t.Fatalf("Failed to add XP for %s: %v", tt.name, err)
 			}
@@ -187,7 +189,7 @@ func TestLevelUpLoot(t *testing.T) {
 	}
 
 	// Call the LevelUpLoot function
-	result, err := LevelUpLoot(context.Background(), testTiDB, sf, testUser.ID, logger, testUser)
+	result, err := LevelUpLoot(context.Background(), testTiDB, sf, config.StripeSubscriptionConfig{}, testUser.ID, logger, testUser)
 	if err != nil {
 		t.Errorf("LevelUpLoot() error = %v", err)
 		return

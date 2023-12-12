@@ -484,7 +484,7 @@ func (s *HTTPServer) StripePremiumMembershipSession(w http.ResponseWriter, r *ht
 		return
 	}
 	// execute core function logic
-	res, err := core.StripePremiumMembershipSession(callingUser.(*models.User))
+	res, err := core.StripePremiumMembershipSession(s.stripeSubscriptions.MonthlyPriceID, s.stripeSubscriptions.YearlyPriceID, callingUser.(*models.User))
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)

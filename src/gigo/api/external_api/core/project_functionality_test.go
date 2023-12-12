@@ -3,9 +3,12 @@ package core
 import (
 	"context"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/bwmarrin/snowflake"
 	"github.com/gage-technologies/gigo-lib/config"
-	config2 "github.com/gage-technologies/gigo-lib/config"
+	config2 "gigo-core/gigo/config"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"
@@ -13,8 +16,6 @@ import (
 	"github.com/gage-technologies/gigo-lib/mq"
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/go-redis/redis/v8"
-	"testing"
-	"time"
 )
 
 func TestPublishProject(t *testing.T) {
@@ -234,7 +235,7 @@ func TestMarkSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	js, err := mq.NewJetstreamClient(config2.JetstreamConfig{
+	js, err := mq.NewJetstreamClient(config.JetstreamConfig{
 		Host:        "mq://gigo-dev-nats:4222",
 		Username:    "gigo-dev",
 		Password:    "gigo-dev",
@@ -309,7 +310,7 @@ func TestMarkSuccess(t *testing.T) {
 	// create local client
 	rdb = redis.NewClient(&redis.Options{})
 
-	response, err := MarkSuccess(context.Background(), tidb, js, rdb, sf, attempt.ID, logger, callingUser)
+	response, err := MarkSuccess(context.Background(), tidb, js, rdb, sf, config2.StripeSubscriptionConfig{}, attempt.ID, logger, callingUser)
 	if err != nil {
 		t.Errorf("MarkSuccess() error = %v", err)
 		return

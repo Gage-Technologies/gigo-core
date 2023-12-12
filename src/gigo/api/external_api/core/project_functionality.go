@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 
+	"gigo-core/gigo/config"
 	"gigo-core/gigo/utils"
 
 	"github.com/bwmarrin/snowflake"
@@ -38,7 +39,7 @@ import (
 
 // TODO: needs testing
 
-func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, vcsClient *git.VCSClient,
+func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, stripeSubConfig config.StripeSubscriptionConfig, vcsClient *git.VCSClient,
 	storageEngine storage.Storage, rdb redis.UniversalClient, js *mq.JetstreamClient, callingUser *models.User, name string, description string, sf *snowflake.Node,
 	languages []models.ProgrammingLanguage, challengeType models.ChallengeType, tier models.TierType, tags []*models.Tag,
 	thumbnailPath string, workspaceConfigId int64, workspaceConfigRevision int, workspaceConfigContent string,
@@ -485,14 +486,14 @@ func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	_ = rdb.Del(ctx, fmt.Sprintf("user:%v:image:gen:count", callingUser.ID)).Err()
 
 	if challengeType.String() == "Interactive" {
-		xpRes, err := AddXP(ctx, tidb, js, rdb, sf, callingUser.ID, "create_tutorial", nil, nil, logger, callingUser)
+		xpRes, err := AddXP(ctx, tidb, js, rdb, sf, stripeSubConfig, callingUser.ID, "create_tutorial", nil, nil, logger, callingUser)
 		if err != nil {
 			return map[string]interface{}{"message": "Project has been created.", "project": fp}, fmt.Errorf("failed to add xp to user: %v", err)
 		}
 		return map[string]interface{}{"message": "Project has been created.", "project": fp, "xp": xpRes}, nil
 	} else {
 		// add xp to user for creating a project
-		xpRes, err := AddXP(ctx, tidb, js, rdb, sf, callingUser.ID, "create", nil, nil, logger, callingUser)
+		xpRes, err := AddXP(ctx, tidb, js, rdb, sf, stripeSubConfig, callingUser.ID, "create", nil, nil, logger, callingUser)
 		if err != nil {
 			return map[string]interface{}{"message": "Project has been created.", "project": fp}, fmt.Errorf("failed to add xp to user: %v", err)
 		}
@@ -844,7 +845,7 @@ func DeleteProject(ctx context.Context, tidb *ti.Database, callingUser *models.U
 	return map[string]interface{}{"message": "Project has been deleted.", "project": projectID}, nil
 }
 
-func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, js *mq.JetstreamClient, rdb redis.UniversalClient, callingUser *models.User, userSession *models.UserSession,
+func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClient, js *mq.JetstreamClient, rdb redis.UniversalClient, stripeSubConfig config.StripeSubscriptionConfig, callingUser *models.User, userSession *models.UserSession,
 	sf *snowflake.Node, postId int64, parentAttempt *int64, logger logging.Logger, storageEngine storage.Storage) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "start-attempt-core")
 	defer span.End()
@@ -1063,14 +1064,14 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	}
 
 	// add xp to user for making an attempt
-	xpRes, err := AddXP(ctx, tidb, js, rdb, sf, callingUser.ID, "attempt", &attempt.Tier, nil, logger, callingUser)
+	xpRes, err := AddXP(ctx, tidb, js, rdb, sf, stripeSubConfig, callingUser.ID, "attempt", &attempt.Tier, nil, logger, callingUser)
 	if err != nil {
 		return map[string]interface{}{"message": "Attempt created successfully.", "attempt": attempt.ToFrontend()},
 			fmt.Errorf("failed to add xp to user: %v", err)
 	}
 
 	// TODO broadcast xp gain to project owner for attempt made on their project
-	_, err = AddXP(ctx, tidb, js, rdb, sf, postAuthorId, "challenge_is_attempted", &attempt.Tier, nil, logger, callingUser)
+	_, err = AddXP(ctx, tidb, js, rdb, sf, stripeSubConfig, postAuthorId, "challenge_is_attempted", &attempt.Tier, nil, logger, callingUser)
 	if err != nil {
 		return map[string]interface{}{"message": "Attempt created successfully.", "attempt": attempt.ToFrontend()},
 			fmt.Errorf("failed to add xp to user: %v", err)
@@ -1936,7 +1937,7 @@ func CloseAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 	return map[string]interface{}{"message": "Attempt Closed Successfully"}, nil
 }
 
-func MarkSuccess(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, attemptId int64, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
+func MarkSuccess(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, attemptId int64, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "mark-success-core")
 	defer span.End()
 	callerName := "MarkSuccess"
@@ -1973,7 +1974,7 @@ func MarkSuccess(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient,
 	}
 
 	// add xp to user for logging in
-	xpRes, err := AddXP(ctx, tidb, js, rdb, sf, attempt.AuthorID, "successful", &attempt.Tier, nil, logger, callingUser)
+	xpRes, err := AddXP(ctx, tidb, js, rdb, sf, stripeSubConfig, attempt.AuthorID, "successful", &attempt.Tier, nil, logger, callingUser)
 	if err != nil {
 		return map[string]interface{}{"message": "Attempt Marked as a Success"}, fmt.Errorf("failed to add xp to user: %v", err)
 	}

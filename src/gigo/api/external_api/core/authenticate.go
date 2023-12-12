@@ -5,12 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/stripe/stripe-go/v74"
-	"github.com/stripe/stripe-go/v74/customer"
-	"github.com/stripe/stripe-go/v74/subscription"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/stripe/stripe-go/v76"
+	"github.com/stripe/stripe-go/v76/customer"
+	"github.com/stripe/stripe-go/v76/subscription"
 
 	"go.opentelemetry.io/otel"
 
@@ -457,7 +458,7 @@ func LoginWithGithub(ctx context.Context, tidb *ti.Database, storageEngine stora
 	if err != nil {
 		return nil, "", err
 	}
-	
+
 	// return response with user status and authentication success; auth token for cookie, nil error
 	return map[string]interface{}{
 		"auth":  true,

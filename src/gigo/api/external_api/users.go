@@ -173,7 +173,7 @@ func (s *HTTPServer) CreateNewUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.CreateNewUser(ctx, s.tiDB, s.meili, s.streakEngine, s.sf, s.domain, userName.(string), password.(string),
+	res, err := core.CreateNewUser(ctx, s.tiDB, s.meili, s.stripeSubscriptions, s.streakEngine, s.sf, s.domain, userName.(string), password.(string),
 		email.(string), phone.(string), bio.(string), firstName.(string), lastName.(string),
 		s.vscClient, userInitForm, timeZoneI.(string), thumbnailTempPath, s.storageEngine, avatarSetting,
 		s.passwordFilter, forcePass.(bool), s.initialRecUrl, s.logger, s.mailGunKey, s.mailGunDomain, referral)
@@ -1101,7 +1101,7 @@ func (s *HTTPServer) CreateNewGoogleUser(w http.ResponseWriter, r *http.Request)
 	}
 
 	// execute core function logic
-	res, err := core.CreateNewGoogleUser(ctx, s.tiDB, s.meili, s.sf, s.streakEngine, s.domain, externalAuth.(string),
+	res, err := core.CreateNewGoogleUser(ctx, s.tiDB, s.meili, s.sf, s.stripeSubscriptions, s.streakEngine, s.domain, externalAuth.(string),
 		password.(string), s.vscClient, *workspaceSettings, timeZoneI.(string), avatarSetting, thumbnailTempPath,
 		s.storageEngine, s.mailGunKey, s.mailGunDomain, s.initialRecUrl, referral, s.logger)
 	if err != nil {
@@ -1249,7 +1249,7 @@ func (s *HTTPServer) CreateNewGithubUser(w http.ResponseWriter, r *http.Request)
 	}
 
 	// execute core function logic
-	res, token, err := core.CreateNewGithubUser(ctx, s.tiDB, s.meili, s.sf, s.streakEngine, s.domain, externalAuth.(string),
+	res, token, err := core.CreateNewGithubUser(ctx, s.tiDB, s.meili, s.sf, s.stripeSubscriptions, s.streakEngine, s.domain, externalAuth.(string),
 		password.(string), s.vscClient, *workspaceSettings, timeZoneI.(string), avatarSetting, s.githubSecret,
 		thumbnailTempPath, s.storageEngine, s.mailGunKey, s.mailGunDomain, s.initialRecUrl, referral, network.GetRequestIP(r), s.logger)
 	if err != nil {

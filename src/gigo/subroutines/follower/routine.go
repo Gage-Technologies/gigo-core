@@ -24,7 +24,7 @@ import (
 func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.WorkspaceClient, vcsClient *git.VCSClient,
 	js *mq.JetstreamClient, workerPool *pool.Pool, streakEngine *streak.StreakEngine, sf *snowflake.Node,
 	wsStatusUpdater *utils.WorkspaceStatusUpdater, rdb redis.UniversalClient, storageEngine storage.Storage, zitiManager *zitimesh.Manager,
-	logger logging.Logger) cluster.FollowerRoutine {
+	stripeSubConfig config.StripeSubscriptionConfig, logger logging.Logger) cluster.FollowerRoutine {
 	// we log fatal for all setup operation in this function
 	// because the system cannot launch if these do not complete
 	// therefore killing the process for a failure is the simplest
@@ -69,7 +69,7 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 		// todo possibly implement later for streak milestones
 
 		// execute xp management operations every second
-		// XpManagementOperations(ctx, nodeId, tiDB, sf, js, rdb, workerPool, logger)
+		// XpManagementOperations(ctx, nodeId, tiDB, sf, js, rdb, workerPool, stripeSubConfig. logger)
 		// RemoveExpiredStreakIds(ctx, nodeId, tiDB, js, logger)
 
 		LaunchUserStatsManagementRoutine(ctx, tiDB, streakEngine, sf, workerPool, js, nodeId, logger)
@@ -77,7 +77,7 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 
 		clearFreeUserWeeks(ctx, tiDB, logger, js, nodeId)
 
-		// LaunchNemesisListener(ctx, tiDB, sf, rdb, workerPool, js, nodeId, logger)
+		// LaunchNemesisListener(ctx, tiDB, sf, rdb, workerPool, js, stripeSubConfig, nodeId, logger)
 
 		return nil
 	}

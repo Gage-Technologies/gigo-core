@@ -95,7 +95,7 @@ func (s *HTTPServer) AddXP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.AddXP(ctx, s.tiDB, s.jetstreamClient, s.rdb, s.sf, callingIdInt, source, renownOfChallenge, nemesisBasesCaptured, s.logger, callingUser.(*models.User))
+	res, err := core.AddXP(ctx, s.tiDB, s.jetstreamClient, s.rdb, s.sf, s.stripeSubscriptions, callingIdInt, source, renownOfChallenge, nemesisBasesCaptured, s.logger, callingUser.(*models.User))
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
