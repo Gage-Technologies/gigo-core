@@ -177,7 +177,7 @@ func (s *HTTPServer) UpdateEmailPreferences(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Attempt to load user ID and email preferences from body
-	userID, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "userID", reflect.Int64, nil, true, "", "")
+	userID, ok := s.loadValue(w, r, reqJson, "UpdateEmailPreferences", "userID", reflect.String, nil, true, "", "")
 	if !ok {
 		return
 	}

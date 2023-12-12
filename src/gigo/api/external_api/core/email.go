@@ -424,7 +424,7 @@ func CheckUnsubscribeEmail(ctx context.Context, tidb *ti.Database, email string)
 		}
 		return map[string]interface{}{
 			"userFound": true,
-			"userID":    fmt.Sprintf("%d", userID), // Convert int64 to string
+			"userID":    fmt.Sprintf("%v", userID), // Convert int64 to string
 		}, nil
 	}
 
