@@ -677,7 +677,7 @@ func SendMessageInternal(ctx context.Context, db *ti.Database, rdb redis.Univers
 			continue
 		}
 
-		err = SendMessageReceivedEmail(ctx, rdb, mailgunKey, mailgunDomain, userEmail, callingUser.UserName)
+		err = SendMessageReceivedEmail(ctx, rdb, db, mailgunKey, mailgunDomain, userEmail, callingUser.UserName)
 		if err != nil {
 			logger.Errorf("SendMessageReceivedEmail failed for Email: %v in SendMessageInternal: %v", err)
 			continue

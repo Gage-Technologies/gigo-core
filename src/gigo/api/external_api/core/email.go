@@ -82,12 +82,21 @@ func SendSignUpMessage(ctx context.Context, mailGunKey string, mailGunDomain str
 }
 
 // SendStreakExpirationMessage sends a message to a user informing them that their streak is about to expire
-func SendStreakExpirationMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string, username string) error {
+func SendStreakExpirationMessage(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string, recipient string, username string) error {
+	should, err := ShouldSendEmail(ctx, tidb, nil, recipient, true, false, false, false, false, false, false)
+	if err != nil {
+		return fmt.Errorf("ShouldSendEmail failed in SendStreakExpirationMessage core: %v", err)
+	}
+
+	if !should {
+		return nil
+	}
+
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
 	// validate email addresses
-	_, err := mail.ParseAddress(recipient)
+	_, err = mail.ParseAddress(recipient)
 	if err != nil {
 		return fmt.Errorf("invalid recipient email: %v", err)
 	}
@@ -114,12 +123,21 @@ func SendStreakExpirationMessage(ctx context.Context, mailGunKey string, mailGun
 }
 
 // SendWeekInactiveMessage sends a message to a user that has not been active for one week
-func SendWeekInactiveMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string) error {
+func SendWeekInactiveMessage(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string, recipient string) error {
+	should, err := ShouldSendEmail(ctx, tidb, nil, recipient, false, false, false, true, false, false, false)
+	if err != nil {
+		return fmt.Errorf("ShouldSendEmail failed in SendStreakExpirationMessage core: %v", err)
+	}
+
+	if !should {
+		return nil
+	}
+
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
 	// validate email addresses
-	_, err := mail.ParseAddress(recipient)
+	_, err = mail.ParseAddress(recipient)
 	if err != nil {
 		return fmt.Errorf("invalid recipient email: %v", err)
 	}
@@ -143,12 +161,21 @@ func SendWeekInactiveMessage(ctx context.Context, mailGunKey string, mailGunDoma
 }
 
 // SendMonthInactiveMessage sends a message to a user that has not been active for one month
-func SendMonthInactiveMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string) error {
+func SendMonthInactiveMessage(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string, recipient string) error {
+	should, err := ShouldSendEmail(ctx, tidb, nil, recipient, false, false, false, true, false, false, false)
+	if err != nil {
+		return fmt.Errorf("ShouldSendEmail failed in SendStreakExpirationMessage core: %v", err)
+	}
+
+	if !should {
+		return nil
+	}
+
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
 	// validate email addresses
-	_, err := mail.ParseAddress(recipient)
+	_, err = mail.ParseAddress(recipient)
 	if err != nil {
 		return fmt.Errorf("invalid recipient email: %v", err)
 	}
@@ -172,7 +199,16 @@ func SendMonthInactiveMessage(ctx context.Context, mailGunKey string, mailGunDom
 }
 
 // SendMessageReceivedEmail sends a message to a user that received a message on gigo. Limited to not send a user more than one message-received email per hour.
-func SendMessageReceivedEmail(ctx context.Context, rdb redis.UniversalClient, mailGunKey string, mailGunDomain string, recipient string, username string) error {
+func SendMessageReceivedEmail(ctx context.Context, rdb redis.UniversalClient, tidb *ti.Database, mailGunKey string, mailGunDomain string, recipient string, username string) error {
+	should, err := ShouldSendEmail(ctx, tidb, nil, recipient, false, false, false, false, true, false, false)
+	if err != nil {
+		return fmt.Errorf("ShouldSendEmail failed in SendStreakExpirationMessage core: %v", err)
+	}
+
+	if !should {
+		return nil
+	}
+
 	// Define a more specific Redis key
 	redisKey := fmt.Sprintf("email:message:received:%v", username)
 
@@ -224,12 +260,21 @@ func SendMessageReceivedEmail(ctx context.Context, rdb redis.UniversalClient, ma
 }
 
 // SendReferredFriendMessage sends a message after a user successfully refers another account
-func SendReferredFriendMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string, referredUser string) error {
+func SendReferredFriendMessage(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string, recipient string, referredUser string) error {
+	should, err := ShouldSendEmail(ctx, tidb, nil, recipient, false, false, false, false, false, true, false)
+	if err != nil {
+		return fmt.Errorf("ShouldSendEmail failed in SendStreakExpirationMessage core: %v", err)
+	}
+
+	if !should {
+		return nil
+	}
+
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
 	// validate email addresses
-	_, err := mail.ParseAddress(recipient)
+	_, err = mail.ParseAddress(recipient)
 	if err != nil {
 		return fmt.Errorf("invalid recipient email: %v", err)
 	}
@@ -256,12 +301,20 @@ func SendReferredFriendMessage(ctx context.Context, mailGunKey string, mailGunDo
 }
 
 // SendWasReferredMessage sends a message after a user successfully uses another users referral link
-func SendWasReferredMessage(ctx context.Context, mailGunKey string, mailGunDomain string, recipient string, referringUser string) error {
+func SendWasReferredMessage(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string, recipient string, referringUser string) error {
+	should, err := ShouldSendEmail(ctx, tidb, nil, recipient, false, false, false, false, false, true, false)
+	if err != nil {
+		return fmt.Errorf("ShouldSendEmail failed in SendStreakExpirationMessage core: %v", err)
+	}
+
+	if !should {
+		return nil
+	}
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
 	// validate email addresses
-	_, err := mail.ParseAddress(recipient)
+	_, err = mail.ParseAddress(recipient)
 	if err != nil {
 		return fmt.Errorf("invalid recipient email: %v", err)
 	}
@@ -519,4 +572,91 @@ func GetUserEmailPreferences(ctx context.Context, tidb *ti.Database, userID int6
 		"referrals":   preferences.Referrals,
 		"promotional": preferences.Promotional,
 	}, nil
+}
+
+// ShouldSendEmail
+//
+// Checks if an email should be sent to a user based on their preferences.
+// userId is an optional parameter. If provided, the function will use it directly.
+// If userId is nil, the function will query the database to find the user ID based on the email.
+// preferenceType is the type of email preference to check.
+func ShouldSendEmail(ctx context.Context, tidb *ti.Database, userId *int64, email string, streak bool, pro bool, newsletter bool, inactivity bool, messages bool, referrals bool, promotional bool) (bool, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "should-send-email-core")
+	defer span.End()
+	callerName := "ShouldSendEmail"
+
+	var userID int64
+
+	// Check if userID is provided, if not, query by email
+	if userId == nil {
+		if email == "" {
+			return false, fmt.Errorf("email or user id must be provided")
+		}
+
+		// Build query to check if email already exists and get user ID
+		emailQuery := "SELECT _id FROM users WHERE email = ?"
+
+		response, err := tidb.QueryContext(ctx, &span, &callerName, emailQuery, email)
+		if err != nil {
+			return false, fmt.Errorf("failed to query for existing email: %v", err)
+		}
+
+		// Ensure the closure of the rows
+		defer response.Close()
+
+		// Check if the email exists and retrieve the user ID
+		var id int64
+		if response.Next() {
+			if err := response.Scan(&id); err != nil {
+				return false, fmt.Errorf("failed to retrieve user ID: %v", err)
+			}
+		}
+
+		userID = id
+	} else {
+		userID = *userId
+	}
+
+	// Retrieve user's email preferences
+	preferences, err := GetUserEmailPreferences(ctx, tidb, userID)
+	if err != nil {
+		return false, fmt.Errorf("GetUserEmailPreferences failed in ShouldSendEmail core: %v", err)
+	}
+
+	// Check against the provided preferences
+	return checkPreferences(preferences, streak, pro, newsletter, inactivity, messages, referrals, promotional), nil
+}
+
+// checkPreferences compares user preferences with provided boolean values and returns true if email should be sent.
+func checkPreferences(preferences map[string]interface{}, streak bool, pro bool, newsletter bool, inactivity bool, messages bool, referrals bool, promotional bool) bool {
+	// If allEmails is false, no email should be sent
+	if !preferences["allEmails"].(bool) {
+		return false
+	}
+
+	// Check each preference type
+	if streak && !preferences["streak"].(bool) {
+		return false
+	}
+	if pro && !preferences["pro"].(bool) {
+		return false
+	}
+	if newsletter && !preferences["newsletter"].(bool) {
+		return false
+	}
+	if inactivity && !preferences["inactivity"].(bool) {
+		return false
+	}
+	if messages && !preferences["messages"].(bool) {
+		return false
+	}
+	if referrals && !preferences["referrals"].(bool) {
+		return false
+	}
+	if promotional && !preferences["promotional"].(bool) {
+		return false
+	}
+
+	// If none of the checks failed, return true
+	return true
 }

@@ -69,12 +69,12 @@ func SendUserInactivityEmails(ctx context.Context, tidb *ti.Database, logger log
 		// Send the appropriate email and update the record
 		if sendMonth {
 			logger.Infof("Sending month inactivity email to %s", email)
-			if err := core.SendMonthInactiveMessage(ctx, mailGunKey, mailGunDomain, email); err != nil {
+			if err := core.SendMonthInactiveMessage(ctx, tidb, mailGunKey, mailGunDomain, email); err != nil {
 				logger.Errorf("failed to send month inactive email: %v user_id: %v", err, userID)
 			}
 		} else if sendWeek {
 			logger.Infof("Sending week inactivity email to %s", email)
-			if err := core.SendWeekInactiveMessage(ctx, mailGunKey, mailGunDomain, email); err != nil {
+			if err := core.SendWeekInactiveMessage(ctx, tidb, mailGunKey, mailGunDomain, email); err != nil {
 				logger.Errorf("failed to send week inactive email: %v user_id: %v", err, userID)
 			}
 		}
