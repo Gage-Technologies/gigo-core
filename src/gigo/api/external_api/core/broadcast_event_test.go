@@ -2,13 +2,14 @@ package core
 
 import (
 	"context"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/stretchr/testify/assert"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func TestBroadcastMessage(t *testing.T) {
@@ -21,7 +22,7 @@ func TestBroadcastMessage(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestBroadcastMessage failed\n    Error: %v\n", err)
 		return

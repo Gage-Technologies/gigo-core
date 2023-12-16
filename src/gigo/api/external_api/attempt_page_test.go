@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestHTTPServer_ProjectAttemptInformation(t *testing.T) {
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -115,7 +116,7 @@ func TestHTTPServer_ProjectAttemptInformation(t *testing.T) {
 func TestHTTPServer_AttemptInformation(t *testing.T) {
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -216,7 +217,7 @@ func TestHTTPServer_AttemptInformation(t *testing.T) {
 func TestHTTPServer_GetAttemptCode(t *testing.T) {
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -297,7 +298,7 @@ func TestHTTPServer_GetAttemptCode(t *testing.T) {
 func TestHTTPServer_EditDescription(t *testing.T) {
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return

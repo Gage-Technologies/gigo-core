@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestHTTPServer_CreateProduct(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestCreateProduct failed\n    Error: %v\n", err)
 		return
@@ -95,7 +96,7 @@ func TestHTTPServer_CreateProduct(t *testing.T) {
 
 func TestHTTPServer_GetProjectPriceId(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetProjectPriceId failed\n    Error: %v\n", err)
 		return
@@ -177,7 +178,7 @@ func TestHTTPServer_GetProjectPriceId(t *testing.T) {
 
 func TestHTTPServer_CancelSubscription(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestCancelSubscription failed\n    Error: %v\n", err)
 		return
@@ -256,7 +257,7 @@ func TestHTTPServer_CancelSubscription(t *testing.T) {
 
 func TestHTTPServer_UpdateClientPayment(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestUpdateClientPayment failed\n    Error: %v\n", err)
 		return
@@ -335,7 +336,7 @@ func TestHTTPServer_UpdateClientPayment(t *testing.T) {
 
 func TestHTTPServer_CreatePortalSession(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestCreatePortalSession failed\n    Error: %v\n", err)
 		return
@@ -414,7 +415,7 @@ func TestHTTPServer_CreatePortalSession(t *testing.T) {
 
 func TestHTTPServer_CreateConnectedAccount(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestCreateConnectedAccount failed\n    Error: %v\n", err)
 		return
@@ -493,7 +494,7 @@ func TestHTTPServer_CreateConnectedAccount(t *testing.T) {
 
 func TestHTTPServer_StripeCheckoutSession(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestStripeCheckoutSession failed\n    Error: %v\n", err)
 		return
@@ -575,7 +576,7 @@ func TestHTTPServer_StripeCheckoutSession(t *testing.T) {
 
 func TestHTTPServer_StripePremiumMembershipSession(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestStripePremiumMembershipSession failed\n    Error: %v\n", err)
 		return

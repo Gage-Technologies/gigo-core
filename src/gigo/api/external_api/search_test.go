@@ -16,7 +16,7 @@ func TestHTTPServer_SearchBarResults(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return

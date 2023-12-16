@@ -2,11 +2,12 @@ package core
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gotp"
-	"testing"
-	"time"
 )
 
 func TestGenerateUserOtpUri(t *testing.T) {
@@ -18,7 +19,7 @@ func TestGenerateUserOtpUri(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGenerateUserOtpUri failed\n    Error: %v\n", err)
 		return
@@ -67,7 +68,7 @@ func TestVerifyUserOtp(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestVerifyUserOtp failed\n    Error: %v\n", err)
 		return
@@ -148,7 +149,7 @@ func TestVerifyUserOtp(t *testing.T) {
 //	badges := []int64{1, 2}
 //
 //	// Create a test user
-//	user, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+//	user, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestGenerateUserOtpUri failed\n    Error: %v\n", err)
 //		return

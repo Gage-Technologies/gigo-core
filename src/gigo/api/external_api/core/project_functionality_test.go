@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
+	config2 "gigo-core/gigo/config"
+
 	"github.com/bwmarrin/snowflake"
 	"github.com/gage-technologies/gigo-lib/config"
-	config2 "gigo-core/gigo/config"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"
@@ -252,7 +253,7 @@ func TestMarkSuccess(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	callingUser, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestDontGiveUpActive failed\n    Error: %v\n", err)
 		return

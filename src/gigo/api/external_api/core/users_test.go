@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
 	"github.com/gage-technologies/gigo-lib/config"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/gage-technologies/gigo-lib/utils"
-	"reflect"
-	"testing"
-	"time"
 )
 
 // func TestCreateNewUser(t *testing.T) {
@@ -56,7 +57,7 @@ func TestChangePhoneNumber(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestChangePhoneNumber failed\n    Error: %v\n", err)
 		return
@@ -144,12 +145,12 @@ func TestChangeUsername(t *testing.T) {
 	}
 
 	// Create two test users
-	testUser1, err := models.CreateUser(100, "testUser1", "testUser1@email.com", "", "hashedPassword1", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(100, "testUser1", "testUser1@email.com", "", "hashedPassword1", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Fatal("Create user 1 failed:", err)
 	}
 
-	testUser2, err := models.CreateUser(101, "testUser2", "testUser2@email.com", "", "hashedPassword2", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(101, "testUser2", "testUser2@email.com", "", "hashedPassword2", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Fatal("Create user 2 failed:", err)
 	}
@@ -245,7 +246,7 @@ func TestForgotPasswordValidation(t *testing.T) {
 	}
 
 	// Create a test user with the hashed password
-	testUser, err := models.CreateUser(69, "test", "test@email.com", "", hashedPassword, models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(69, "test", "test@email.com", "", hashedPassword, models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Fatal("Create user failed:", err)
 	}
@@ -445,7 +446,7 @@ func TestDeleteUserAccount(t *testing.T) {
 	}
 
 	// Create a user
-	user, err := models.CreateUser(420, "test", "", "", "", models.UserStatusPremium, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	user, err := models.CreateUser(420, "test", "", "", "", models.UserStatusPremium, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestMostChallengingActive failed\n    Error: %v\n", err)
 		return
@@ -559,7 +560,7 @@ func TestDeleteUserAccount(t *testing.T) {
 		}
 	}
 
-	friend, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	friend, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestSendFriendRequest failed\n    Error: %v\n", err)
 		return
@@ -692,7 +693,7 @@ func TestDeleteUserAccount(t *testing.T) {
 //
 //	var badges []int64
 //
-//	user, err := models.CreateUser(69, "", "test", "123456789", "testing@test.com", "2845765803", "", "", badges, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago")
+//	user, err := models.CreateUser(69, "", "test", "123456789", "testing@test.com", "2845765803", "", "", badges, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", nil)
 //	if err != nil {
 //		t.Errorf("\nTestChangePhoneNumber failed\n    Error: %v\n", err)
 //		return
@@ -731,7 +732,7 @@ func TestDeleteUserAccount(t *testing.T) {
 
 //	var badges []int64
 //
-//	user, err := models.CreateUser(69, "", "user", "123456789", "test@test.com", "2845765803", "", "", badges, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago")
+//	user, err := models.CreateUser(69, "", "user", "123456789", "test@test.com", "2845765803", "", "", badges, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", nil)
 //	if err != nil {
 //		t.Errorf("\nTestForgotPassword failed\n    Error: %v\n", err)
 //		return
@@ -778,7 +779,7 @@ func TestDeleteUserAccount(t *testing.T) {
 //	}
 // //	var badges []int64
 // //
-// //	user, err := models.CreateUser(42069, "path", "username", "password", "email", "phone", "status", "bio", badges, 3, 1, 2, badges, nil)
+// //	user, err := models.CreateUser(42069, "path", "username", "password", "email", "phone", "status", "bio", badges, 3, 1, 2, badges, nil, nil)
 // //	if err != nil {
 // //		t.Errorf("\nTestChangeUserPicture failed\n    Error: %v\n", err)
 // //		return
@@ -826,7 +827,7 @@ func TestDeleteUserAccount(t *testing.T) {
 //
 //	var badges []int64
 //
-//	user, err := models.CreateUser(69, "path", "username", "password", "email", "phone", "status", "bio", badges, nil, "first", "last", 420 ,"none", models.UserStart{}, "America/Chicago")
+//	user, err := models.CreateUser(69, "path", "username", "password", "email", "phone", "status", "bio", badges, nil, "first", "last", 420 ,"none", models.UserStart{}, "America/Chicago", nil)
 //	if err != nil {
 //		t.Errorf("\nTestChangeUserPicture failed\n    Error: %v\n", err)
 //		return
@@ -882,7 +883,7 @@ func TestDeleteUserAccount(t *testing.T) {
 //	}
 //	var badges []int64
 //
-//	user, err := models.CreateUser(69, "", "test", "123456789", "test@test.com", "2845765803", "", "", badges, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago")
+//	user, err := models.CreateUser(69, "", "test", "123456789", "test@test.com", "2845765803", "", "", badges, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", nil)
 //	if err != nil {
 //		t.Errorf("\nTestForgotPassword failed\n    Error: %v\n", err)
 //		return

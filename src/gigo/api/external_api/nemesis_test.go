@@ -21,13 +21,13 @@ import (
 
 func TestHTTPServer_DeclareNemesis(t *testing.T) {
 	// Create test users
-	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestDeclareNemesis failed\n    Error: %v\n", err)
 		return
 	}
 
-	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestDeclareNemesis failed\n    Error: %v\n", err)
 		return
@@ -108,13 +108,13 @@ func TestHTTPServer_DeclareNemesis(t *testing.T) {
 
 func TestHTTPServer_AcceptNemesis(t *testing.T) {
 	// Create test users
-	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestAcceptNemesis failed\n    Error: %v\n", err)
 		return
 	}
 
-	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestAcceptNemesis failed\n    Error: %v\n", err)
 		return
@@ -221,13 +221,13 @@ func TestHTTPServer_AcceptNemesis(t *testing.T) {
 
 func TestHTTPServer_DeclineNemesis(t *testing.T) {
 	// Create test users
-	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestAcceptNemesis failed\n    Error: %v\n", err)
 		return
 	}
 
-	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestAcceptNemesis failed\n    Error: %v\n", err)
 		return
@@ -337,13 +337,13 @@ func TestHTTPServer_DeclineNemesis(t *testing.T) {
 
 func TestHTTPServer_GetActiveNemesis(t *testing.T) {
 	// Create test users
-	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetActiveNemesis failed\n    Error: %v\n", err)
 		return
 	}
 
-	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetActiveNemesis failed\n    Error: %v\n", err)
 		return
@@ -451,13 +451,13 @@ func TestHTTPServer_GetActiveNemesis(t *testing.T) {
 
 func TestHTTPServer_GetNemesisBattlegrounds(t *testing.T) {
 	// Create test users
-	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetNemesisBattleground failed\n    Error: %v\n", err)
 		return
 	}
 
-	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetNemesisBattleground failed\n    Error: %v\n", err)
 		return
@@ -557,13 +557,13 @@ func TestHTTPServer_GetNemesisBattlegrounds(t *testing.T) {
 
 func TestHTTPServer_RecentNemesisBattleground(t *testing.T) {
 	// Create test users
-	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetNemesisBattleground failed\n    Error: %v\n", err)
 		return
 	}
 
-	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetNemesisBattleground failed\n    Error: %v\n", err)
 		return
@@ -684,13 +684,13 @@ func TestHTTPServer_RecentNemesisBattleground(t *testing.T) {
 
 func TestHTTPServer_WarHistory(t *testing.T) {
 	// Create test users
-	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetNemesisBattleground failed\n    Error: %v\n", err)
 		return
 	}
 
-	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(2, "protagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetNemesisBattleground failed\n    Error: %v\n", err)
 		return
@@ -827,7 +827,7 @@ func TestHTTPServer_WarHistory(t *testing.T) {
 
 func TestHTTPServer_PendingNemesis(t *testing.T) {
 	// Create test user
-	testUser1, err := models.CreateUser(1, "nemesis", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "nemesis", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestPendingNemesis failed\n    Error: %v\n", err)
 		return
@@ -905,13 +905,13 @@ func TestHTTPServer_PendingNemesis(t *testing.T) {
 
 func TestHTTPServer_GetAllUsers(t *testing.T) {
 	// Create test users
-	testUser1, err := models.CreateUser(1, "test1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser1, err := models.CreateUser(1, "test1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetAllUsers failed\n    Error: %v\n", err)
 		return
 	}
 
-	testUser2, err := models.CreateUser(2, "test2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser2, err := models.CreateUser(2, "test2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetAllUsers failed\n    Error: %v\n", err)
 		return

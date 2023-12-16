@@ -258,6 +258,7 @@ func TestVerifyEmailToken(t *testing.T) {
 		"America/Chicago",
 		models.AvatarSettings{},
 		0,
+		nil,
 	)
 	if err != nil {
 		t.Fatal("TestVerifyEmailToken test failed:", err)

@@ -180,6 +180,35 @@ func CreatePortalSession(ctx context.Context, callingUser *models.User) (map[str
 	return map[string]interface{}{"session": s.URL}, nil
 }
 
+func CreateStripeCustomer(ctx context.Context, name string, email string) (string, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-stripe-customer")
+	defer span.End()
+
+	stripeUser := &stripe.CustomerParams{
+		Email: &email,
+		Name:  &name,
+	}
+
+	result, err := customer.New(stripeUser)
+	if err != nil {
+		return "", err
+	}
+
+	return result.ID, nil
+}
+
+func DeleteStripeCustomer(ctx context.Context, id string) error {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "delete-stripe-customer")
+	defer span.End()
+
+	_, err := customer.Del(id, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CreateTrialSubscription(ctx context.Context, monthlyPriceID string, email string, db *ti.Database, tx *ti.Tx, id int64, firstName string, lastName string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-trial-subscription")
 	defer span.End()
@@ -520,10 +549,18 @@ func StripePremiumMembershipSession(monthlyPriceID string, yearlyPriceID string,
 		CancelURL:  &cancelUrl,
 		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
-			&stripe.CheckoutSessionLineItemParams{
+			{
 				Price: stripe.String(monthlyPriceID),
 				// For metered billing, do not pass quantity
 				Quantity: stripe.Int64(1),
+			},
+		},
+		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
+			TrialPeriodDays: stripe.Int64(30),
+			TrialSettings: &stripe.CheckoutSessionSubscriptionDataTrialSettingsParams{
+				EndBehavior: &stripe.CheckoutSessionSubscriptionDataTrialSettingsEndBehaviorParams{
+					MissingPaymentMethod: stripe.String("cancel"),
+				},
 			},
 		},
 	}
@@ -541,10 +578,18 @@ func StripePremiumMembershipSession(monthlyPriceID string, yearlyPriceID string,
 		CancelURL:  &cancelUrl,
 		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
-			&stripe.CheckoutSessionLineItemParams{
+			{
 				Price: stripe.String(yearlyPriceID),
 				// For metered billing, do not pass quantity
 				Quantity: stripe.Int64(1),
+			},
+		},
+		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
+			TrialPeriodDays: stripe.Int64(30),
+			TrialSettings: &stripe.CheckoutSessionSubscriptionDataTrialSettingsParams{
+				EndBehavior: &stripe.CheckoutSessionSubscriptionDataTrialSettingsEndBehaviorParams{
+					MissingPaymentMethod: stripe.String("cancel"),
+				},
 			},
 		},
 	}

@@ -3,17 +3,18 @@ package external_api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 //func TestHTTPServer_AddXP(t *testing.T) {
 //	// Create test user
-//	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+//	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestAddXP failed\n    Error: %v\n", err)
 //		return
@@ -97,7 +98,7 @@ import (
 
 func TestHTTPServer_GetUserRewardsInventory(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetUserRewardsInventory failed\n    Error: %v\n", err)
 		return
@@ -175,7 +176,7 @@ func TestHTTPServer_GetUserRewardsInventory(t *testing.T) {
 
 func TestHTTPServer_SetUserReward(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestSetUserReward failed\n    Error: %v\n", err)
 		return

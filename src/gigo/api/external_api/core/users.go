@@ -167,7 +167,7 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	// create a new user object
 	newUser, err := models.CreateUser(snowflakeNode.Generate().Int64(), username, password, email, phone,
 		models.UserStatusBasic, bio, []int64{}, nil, firstName, lastName, -1, "None",
-		starterUserInfo, timezone, avatarSettings, 0)
+		starterUserInfo, timezone, avatarSettings, 0, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +177,13 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt user password: %v", err)
 	}
+
+	// create a new strip customer for the user
+	stripeID, err := CreateStripeCustomer(ctx, newUser.UserName, newUser.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stripe customer: %v", err)
+	}
+	newUser.StripeUser = &stripeID
 
 	// create a new git user
 	gitUser, err := vcsClient.CreateUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), firstName+" "+lastName, fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
@@ -201,28 +208,16 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 		_ = vcsClient.DeleteUser(gitUser.UserName)
 		// clean user from search
 		_ = meili.DeleteDocuments("users", newUser.ID)
+		// clean the stripe user
+		if newUser.StripeUser != nil {
+			_ = DeleteStripeCustomer(ctx, *newUser.StripeUser)
+		}
 	}()
-
-	// retrieve the insert command for the life cycle
-	insertStatement, err := newUser.ToSQLNative()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load insert statement for new user creation: %v", err)
-	}
 
 	// open transaction for insertion
 	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
-	}
-
-	// executed insert for source image group
-	for _, statement := range insertStatement {
-		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
-		if err != nil {
-			// roll transaction back
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to insert new user: %v", err)
-		}
 	}
 
 	// calculate the beginning of the day in the user's timezone
@@ -287,11 +282,8 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		// give teh created user the extra free month, 2 in total
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-		}
+		// update the user with the referral user
+		newUser.ReferredBy = &userQuery.ID
 
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
@@ -310,10 +302,21 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
-	} else {
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+	}
+
+	// retrieve the insert command for the user
+	insertStatement, err := newUser.ToSQLNative()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load insert statement for new user creation: %v", err)
+	}
+
+	// executed insert for the user
+	for _, statement := range insertStatement {
+		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			// roll transaction back
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("failed to insert new user: %v", err)
 		}
 	}
 
@@ -475,7 +478,7 @@ func CreateNewEUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliS
 			MouthType:       "",
 			AvatarStyle:     "",
 			SkinColor:       "",
-		}, 0)
+		}, 0, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1674,7 +1677,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// create a new user object with google id added
 	newUser, err := models.CreateUser(snowflakeNode.Generate().Int64(), username, password, tokenInfo.Email,
 		"N/A", models.UserStatusBasic, "", nil, nil, userInfo.GivenName, userInfo.FamilyName,
-		-1, googleId, starterUserInfo, timezone, avatarSettings, 0)
+		-1, googleId, starterUserInfo, timezone, avatarSettings, 0, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1684,6 +1687,13 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt user password: %v", err)
 	}
+
+	// create a new strip customer for the user
+	stripeID, err := CreateStripeCustomer(ctx, newUser.UserName, newUser.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stripe customer: %v", err)
+	}
+	newUser.StripeUser = &stripeID
 
 	// create a new git user
 	gitUser, err := vcsClient.CreateUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), userInfo.GivenName+" "+userInfo.FamilyName, fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
@@ -1708,28 +1718,16 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		_ = vcsClient.DeleteUser(gitUser.UserName)
 		// clean user from search
 		_ = meili.DeleteDocuments("users", newUser.ID)
+		// clean the stripe user
+		if newUser.StripeUser != nil {
+			_ = DeleteStripeCustomer(ctx, *newUser.StripeUser)
+		}
 	}()
-
-	// retrieve the insert command for the life cycle
-	insertStatement, err := newUser.ToSQLNative()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load insert statement for new user creation: %v", err)
-	}
 
 	// open transaction for insertion
 	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
-	}
-
-	// executed insert for source image group
-	for _, statement := range insertStatement {
-		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
-		if err != nil {
-			// roll transaction back
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to insert new user: %v", err)
-		}
 	}
 
 	// calculate the beginning of the day in the user's timezone
@@ -1797,10 +1795,8 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-		}
+		// update the user with the referral user
+		newUser.ReferredBy = &userQuery.ID
 
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
@@ -1819,17 +1815,23 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
-	} else {
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-		}
 	}
 
-	// _, err = CreateTrialSubscription(ctx, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-	// }
+	// retrieve the insert command for the new user
+	insertStatement, err := newUser.ToSQLNative()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load insert statement for new user creation: %v", err)
+	}
+
+	// executed insert for new user
+	for _, statement := range insertStatement {
+		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			// roll transaction back
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("failed to insert new user: %v", err)
+		}
+	}
 
 	resp, err := http.Get(fmt.Sprintf("%v/%v", initialRecUrl, user.ID))
 	if err != nil {
@@ -2124,7 +2126,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// create a new user object with Google id added
 	newUser, err := models.CreateUser(genID, username,
 		password, email, "N/A", models.UserStatusBasic, "", nil,
-		nil, name, "", -1, strconv.FormatInt(userId, 10), starterUserInfo, timezone, avatarSetting, 0)
+		nil, name, "", -1, strconv.FormatInt(userId, 10), starterUserInfo, timezone, avatarSetting, 0, nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -2134,6 +2136,13 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to decrypt user password: %v", err)
 	}
+
+	// create a new strip customer for the user
+	stripeID, err := CreateStripeCustomer(ctx, newUser.UserName, newUser.Email)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create stripe customer: %v", err)
+	}
+	newUser.StripeUser = &stripeID
 
 	// create a new git user
 	gitUser, err := vcsClient.CreateUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), m["login"].(string), fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
@@ -2158,28 +2167,16 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		_ = vcsClient.DeleteUser(gitUser.UserName)
 		// clean user from search
 		_ = meili.DeleteDocuments("users", newUser.ID)
+		// clean the stripe user
+		if newUser.StripeUser != nil {
+			_ = DeleteStripeCustomer(ctx, *newUser.StripeUser)
+		}
 	}()
-
-	// retrieve the insert command for the life cycle
-	insertStatement, err := newUser.ToSQLNative()
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to load insert statement for new user creation: %v", err)
-	}
 
 	// open transaction for insertion
 	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
-	}
-
-	// executed insert for source image group
-	for _, statement := range insertStatement {
-		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
-		if err != nil {
-			// roll transaction back
-			_ = tx.Rollback()
-			return nil, "", fmt.Errorf("failed to insert new user: %v", err)
-		}
 	}
 
 	// calculate the beginning of the day in the user's timezone
@@ -2244,10 +2241,8 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			return nil, "", fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, name, " ")
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-		}
+		// update the user for the referral status
+		newUser.ReferredBy = &userQuery.ID
 
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
@@ -2266,17 +2261,23 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
-	} else {
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, name, " ")
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-		}
 	}
 
-	// _, err = CreateTrialSubscription(ctx, email, tidb, tx, newUser.ID, name, " ")
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-	// }
+	// retrieve the insert command for the user
+	insertStatement, err := newUser.ToSQLNative()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to load insert statement for new user creation: %v", err)
+	}
+
+	// executed insert for the user
+	for _, statement := range insertStatement {
+		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			// roll transaction back
+			_ = tx.Rollback()
+			return nil, "", fmt.Errorf("failed to insert new user: %v", err)
+		}
+	}
 
 	resp, err := http.Get(fmt.Sprintf("%v/%v", initialRecUrl, user.ID))
 	if err != nil {

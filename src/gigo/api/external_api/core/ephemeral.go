@@ -383,13 +383,6 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		// give teh created user the extra free month, 2 in total
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-		}
-
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
 			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
@@ -397,12 +390,6 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 				_ = tx.Rollback()
 				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
-		}
-	} else {
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
 	}
 
@@ -636,13 +623,6 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		// create a trial subscription for the user
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-		}
-
 		if userQuery.StripeSubscription != nil {
 
 			// give the referral user the free month
@@ -651,13 +631,6 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 				_ = tx.Rollback()
 				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
-		}
-	} else {
-		// if the user was not referred by a referral link, create a normal trial subscription
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
 	}
 
@@ -898,12 +871,6 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, name, " ")
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-		}
-
 		if userQuery.StripeSubscription != nil {
 			// give the referral user the free month
 			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
@@ -911,12 +878,6 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 				_ = tx.Rollback()
 				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 			}
-		}
-	} else {
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, name, " ")
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
 		}
 	}
 

@@ -3,14 +3,15 @@ package core
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
 	"github.com/gage-technologies/gigo-lib/config"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"
 	"github.com/gage-technologies/gigo-lib/search"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestProjectAttemptInformation(t *testing.T) {
@@ -28,7 +29,7 @@ func TestProjectAttemptInformation(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestMostChallengingActive failed\n    Error: %v\n", err)
 		return
@@ -159,7 +160,7 @@ func TestGetAttemptCode(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(1000, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 1000, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(1000, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 1000, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetAttemptCode failed\n    Error: %v\n", err)
 		return
@@ -238,7 +239,7 @@ func TestGetAttemptCode(t *testing.T) {
 //
 //	var ava models.AvatarSettings
 //
-//	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestMostChallengingActive failed\n    Error: %v\n", err)
 //		return
@@ -371,7 +372,7 @@ func TestEditDescription(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestMostChallengingActive failed\n    Error: %v\n", err)
 		return

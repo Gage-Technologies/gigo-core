@@ -5,6 +5,11 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"log"
+	"testing"
+	"time"
+
 	config2 "github.com/gage-technologies/gigo-lib/config"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
@@ -12,10 +17,6 @@ import (
 	"github.com/gage-technologies/gigo-lib/storage"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"log"
-	"testing"
-	"time"
 )
 
 func TestCreateWorkspace(t *testing.T) {
@@ -113,7 +114,7 @@ func TestInitializeWorkspace(t *testing.T) {
 		t.Fatal("Initialize test database failed:", err)
 	}
 
-	user, err := models.CreateUser(69, "", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	user, err := models.CreateUser(69, "", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nExtendExpiration HTTP failed\n    Error: %v\n", err)
 		return

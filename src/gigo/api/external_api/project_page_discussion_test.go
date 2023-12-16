@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	ti "github.com/gage-technologies/gigo-lib/db"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
 	"time"
+
+	ti "github.com/gage-technologies/gigo-lib/db"
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestHTTPServer_GetDiscussions(t *testing.T) {
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -170,7 +171,7 @@ func TestHTTPServer_GetComments(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0))
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -299,7 +300,7 @@ func TestHTTPServer_GetDiscussionCommentThread(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0))
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -431,7 +432,7 @@ func TestHTTPServer_GetCommentSideThread(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0))
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -489,7 +490,7 @@ func TestHTTPServer_EditDiscussions(t *testing.T) {
 	badges := []int64{1, 2}
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0))
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
