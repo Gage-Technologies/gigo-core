@@ -174,7 +174,7 @@ func TestCreateSubscription(t *testing.T) {
 		DB:       7,
 	})
 
-	res, err := CreateSubscription(context.Background(), "testStripeUser", "testStripeSubscription", testTiDB, "testEmail", testRdb, "America/Chicago")
+	res, err := CreateSubscription(context.Background(), "testStripeUser", "testStripeSubscription", false, testTiDB, "testEmail", testRdb, "America/Chicago")
 	if err != nil {
 		t.Fatalf("Failed to Create Subscription: %v", err)
 	}

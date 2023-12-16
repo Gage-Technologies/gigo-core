@@ -1685,6 +1685,7 @@ func (s *HTTPServer) linkAPI() {
 	// ////////////////// Auth
 	s.router.HandleFunc("/api/auth/login", s.Login).Methods("POST")
 	s.router.HandleFunc("/api/auth/logout", s.Logout).Methods("POST")
+	s.router.HandleFunc("/api/auth/updateToken", s.UpdateToken).Methods("POST")
 	s.router.HandleFunc("/api/auth/validate", s.ValidateSession).Methods("GET")
 
 	// ///////////////// OTP Auth

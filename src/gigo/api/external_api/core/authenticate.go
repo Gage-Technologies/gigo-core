@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"time"
 
@@ -55,7 +56,7 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 	callerName := "Login"
 
 	// query for user with passed credentials
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role from users u left join rewards r on r._id = u.avatar_reward where lower(user_name) = lower(?) limit 1", username)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where lower(user_name) = lower(?) limit 1", username)
 	if err != nil {
 		return map[string]interface{}{
 			"message": "invalid username passed",
@@ -171,6 +172,7 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 		"has_payment_info":    hasPaymentInfo,
 		"has_subscription":    hasSubscription,
 		"already_cancelled":   alreadyCancelled,
+		"used_free_trial":     user.UsedFreeTrial,
 	})
 	if err != nil {
 		return nil, "", err
@@ -240,7 +242,7 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 	googleId = tokenInfo.UserId
 
 	// query for user with passed credentials
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, user_status, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role from users u left join rewards r on r._id = u.avatar_reward where external_auth = ? limit 1", googleId)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, user_status, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where external_auth = ? limit 1", googleId)
 	if err != nil {
 		return map[string]interface{}{
 			"message": "google account not linked to any users",
@@ -356,6 +358,7 @@ func LoginWithGoogle(ctx context.Context, tidb *ti.Database, js *mq.JetstreamCli
 		"has_payment_info":    hasPaymentInfo,
 		"has_subscription":    hasSubscription,
 		"already_cancelled":   alreadyCancelled,
+		"used_free_trial":     user.UsedFreeTrial,
 	})
 	if err != nil {
 		return nil, "", err
@@ -421,7 +424,7 @@ func LoginWithGithub(ctx context.Context, tidb *ti.Database, storageEngine stora
 	ghId := int64(m["id"].(float64))
 
 	// query for user with passed credentials
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, user_status, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role from users u left join rewards r on r._id = u.avatar_reward where external_auth = ? limit 1", ghId)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, user_status, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where external_auth = ? limit 1", ghId)
 	if err != nil {
 		return map[string]interface{}{
 			"message": "github account not linked to any users",
@@ -499,7 +502,7 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 
 	// query for user with passed credentials
 	res, err := tidb.QueryContext(ctx, &span, &callerName,
-		"select color_palette, render_in_front, name, tutorials, stripe_subscription, auth_role from users u left join rewards r on r._id = u.avatar_reward where user_name = ? limit 1", callingUser.UserName,
+		"select color_palette, render_in_front, name, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where user_name = ? limit 1", callingUser.UserName,
 	)
 	if err != nil {
 		return map[string]interface{}{
@@ -591,6 +594,7 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 		"has_payment_info":    hasPaymentInfo,
 		"has_subscription":    hasSubscription,
 		"already_cancelled":   alreadyCancelled,
+		"used_free_trial":     user.UsedFreeTrial,
 	})
 	if err != nil {
 		return nil, "", err
@@ -671,4 +675,130 @@ func ReferralUserInfo(ctx context.Context, tidb *ti.Database, username string) (
 	}
 
 	return map[string]interface{}{"user": finalUser}, nil
+}
+
+// UpdateToken
+//
+//	Refreshes a user token with the same logic as performing a fresh login.
+//	This can be used when a fundamental trait of the user object has changed
+//	like purchasing Pro.
+func UpdateToken(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, storageEngine storage.Storage, domain string, callingUser *models.User,
+	ip string, expiration time.Time, logger logging.Logger) (map[string]interface{}, string, error) {
+
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-token-core")
+	defer span.End()
+	callerName := "UpdateToken"
+
+	// query for user with passed credentials
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where u._id = ? limit 1", callingUser.ID)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to retrieve user from database: %v", err)
+	}
+
+	// defer closure of rows
+	defer res.Close()
+
+	// create variable to decode res into
+	var user query_models.UserBackground
+
+	// load row into first position
+	ok := res.Next()
+	// return error for missing row
+	if !ok {
+		return map[string]interface{}{"message": "User not found"}, "", err
+	}
+
+	// decode row results
+	err = sqlstruct.Scan(&user, res)
+	if err != nil {
+		return map[string]interface{}{"message": "User not found"}, "", err
+	}
+
+	// generate token for user
+	token := ""
+
+	userId := user.ID
+
+	accountValid := false
+
+	if user.StripeAccount != nil {
+		accountValid = true
+	}
+
+	// parse the tutorials from bytes to a model
+	var tutorials models.UserTutorial
+	if len(user.Tutorials) > 0 {
+		if err := json.Unmarshal(user.Tutorials, &tutorials); err != nil {
+			return nil, "", fmt.Errorf("failed to unmarshal tutorials: %v", err)
+		}
+	} else {
+		tutorials = models.DefaultUserTutorial
+	}
+
+	inTrial := false
+	hasPaymentInfo := false
+	hasSubscription := false
+	alreadyCancelled := false
+
+	if user.StripeSubscription != nil {
+		sub, err := subscription.Get(*user.StripeSubscription, nil)
+		if err != nil {
+			inTrial = false
+			hasPaymentInfo = false
+			hasSubscription = false
+			alreadyCancelled = false
+		}
+
+		// Check if the subscription is in trial
+		inTrial = sub.TrialEnd > 0 && sub.TrialEnd > time.Now().Unix()
+		hasSubscription = true
+		alreadyCancelled = sub.CancelAtPeriodEnd
+
+		customerId := sub.Customer.ID
+
+		pmParams := &stripe.CustomerListPaymentMethodsParams{
+			Customer: &customerId,
+		}
+
+		i := customer.ListPaymentMethods(pmParams)
+
+		for i.Next() {
+			hasPaymentInfo = true
+			break
+		}
+
+		if i.Err() != nil {
+			log.Println("Error retrieving payment methods:", i.Err())
+		}
+	}
+
+	// calculate the amount of hours between now and the expiration
+	hours := int(math.Floor(time.Until(expiration).Hours()))
+
+	token, err = utils.CreateExternalJWT(storageEngine, fmt.Sprintf("%d", userId), ip, hours, 0, map[string]interface{}{
+		"user_status":         user.UserStatus,
+		"email":               user.Email,
+		"phone":               user.Phone,
+		"user_name":           user.UserName,
+		"thumbnail":           fmt.Sprintf("/static/user/pfp/%v", user.ID),
+		"color_palette":       user.ColorPalette,
+		"render_in_front":     user.RenderInFront,
+		"name":                user.Name,
+		"exclusive_account":   accountValid,
+		"exclusive_agreement": user.ExclusiveAgreement,
+		"tutorials":           tutorials,
+		"tier":                user.Tier,
+		"in_trial":            inTrial,
+		"has_payment_info":    hasPaymentInfo,
+		"has_subscription":    hasSubscription,
+		"already_cancelled":   alreadyCancelled,
+		"used_free_trial":     user.UsedFreeTrial,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+
+	return map[string]interface{}{
+		"token": token,
+	}, token, nil
 }

@@ -285,12 +285,10 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 		// update the user with the referral user
 		newUser.ReferredBy = &userQuery.ID
 
-		if userQuery.StripeSubscription != nil {
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
 		err = SendReferredFriendMessage(ctx, tidb, mgKey, mgDomain, userQuery.Email, newUser.UserName)
@@ -1798,12 +1796,10 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		// update the user with the referral user
 		newUser.ReferredBy = &userQuery.ID
 
-		if userQuery.StripeSubscription != nil {
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
 		err = SendReferredFriendMessage(ctx, tidb, mgKey, mgDomain, userQuery.Email, newUser.UserName)
@@ -2244,12 +2240,10 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 		// update the user for the referral status
 		newUser.ReferredBy = &userQuery.ID
 
-		if userQuery.StripeSubscription != nil {
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				return nil, "", fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
 		err = SendReferredFriendMessage(ctx, tidb, mgKey, mgDomain, userQuery.Email, newUser.UserName)

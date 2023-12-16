@@ -383,13 +383,21 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		if userQuery.StripeSubscription != nil {
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				_ = tx.Rollback()
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
+		}
+
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	}
 
@@ -623,14 +631,21 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		if userQuery.StripeSubscription != nil {
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
+		}
 
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				_ = tx.Rollback()
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	}
 
@@ -871,13 +886,21 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		if userQuery.StripeSubscription != nil {
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				_ = tx.Rollback()
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
+		}
+
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	}
 

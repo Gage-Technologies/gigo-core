@@ -119,6 +119,7 @@ func VerifyUserOtp(ctx context.Context, callingUser *models.User, db *ti.Databas
 			"has_payment_info":    hasPaymentInfo,
 			"has_subscription":    hasSubscription,
 			"already_cancelled":   alreadyCancelled,
+			"used_free_trial":     callingUser.UsedFreeTrial,
 		})
 		if err != nil {
 			return nil, "", err

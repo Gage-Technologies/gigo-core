@@ -11,6 +11,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/go-redis/redis/v8"
 	"github.com/stripe/stripe-go/v76"
+	"github.com/stripe/stripe-go/v76/subscription"
 	"go.opentelemetry.io/otel"
 )
 
@@ -224,8 +225,14 @@ func StripeCheckoutSessionCompleted(ctx context.Context, db *ti.Database, rdb re
 	}
 
 	if session.Subscription != nil {
+		// retrieve the subscription from the database
+		sub, err := subscription.Get(session.Subscription.ID, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get subscription from stripe: %v", err)
+		}
+
 		// create a new subscription to premium for the user
-		res, err := CreateSubscription(ctx, session.Customer.ID, session.Subscription.ID, db, session.Metadata["user_id"], rdb, session.Metadata["timezone"])
+		res, err := CreateSubscription(ctx, session.Customer.ID, session.Subscription.ID, sub.TrialEnd > 0, db, session.Metadata["user_id"], rdb, session.Metadata["timezone"])
 		if err != nil {
 			return fmt.Errorf("failed to create premium subscription for user on the core: %v", err)
 		}
