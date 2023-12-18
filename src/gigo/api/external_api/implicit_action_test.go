@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/google/uuid"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
+	"github.com/google/uuid"
 )
 
 func TestHTTPServer_RecordImplicitAction(t *testing.T) {
 	var ava models.AvatarSettings
 
 	// Create a test user
-	user, err := models.CreateUser(2, "testUser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(2, "testUser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("Failed to create user, err: %v", err)
 		return

@@ -2,11 +2,12 @@ package core
 
 import (
 	"context"
+	"testing"
+
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/google/uuid"
-	"testing"
 )
 
 func TestRecordImplicitAction(t *testing.T) {
@@ -18,7 +19,7 @@ func TestRecordImplicitAction(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestRecordImplicitAction failed\n    Error: %v\n", err)
 		return

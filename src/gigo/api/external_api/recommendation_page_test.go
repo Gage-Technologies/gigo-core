@@ -23,7 +23,7 @@ func TestHTTPServer_TopRecommendation(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0))
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -150,7 +150,7 @@ func TestHTTPServer_RecommendByAttempt(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0))
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -399,7 +399,7 @@ func TestHTTPServer_HarderRecommendation(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0))
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return

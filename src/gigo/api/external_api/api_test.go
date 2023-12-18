@@ -134,6 +134,7 @@ func init() {
 		"America/Chicago",
 		models.AvatarSettings{},
 		0,
+		nil,
 	)
 	if err != nil {
 		log.Panicf("failed to create bootstrapUser, err: %v", err)

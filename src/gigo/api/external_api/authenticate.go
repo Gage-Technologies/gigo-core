@@ -500,3 +500,84 @@ func (s *HTTPServer) ReferralUserInfo(w http.ResponseWriter, r *http.Request) {
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "ReferralUserInfo", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
 }
+
+func (s *HTTPServer) UpdateToken(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "update-token-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "UpdateToken", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, "", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	// retrieve IP address of caller
+	ip := network.GetRequestIP(r)
+
+	// get the auth token cookie to get the expiration
+	cookie, err := r.Cookie("gigoAuthToken")
+	if cookie == nil || err != nil {
+		s.handleError(w, "auto token missing from cookies", r.URL.Path, "UpdateToken", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, "", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	// execute core function logic
+	res, token, err := core.UpdateToken(ctx, s.tiDB, s.jetstreamClient, s.rdb, s.sf, s.storageEngine, s.domain, callingUser.(*models.User), ip, cookie.Expires, s.logger)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "update token core failed", r.URL.Path, "UpdateToken", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "n/a", "n/a", http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	// check if token was created
+	if token != "" {
+		// conditionally set cookie with insecure settings
+		if s.developmentMode {
+			// set cookie in response if the token was created
+			http.SetCookie(w, &http.Cookie{
+				Name:     "gigoAuthToken",
+				Value:    token,
+				Expires:  cookie.Expires,
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+				Secure:   false,
+				Domain:   fmt.Sprintf(".%s", s.domain),
+			})
+		} else {
+			// set cookie in response if the token was created
+			http.SetCookie(w, &http.Cookie{
+				Name:     "gigoAuthToken",
+				Value:    token,
+				Expires:  cookie.Expires,
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteStrictMode,
+				Secure:   true,
+				Domain:   fmt.Sprintf(".%s", s.domain),
+			})
+		}
+	}
+
+	// register the login event
+	parentSpan.AddEvent(
+		"token-update",
+		trace.WithAttributes(
+			attribute.Bool("success", token != ""),
+			attribute.String("ip", ip),
+			attribute.Int64("_id", callingUser.(*models.User).ID),
+		),
+	)
+
+	// return JSON response
+	s.jsonResponse(r, w, res, r.URL.Path, "UpdateToken", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, "n/a", http.StatusOK)
+}

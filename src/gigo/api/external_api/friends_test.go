@@ -4,24 +4,25 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestHTTPServer_SendFriendRequest(t *testing.T) {
 	var ava models.AvatarSettings
 
-	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
 	}
 
-	friendUser, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	friendUser, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create friend user, err: %v", err)
 		return
@@ -100,13 +101,13 @@ func TestHTTPServer_SendFriendRequest(t *testing.T) {
 func TestHTTPServer_AcceptFriendRequest(t *testing.T) {
 	var ava models.AvatarSettings
 
-	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create calling user, err: %v", err)
 		return
 	}
 
-	requesterUser, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	requesterUser, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create requester user, err: %v", err)
 		return
@@ -134,7 +135,7 @@ func TestHTTPServer_AcceptFriendRequest(t *testing.T) {
 		}
 	}
 
-	friendReq, err := models.CreateFriendRequests(69, callingUser.ID, callingUser.UserName, requesterUser.ID, requesterUser.UserName, time.Now())
+	friendReq, err := models.CreateFriendRequests(69, callingUser.ID, callingUser.UserName, requesterUser.ID, requesterUser.UserName, time.Now(), 420)
 
 	reqStmt := friendReq.ToSQLNative()
 
@@ -194,13 +195,13 @@ func TestHTTPServer_AcceptFriendRequest(t *testing.T) {
 func TestHTTPServer_DeclineFriendRequest(t *testing.T) {
 	var ava models.AvatarSettings
 
-	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create calling user, err: %v", err)
 		return
 	}
 
-	requesterUser, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	requesterUser, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create requester user, err: %v", err)
 		return
@@ -227,7 +228,7 @@ func TestHTTPServer_DeclineFriendRequest(t *testing.T) {
 		}
 	}
 
-	friendReq, err := models.CreateFriendRequests(69, callingUser.ID, callingUser.UserName, requesterUser.ID, requesterUser.UserName, time.Now())
+	friendReq, err := models.CreateFriendRequests(69, callingUser.ID, callingUser.UserName, requesterUser.ID, requesterUser.UserName, time.Now(), 420)
 
 	reqStmt := friendReq.ToSQLNative()
 

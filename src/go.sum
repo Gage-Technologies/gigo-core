@@ -539,8 +539,14 @@ github.com/gabriel-vasile/mimetype v1.3.1/go.mod h1:fA8fi6KUiG7MgQQ+mEWotXoEOvmx
 github.com/gabriel-vasile/mimetype v1.4.0/go.mod h1:fA8fi6KUiG7MgQQ+mEWotXoEOvmxRtOJlERCzSmRvr8=
 github.com/gage-technologies/drpc-lib v0.0.0-20230222154330-0a639616debe h1:eXU7JUmV9TFdMOyK5Hly37x+/qv89lRhrNmPz8PhOEU=
 github.com/gage-technologies/drpc-lib v0.0.0-20230222154330-0a639616debe/go.mod h1:Ze6k8kZi3D8Rt3nwx9DDhVBDyWGcV0ZD3EgOwu8sNEM=
-github.com/gage-technologies/gigo-lib v0.0.0-20231206202806-4497c3ae07be h1:C+hH11QiofvnR70iz5/Vv118tElFZnoMgTn86UI0ZkM=
-github.com/gage-technologies/gigo-lib v0.0.0-20231206202806-4497c3ae07be/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20231214155630-2602003d5dac h1:mmYO7sjUK4rnoDGSe9UsjuEFiam6oEnQN2dQwjqU0NU=
+github.com/gage-technologies/gigo-lib v0.0.0-20231214155630-2602003d5dac/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20231216114334-d49a4db76b72 h1:ltGjQCobiF8e5i4uiIbYDcDRSasUuyn7hlkMMRZ79Qk=
+github.com/gage-technologies/gigo-lib v0.0.0-20231216114334-d49a4db76b72/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20231216140343-ddb823c86b71 h1:nW/kB/lOut/uBKnw6DLGhIHpD6fbtl745nhuySv8x+o=
+github.com/gage-technologies/gigo-lib v0.0.0-20231216140343-ddb823c86b71/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20231216140453-150ef9a6494d h1:C8NZBDQV23etNA8Y9rflPr3kdIwGZaMZi2OJdH05H6s=
+github.com/gage-technologies/gigo-lib v0.0.0-20231216140453-150ef9a6494d/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
 github.com/gage-technologies/gitea-go/gitea v0.16.0 h1:w0eOZn9HMR7acXzaJlvZ4BoPZfH76OOibm+U1cTB28I=
 github.com/gage-technologies/gitea-go/gitea v0.16.0/go.mod h1:nMhiMA2jCA/JHqGWtn6zsc1A34LILhMaJWpG8orDdzo=
 github.com/gage-technologies/go-logrus-elasticsearch v0.0.0-20210908162149-c64f8e07bb9e h1:ui469cZfaOayIzw7jhRD+eoTHxwIk0JupCpjUiVmAao=

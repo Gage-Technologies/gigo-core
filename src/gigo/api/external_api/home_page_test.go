@@ -3,10 +3,11 @@ package external_api
 import (
 	"bytes"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestHTTPServer_ActiveProjectsHome(t *testing.T) {
@@ -14,7 +15,7 @@ func TestHTTPServer_ActiveProjectsHome(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -71,7 +72,7 @@ func TestHTTPServer_RecommendedProjectsHome(t *testing.T) {
 
 	user, err := models.CreateUser(69, "test", "testpass", "testemail",
 		"phone", models.UserStatusBasic, "fryin with jigsaw", badges,
-		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+		[]int64{1, 2, 3}, "test", "test", 69420, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -127,12 +128,12 @@ func TestHTTPServer_RecommendedProjectsHome(t *testing.T) {
 //	var ava models.AvatarSettings
 //
 //	// Create test users
-//	testUser1, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	testUser1, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestFeedProjectsHome failed\n    Error: %v\n", err)
 //		return
 //	}
-//	testUser2, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	testUser2, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestFeedProjectsHome failed\n    Error: %v\n", err)
 //		return

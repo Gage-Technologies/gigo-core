@@ -5,17 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestHTTPServer_AddPostToCurated(t *testing.T) {
 	var ava models.AvatarSettings
 
-	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -75,7 +76,7 @@ func TestHTTPServer_RemoveCuratedPost(t *testing.T) {
 	var ava models.AvatarSettings
 
 	// Create callingUser and necessary data
-	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return
@@ -160,7 +161,7 @@ func TestHTTPServer_GetCuratedPostsForAdmin(t *testing.T) {
 	var ava models.AvatarSettings
 
 	// Create callingUser and necessary data
-	callingUser, err := models.CreateUser(2, "testadmin", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(2, "testadmin", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("failed to create user, err: %v", err)
 		return

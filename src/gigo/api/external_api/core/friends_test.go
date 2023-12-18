@@ -3,10 +3,11 @@ package core
 import (
 	"context"
 	"fmt"
-	config2 "github.com/gage-technologies/gigo-lib/config"
 	"reflect"
 	"testing"
 	"time"
+
+	config2 "github.com/gage-technologies/gigo-lib/config"
 
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
@@ -42,7 +43,7 @@ func TestSendFriendRequest(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestSendFriendRequest failed\n    Error: %v\n", err)
 		return
@@ -60,7 +61,7 @@ func TestSendFriendRequest(t *testing.T) {
 		}
 	}
 
-	friend, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	friend, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestSendFriendRequest failed\n    Error: %v\n", err)
 		return

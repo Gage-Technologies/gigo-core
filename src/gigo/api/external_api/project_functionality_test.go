@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestHTTPServer_DeleteProject(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestDeleteProject failed\n    Error: %v\n", err)
 		return
@@ -96,7 +97,7 @@ func TestHTTPServer_DeleteProject(t *testing.T) {
 
 func TestHTTPServer_StartAttempt(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestStartAttempt failed\n    Error: %v\n", err)
 		return
@@ -178,7 +179,7 @@ func TestHTTPServer_StartAttempt(t *testing.T) {
 
 func TestHTTPServer_PublishProject(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestPublishProject failed\n    Error: %v\n", err)
 		return
@@ -280,7 +281,7 @@ func TestHTTPServer_PublishProject(t *testing.T) {
 
 func TestHTTPServer_EditConfig(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestEditConfig failed\n    Error: %v\n", err)
 		return
@@ -364,7 +365,7 @@ func TestHTTPServer_EditConfig(t *testing.T) {
 
 func TestHTTPServer_GetConfig(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetConfig failed\n    Error: %v\n", err)
 		return
@@ -447,7 +448,7 @@ func TestHTTPServer_GetConfig(t *testing.T) {
 
 func TestHTTPServer_CloseAttempt(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestCloseAttempt failed\n    Error: %v\n", err)
 		return
@@ -546,7 +547,7 @@ func TestHTTPServer_CloseAttempt(t *testing.T) {
 
 func TestHTTPServer_MarkSuccess(t *testing.T) {
 	// Create test user
-	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "testUser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestMarkSuccess failed\n    Error: %v\n", err)
 		return

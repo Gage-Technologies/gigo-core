@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"testing"
+	"time"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/utils"
-	"testing"
-	"time"
 )
 
 //func TestActiveProjectsHome(t *testing.T) {
@@ -120,7 +121,7 @@ func TestRecommendedProjectsHome(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestMostChallengingActive failed\n    Error: %v\n", err)
 		return
@@ -210,12 +211,12 @@ func TestRecommendedProjectsHome(t *testing.T) {
 //	var ava models.AvatarSettings
 //
 //	// Create test users
-//	testUser1, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	testUser1, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestFeedProjectsHome failed\n    Error: %v\n", err)
 //		return
 //	}
-//	testUser2, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	testUser2, err := models.CreateUser(2, "testuser2", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestFeedProjectsHome failed\n    Error: %v\n", err)
 //		return

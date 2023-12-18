@@ -3,12 +3,13 @@ package core
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"testing"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/git"
 	"github.com/gage-technologies/gigo-lib/storage"
-	"io/ioutil"
-	"testing"
 )
 
 func TestSiteImages(t *testing.T) {
@@ -20,7 +21,7 @@ func TestSiteImages(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestSiteImages failed\n    Error: %v\n", err)
 		return
@@ -79,7 +80,7 @@ func TestGitImages(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGitImages failed\n    Error: %v\n", err)
 		return
@@ -134,7 +135,7 @@ func TestGetGeneratedImage(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetGeneratedImage failed\n    Error: %v\n", err)
 		return

@@ -10,7 +10,7 @@ package core
 //
 //	var ava models.AvatarSettings
 //
-//	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestPastWeekActive failed\n    Error: %v\n", err)
 //		return
@@ -172,7 +172,7 @@ package core
 //
 //	var ava models.AvatarSettings
 //
-//	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestMostChallengingActive failed\n    Error: %v\n", err)
 //		return
@@ -290,7 +290,7 @@ package core
 //
 //	var ava models.AvatarSettings
 //
-//	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestDontGiveUpActive failed\n    Error: %v\n", err)
 //		return

@@ -87,7 +87,7 @@ func TestStreakEngine_GetUsersYesterdayStats(t *testing.T) {
 	testUser, err := models.CreateUser(streakEngine.snowFlake.Generate().Int64(), "sixtyNoine", "bussin",
 		"sixtyNoine@gmail.com", "420694204200", models.UserStatusBasic, "we bussin",
 		nil, nil, "Meta", "test",
-		streakEngine.snowFlake.Generate().Int64(), "", models.UserStart{}, "US/Central", models.AvatarSettings{}, uint64(0))
+		streakEngine.snowFlake.Generate().Int64(), "", models.UserStart{}, "US/Central", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Error("\nInitialize testUser failed\n    Error: ", err)
 		return
@@ -234,7 +234,7 @@ func TestEngine_initializeFirstUserStats(t *testing.T) {
 	testUser, err := models.CreateUser(streakEngine.snowFlake.Generate().Int64(), "sixtyNoine", "bussin",
 		"sixtyNoine@gmail.com", "420694204200", models.UserStatusBasic, "bussin",
 		nil, nil, "Meta", "test",
-		streakEngine.snowFlake.Generate().Int64(), "", models.UserStart{}, "US/Central", models.AvatarSettings{}, uint64(0))
+		streakEngine.snowFlake.Generate().Int64(), "", models.UserStart{}, "US/Central", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Error("\nInitialize testUser failed\n    Error: ", err)
 		return
@@ -308,7 +308,7 @@ func TestEngine_userStartWorkspace(t *testing.T) {
 	testUser, err := models.CreateUser(streakEngine.snowFlake.Generate().Int64(), "sixtyNoine", "bussin",
 		"sixtyNoine@gmail.com", "420694204200", models.UserStatusBasic, "bussin",
 		nil, nil, "Meta", "test",
-		streakEngine.snowFlake.Generate().Int64(), "", models.UserStart{}, "US/Central", models.AvatarSettings{}, uint64(0))
+		streakEngine.snowFlake.Generate().Int64(), "", models.UserStart{}, "US/Central", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Error("\nInitialize testUser failed\n    Error: ", err)
 		return
@@ -408,7 +408,7 @@ func TestEngine_userStopWorkspace(t *testing.T) {
 	testUser, err := models.CreateUser(streakEngine.snowFlake.Generate().Int64(), "sixtyNoine", "bussin",
 		"sixtyNoine@gmail.com", "420694204200", models.UserStatusBasic, "bussin",
 		nil, nil, "Meta", "test",
-		streakEngine.snowFlake.Generate().Int64(), "", models.UserStart{}, "US/Central", models.AvatarSettings{}, uint64(0))
+		streakEngine.snowFlake.Generate().Int64(), "", models.UserStart{}, "US/Central", models.AvatarSettings{}, uint64(0), nil)
 	if err != nil {
 		t.Error("\nInitialize testUser failed\n    Error: ", err)
 		return

@@ -278,86 +278,40 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 	userStatus := models.UserStatusBasic
 	broadcastThresh := uint64(0)
 
+	// ensuring that we are changing this user from ephemeral to non-ephemeral
+	isEphemeral := false
+
+	// edit ephemeral user adding information from account creation to convert the epehemeral user to an official user
 	newUser, statement, err := eUser.EditUser(&userName, &password, &email, &phone,
 		&userStatus, &bio, []int64{}, nil, &firstName, &lastName, &eUser.GiteaID, &externalAuth,
-		&starterUserInfo, &timezone, &avatarSettings, &broadcastThresh)
+		&starterUserInfo, &timezone, &avatarSettings, &broadcastThresh, &isEphemeral)
 	if err != nil {
 		return nil, fmt.Errorf("failed to edit user: %v", err)
 	}
 
-	_, err = tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+	// create transaction to insert edited ephemeral user into database to become an official user
+	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update database from edit user: %v", err)
+		return nil, fmt.Errorf("failed to open insertion transaction while creating new user from ephemeral: %v", err)
 	}
 
-	// create a new user object
-	// newUser, err := models.CreateUser(snowflakeNode.Generate().Int64(), userName, password, email, phone,
-	//	models.UserStatusBasic, bio, []int64{}, nil, firstName, lastName, -1, "None",
-	//	starterUserInfo, timezone, avatarSettings, 0)
-	// if err != nil {
-	//	return nil, err
-	// }
+	_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to update database from edit user: %v", err)
+	}
 
 	// decrypt user service password
 	servicePassword, err := session.DecryptServicePassword(newUser.EncryptedServiceKey, []byte(password))
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to decrypt user password: %v", err)
 	}
 
 	err = vcsClient.EditUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), firstName+" "+lastName, fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to edit git user: %v", err)
-	}
-	// // create a new git user
-	// gitUser, err := vcsClient.CreateUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), firstName+" "+lastName, fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
-	// if err != nil {
-	//	return map[string]interface{}{"message": "unable to create gitea user"}, err
-	// }
-
-	// // update new user with git user
-	// newUser.GiteaID = gitUser.ID
-
-	// create boolean to track failure
-	// failed := true
-
-	// defer function to cleanup coder and gitea user in the case of a failure
-	// defer func() {
-	//	// skip cleanup if we succeeded
-	//	if !failed {
-	//		return
-	//	}
-	//
-	//	// cleaned git user
-	//	_ = vcsClient.DeleteUser(gitUser.UserName)
-	//	// clean user from search
-	//	_ = meili.DeleteDocuments("users", newUser.ID)
-	// }()
-
-	// // retrieve the insert command for the life cycle
-	// insertStatement, err := newUser.ToSQLNative()
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to load insert statement for new user creation: %v", err)
-	// }
-
-	// // open transaction for insertion
-	// tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
-	// }
-	//
-	// // executed insert for source image group
-	// for _, statement := range insertStatement {
-	//	_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
-	//	if err != nil {
-	//		// roll transaction back
-	//		_ = tx.Rollback()
-	//		return nil, fmt.Errorf("failed to insert new user: %v", err)
-	//	}
-	// }
-
-	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open insertion transaction while creating new user from ephemeral: %v", err)
 	}
 
 	// calculate the beginning of the day in the user's timezone
@@ -374,6 +328,7 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 	// write thumbnail to final location
 	idHash, err := utils.HashData([]byte(fmt.Sprintf("%d", newUser.ID)))
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to hash post id: %v", err)
 	}
 	err = storageEngine.MoveFile(
@@ -381,18 +336,21 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 		fmt.Sprintf("user/%s/%s/%s/profile-pic.svg", idHash[:3], idHash[3:6], idHash),
 	)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to write thumbnail to final location: %v", err)
 	}
 
 	// attempt to insert user into search engine
 	err = meili.AddDocuments("users", newUser.ToSearch())
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to insert new user into search engine: %v", err)
 	}
 
 	// format user to frontend
 	user, err := newUser.ToFrontend()
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to format new user: %v", err)
 	}
 
@@ -400,6 +358,7 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 		// query to see if referred user is an actual user
 		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to query referral user: %v", err)
 		}
 
@@ -413,32 +372,32 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 		ok := res.Next()
 		// return error for missing row
 		if !ok {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to find referral user: %v", err)
 		}
 
 		// decode row results
 		err = sqlstruct.Scan(&userQuery, res)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		// give teh created user the extra free month, 2 in total
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
-		if userQuery.StripeSubscription != nil {
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
-		}
-	} else {
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	}
 
@@ -556,63 +515,47 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 		}, fmt.Errorf("failed to load user timezone: %v", err)
 	}
 
-	// create a new user object with google id added
-	// newUser, err := models.CreateUser(snowflakeNode.Generate().Int64(), userInfo.Name, password, tokenInfo.Email,
-	//	"N/A", models.UserStatusBasic, "", nil, nil, userInfo.GivenName, userInfo.FamilyName,
-	//	-1, googleId, starterUserInfo, timezone, avatarSettings, 0)
-	// if err != nil {
-	//	return nil, err
-	// }
-
 	phone := "N/A"
 	userSatus := models.UserStatusBasic
 	bio := ""
 	broadcastThresh := uint64(0)
 
+	// ensuring that we are changing this from an ephemeral user to a normal user
+	isEphemeral := false
+
+	// update ephemeral user with user info from google to convert to a "true" user
 	newUser, statement, err := eUser.EditUser(&userInfo.Name, &password, &tokenInfo.Email,
 		&phone, &userSatus, &bio, nil, nil, &userInfo.GivenName, &userInfo.FamilyName,
-		&eUser.GiteaID, &googleId, &starterUserInfo, &timezone, &avatarSettings, &broadcastThresh)
+		&eUser.GiteaID, &googleId, &starterUserInfo, &timezone, &avatarSettings, &broadcastThresh, &isEphemeral)
 	if err != nil {
 		return nil, fmt.Errorf("failed to edit user: %v", err)
-	}
-
-	_, err = tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update database from edit user: %v", err)
-	}
-
-	// decrypt user service password
-	servicePassword, err := session.DecryptServicePassword(newUser.EncryptedServiceKey, []byte(password))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt user password: %v", err)
-	}
-
-	// create a new git user
-	err = vcsClient.EditUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), userInfo.GivenName+" "+userInfo.FamilyName, fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
-	if err != nil {
-		return map[string]interface{}{"message": "unable to create gitea user"}, err
-	}
-
-	// retrieve the insert command for the life cycle
-	insertStatement, err := newUser.ToSQLNative()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load insert statement for new user creation: %v", err)
 	}
 
 	// open transaction for insertion
 	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
 	}
 
-	// executed insert for source image group
-	for _, statement := range insertStatement {
-		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
-		if err != nil {
-			// roll transaction back
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to insert new user: %v", err)
-		}
+	// insert changes to ephemeral user to create a new "official" user
+	_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to update database from edit user inside CreateAccountFromEpehemeralGoogle: %v", err)
+	}
+
+	// decrypt user service password for gitea validation
+	servicePassword, err := session.DecryptServicePassword(newUser.EncryptedServiceKey, []byte(password))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt user password: %v", err)
+	}
+
+	// create a new git user from existing ephemeral user in gitea
+	// this allows use to preserve any changes an ephemeral user may have made to a project
+	err = vcsClient.EditUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), userInfo.GivenName+" "+userInfo.FamilyName, fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
+	if err != nil {
+		return map[string]interface{}{"message": "unable to create gitea user"}, err
 	}
 
 	// calculate the beginning of the day in the user's timezone
@@ -629,6 +572,7 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 	// write thumbnail to final location
 	idHash, err := utils.HashData([]byte(fmt.Sprintf("%d", newUser.ID)))
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to hash post id: %v", err)
 	}
 	err = storageEngine.MoveFile(
@@ -636,25 +580,30 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 		fmt.Sprintf("user/%s/%s/%s/profile-pic.svg", idHash[:3], idHash[3:6], idHash),
 	)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to write thumbnail to final location: %v", err)
 	}
 
 	// attempt to insert user into search engine
 	err = meili.AddDocuments("users", newUser.ToSearch())
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to insert new user into search engine: %v", err)
 	}
 
 	// format user to frontend
 	user, err := newUser.ToFrontend()
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to format new user: %v", err)
 	}
 
+	// if the user was referred by a referral link perform referral logic checks
 	if referralUser != nil {
 		// query to see if referred user is an actual user
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
+		res, err := tx.QueryContext(ctx, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
 		if err != nil {
+			_ = tx.Rollback()
 			if err == sql.ErrNoRows {
 				return nil, fmt.Errorf("referral user was not in the database: %v", err)
 			}
@@ -671,38 +620,34 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 		ok := res.Next()
 		// return error for missing row
 		if !ok {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to find referral user: %v", err)
 		}
 
 		// decode row results
 		err = sqlstruct.Scan(&userQuery, res)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
-		if userQuery.StripeSubscription != nil {
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
-		}
-	} else {
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	}
-
-	// _, err = CreateTrialSubscription(ctx, tokenInfo.Email, tidb, tx, newUser.ID, newUser.FirstName, newUser.LastName)
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-	// }
 
 	// commit insertion transaction to database
 	err = tx.Commit(&callerName)
@@ -711,6 +656,7 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 		return nil, fmt.Errorf("failed to commit insertion transaction while creating new user: %v", err)
 	}
 
+	// call the initial recommendations for the new user
 	resp, err := http.Get(fmt.Sprintf("%v/%v", initialRecUrl, user.ID))
 	if err != nil {
 		logger.Errorf("failed to get initial recommendations for user: %v, err: %v", user.ID, err)
@@ -793,24 +739,6 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 		name = m["name"].(string)
 	}
 
-	// // build query to check if username already exists
-	// nameQuery = "select user_name from users where user_name = ?"
-	//
-	// // query users to ensure username does not already exist
-	// response, err = tidb.QueryContext(ctx, &span, &callerName, nameQuery, m["login"].(string))
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
-	// }
-	//
-	// // ensure the closure of the rows
-	// defer response.Close()
-	//
-	// if response.Next() {
-	//	return map[string]interface{}{
-	//		"message": "that username already exists",
-	//	}, errors.New("duplicate username in user creation")
-	// }
-
 	// build query to check if username already exists
 	nameQuery = "select user_name from users where user_name = ?"
 
@@ -832,24 +760,6 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 		// }, errors.New("duplicate username in user creation")
 	}
 
-	// // build query to check if username already exists
-	// emailQuery := "select user_name from users where email = ?"
-	//
-	// // query users to ensure username does not already exist
-	// responseEmail, err := tidb.QueryContext(ctx, &span, &callerName, emailQuery, tokenInfo.Email)
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to query for duplicate username: %v", err)
-	// }
-	//
-	// // ensure the closure of the rows
-	// defer responseEmail.Close()
-	//
-	// if responseEmail.Next() {
-	//	return map[string]interface{}{
-	//		"message": "that email is already in use",
-	//	}, errors.New("duplicate username in user creation")
-	// }
-
 	// require that password be present for all users
 	if password == "" || len(password) < 5 {
 		return map[string]interface{}{
@@ -865,66 +775,46 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 		}, fmt.Errorf("failed to load user timezone: %v", err)
 	}
 
-	// TODO: download avatar and store locally
-	// create a new user object with Google id added
-	// newUser, err := models.CreateUser(genID, loginName,
-	//	password, email, "N/A", models.UserStatusBasic, "", nil,
-	//	nil, name, "", -1, strconv.FormatInt(userId, 10), starterUserInfo, timezone, avatarSetting, 0)
-	// if err != nil {
-	//	return nil, err
-	// }
-
 	phone := "N/A"
 	userSatus := models.UserStatusBasic
 	bio := ""
 	broadcastThresh := uint64(0)
 	githubId := strconv.FormatInt(userId, 10)
 	lastName := ""
+	isEphemeral := false
 
 	newUser, statement, err := eUser.EditUser(&loginName, &password, &email,
 		&phone, &userSatus, &bio, nil, nil, &name, &lastName,
-		&eUser.GiteaID, &githubId, &starterUserInfo, &timezone, &avatarSetting, &broadcastThresh)
+		&eUser.GiteaID, &githubId, &starterUserInfo, &timezone, &avatarSetting, &broadcastThresh, &isEphemeral)
 	if err != nil {
 		return nil, fmt.Errorf("failed to edit user: %v", err)
 	}
 
-	_, err = tidb.ExecContext(ctx, &span, &callerName, statement.Statement, statement.Values...)
+	// open transaction for insertion
+	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
+	}
+
+	_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to update database from edit user: %v", err)
 	}
 
 	// decrypt user service password
 	servicePassword, err := session.DecryptServicePassword(newUser.EncryptedServiceKey, []byte(password))
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to decrypt user password: %v", err)
 	}
 
 	// create a new git user
 	err = vcsClient.EditUser(fmt.Sprintf("%d", newUser.ID), fmt.Sprintf("%d", newUser.ID), m["login"].(string), fmt.Sprintf("%d@git.%s", newUser.ID, domain), servicePassword)
 	if err != nil {
+		_ = tx.Rollback()
 		return map[string]interface{}{"message": "unable to create gitea user"}, err
-	}
-
-	// retrieve the insert command for the life cycle
-	insertStatement, err := newUser.ToSQLNative()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load insert statement for new user creation: %v", err)
-	}
-
-	// open transaction for insertion
-	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open insertion transaction while creating new user: %v", err)
-	}
-
-	// executed insert for source image group
-	for _, statement := range insertStatement {
-		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
-		if err != nil {
-			// roll transaction back
-			_ = tx.Rollback()
-			return nil, fmt.Errorf("failed to insert new user: %v", err)
-		}
 	}
 
 	// calculate the beginning of the day in the user's timezone
@@ -941,12 +831,14 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 	// format user to frontend
 	user, err := newUser.ToFrontend()
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to format new user: %v", err)
 	}
 
 	// write thumbnail to final location
 	idHash, err := utils.HashData([]byte(fmt.Sprintf("%d", newUser.ID)))
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to hash post id: %v", err)
 	}
 	err = storageEngine.MoveFile(
@@ -954,19 +846,22 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 		fmt.Sprintf("user/%s/%s/%s/profile-pic.svg", idHash[:3], idHash[3:6], idHash),
 	)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to write thumbnail to final location: %v", err)
 	}
 
 	// attempt to insert user into search engine
 	err = meili.AddDocuments("users", newUser.ToSearch())
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, fmt.Errorf("failed to insert new user into search engine: %v", err)
 	}
 
 	if referralUser != nil {
 		// query to see if referred user is an actual user
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
+		res, err := tx.QueryContext(ctx, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to query referral user: %v", err)
 		}
 
@@ -980,38 +875,34 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 		ok := res.Next()
 		// return error for missing row
 		if !ok {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to find referral user: %v", err)
 		}
 
 		// decode row results
 		err = sqlstruct.Scan(&userQuery, res)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to decode refferal user: %v", err)
 		}
 
-		_, err = CreateTrialSubscriptionReferral(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, name, " ")
+		// give the referral user the free month
+		_, err = FreeMonthReferral(stripeSubConfig, userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
-		if userQuery.StripeSubscription != nil {
-			// give the referral user the free month
-			_, err = FreeMonthReferral(stripeSubConfig, *userQuery.StripeSubscription, int(userQuery.UserStatus), userQuery.ID, tidb, ctx, logger, userQuery.FirstName, userQuery.LastName, userQuery.Email)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
-			}
-		}
-	} else {
-		_, err = CreateTrialSubscription(ctx, stripeSubConfig.MonthlyPriceID, email, tidb, tx, newUser.ID, name, " ")
+		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
+		}
+
+		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		if err != nil {
+			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 	}
-
-	// _, err = CreateTrialSubscription(ctx, email, tidb, tx, newUser.ID, name, " ")
-	// if err != nil {
-	//	return nil, fmt.Errorf("failed to create trial subscription for user: %v, err: %v", user.ID, err)
-	// }
 
 	// commit insertion transaction to database
 	err = tx.Commit(&callerName)
@@ -1022,6 +913,7 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 
 	resp, err := http.Get(fmt.Sprintf("%v/%v", initialRecUrl, user.ID))
 	if err != nil {
+		_ = tx.Rollback()
 		logger.Errorf("failed to get initial recommendations for user: %v, err: %v", user.ID, err)
 	} else {
 		if resp.StatusCode < 200 || resp.StatusCode > 299 {

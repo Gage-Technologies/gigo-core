@@ -25,7 +25,7 @@ func TestProjectInformation(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	callingUser, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestProjectInformation failed\n    Error: %v\n", err)
 		return
@@ -93,7 +93,7 @@ func TestProjectAttempts(t *testing.T) {
 	}
 
 	var ava models.AvatarSettings
-	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestProjectAttempts failed\n    Error: %v\n", err)
 		return
@@ -309,7 +309,7 @@ func TestGetClosedAttempts(t *testing.T) {
 	}
 
 	var ava models.AvatarSettings
-	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetClosedAttempts failed\n    Error: %v\n", err)
 		return

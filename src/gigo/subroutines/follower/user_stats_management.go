@@ -294,7 +294,7 @@ func handleUserDayRollover(db *ti.Database, sf *snowflake.Node, logger logging.L
 
 	// Insert new rows
 	if len(newStats) > 0 {
-		insertStmt := "INSERT INTO user_stats(_id, user_id, challenges_completed, streak_active, current_streak, longest_streak, total_time_spent, avg_time, days_on_platform, days_on_fire, streak_freezes, streak_freeze_used, xp_gained, date, expiration) VALUES " +
+		insertStmt := "INSERT IGNORE INTO user_stats(_id, user_id, challenges_completed, streak_active, current_streak, longest_streak, total_time_spent, avg_time, days_on_platform, days_on_fire, streak_freezes, streak_freeze_used, xp_gained, date, expiration) VALUES " +
 			strings.Join(newStatsParamSlots, ",")
 
 		_, err = tx.ExecContext(ctx, &callerName, insertStmt, newStats...)
@@ -303,7 +303,7 @@ func handleUserDayRollover(db *ti.Database, sf *snowflake.Node, logger logging.L
 		}
 	}
 	if len(newDailyUsage) > 0 {
-		insertStmt := "INSERT INTO user_daily_usage(user_id, start_time, end_time, open_session, date) VALUES " +
+		insertStmt := "INSERT IGNORE INTO user_daily_usage(user_id, start_time, end_time, open_session, date) VALUES " +
 			strings.Join(newDailyUsageParamSlots, ",")
 
 		_, err = tx.ExecContext(ctx, &callerName, insertStmt, newDailyUsage...)

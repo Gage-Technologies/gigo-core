@@ -2,11 +2,12 @@ package core
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/go-redis/redis/v8"
-	"testing"
-	"time"
 )
 
 func TestCreateProduct(t *testing.T) {
@@ -105,7 +106,7 @@ func TestCancelSubscription(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusPremium, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "", "", models.UserStatusPremium, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nCancel Subscription failed\n    Error: %v\n", err)
 		return
@@ -146,7 +147,7 @@ func TestCreateSubscription(t *testing.T) {
 
 	var ava models.AvatarSettings
 
-	user, err := models.CreateUser(69, "test", "", "testEmail", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	user, err := models.CreateUser(69, "test", "", "testEmail", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nCreate Subscription failed\n    Error: %v\n", err)
 		return
@@ -173,7 +174,7 @@ func TestCreateSubscription(t *testing.T) {
 		DB:       7,
 	})
 
-	res, err := CreateSubscription(context.Background(), "testStripeUser", "testStripeSubscription", testTiDB, "testEmail", testRdb, "America/Chicago")
+	res, err := CreateSubscription(context.Background(), "testStripeUser", "testStripeSubscription", false, testTiDB, "testEmail", testRdb, "America/Chicago")
 	if err != nil {
 		t.Fatalf("Failed to Create Subscription: %v", err)
 	}

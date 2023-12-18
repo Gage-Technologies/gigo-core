@@ -47,7 +47,7 @@ func TestAddXP(t *testing.T) {
 	}
 
 	// Create test users
-	user, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	user, err := models.CreateUser(1, "antagonist", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetNemesisBattleground failed\n    Error: %v\n", err)
 		return
@@ -159,7 +159,7 @@ func TestLevelUpLoot(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestLevelUpLoot failed\n    Error: %v\n", err)
 		return
@@ -214,7 +214,7 @@ func TestGetXPBoostCount(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestGetXPBoostCount failed\n    Error: %v\n", err)
 		return
@@ -258,7 +258,7 @@ func TestStartXPBoost(t *testing.T) {
 	}
 
 	// Create a test user
-	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	testUser, err := models.CreateUser(1, "test_user", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestStartXPBoost failed\n    Error: %v\n", err)
 		return

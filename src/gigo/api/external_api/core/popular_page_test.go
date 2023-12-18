@@ -3,10 +3,11 @@ package core
 import (
 	"context"
 	"fmt"
-	ti "github.com/gage-technologies/gigo-lib/db"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"testing"
 	"time"
+
+	ti "github.com/gage-technologies/gigo-lib/db"
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestPopularPageFeed(t *testing.T) {
@@ -20,7 +21,7 @@ func TestPopularPageFeed(t *testing.T) {
 	var ava models.AvatarSettings
 
 	// Create test user
-	testUser, err := models.CreateUser(1, "testuser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+	testUser, err := models.CreateUser(1, "testuser", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestPopularPageFeed failed\n    Error: %v\n", err)
 		return

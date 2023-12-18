@@ -29,6 +29,7 @@ type UserBackground struct {
 	Tutorials           []byte                    `json:"tutorials" sql:"tutorials"`
 	AuthRole            models.AuthenticationRole `json:"auth_role" sql:"auth_role"`
 	StripeSubscription  *string                   `json:"stripe_subscription" sql:"stripe_subscription"`
+	UsedFreeTrial       bool                      `json:"used_free_trial" sql:"used_free_trial"`
 }
 
 type UserBackgroundFrontend struct {
@@ -53,6 +54,7 @@ type UserBackgroundFrontend struct {
 	Tutorials          models.UserTutorial       `json:"tutorials" sql:"tutorials"`
 	AuthRole           models.AuthenticationRole `json:"auth_role" sql:"auth_role"`
 	StripeSubscription *string                   `json:"stripe_subscription" sql:"stripe_subscription"`
+	UsedFreeTrial      bool                      `json:"used_free_trial" sql:"used_free_trial"`
 }
 
 func (i *UserBackground) ToFrontend() (*UserBackgroundFrontend, error) {
@@ -127,6 +129,7 @@ func (i *UserBackground) ToFrontend() (*UserBackgroundFrontend, error) {
 		Tutorials:          tutorials,
 		StripeSubscription: stripeSubscription,
 		AuthRole:           i.AuthRole,
+		UsedFreeTrial:      i.UsedFreeTrial,
 	}
 
 	return mf, nil

@@ -169,7 +169,7 @@ func TestLogin(t *testing.T) {
 //
 //	// Create a user and insert it into the database
 //	// Replace the following dummy values with appropriate values for your function
-//	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0)
+//	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", ava, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestLoginWithGoogle failed\n    Error: %v\n", err)
 //		return
@@ -238,7 +238,7 @@ func TestLogin(t *testing.T) {
 //	storageEngine := storage.NewMemoryStorage()
 //
 //	// Create a Github user
-//	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+//	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nTestLoginWithGithub failed\n    Error: %v\n", err)
 //		return
@@ -331,7 +331,7 @@ func TestConfirmGithubLogin(t *testing.T) {
 	storageEngine := new(storage.FileSystemStorage)
 
 	// Create a Github user
-	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+	user, err := models.CreateUser(1, "testuser1", "", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 	if err != nil {
 		t.Errorf("\nTestConfirmGithubLogin failed\n    Error: %v\n", err)
 		return

@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/db/models"
 	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func TestHTTPServer_CreateWorkspace(t *testing.T) {
@@ -124,7 +125,7 @@ func TestHTTPServer_GetWorkspaceStatus(t *testing.T) {
 //		testTiDB.DB.Exec("drop table workspaces")
 //	}()
 //
-//	user, err := models.CreateUser(69, "test", "test", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+//	user, err := models.CreateUser(69, "test", "test", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nInitializeWorkspace HTTP failed\n    Error: %v\n", err)
 //		return
@@ -206,7 +207,7 @@ func TestHTTPServer_GetWorkspaceStatus(t *testing.T) {
 //
 //func TestHTTPServer_ExtendExpiration(t *testing.T) {
 //
-//	user, err := models.CreateUser(69, "test", "test", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0)
+//	user, err := models.CreateUser(69, "test", "test", "", "", models.UserStatusBasic, "", nil, nil, "", "", 0, "None", models.UserStart{}, "America/Chicago", models.AvatarSettings{}, 0, nil)
 //	if err != nil {
 //		t.Errorf("\nExtendExpiration HTTP failed\n    Error: %v\n", err)
 //		return
