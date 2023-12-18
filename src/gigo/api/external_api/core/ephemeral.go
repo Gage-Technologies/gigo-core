@@ -390,12 +390,12 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
-		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		err = SendReferredFriendMessage(ctx, tidb, mgKey, mgDomain, userQuery.Email, newUser.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 
-		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		err = SendWasReferredMessage(ctx, tidb, mgKey, mgDomain, newUser.Email, userQuery.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
@@ -638,12 +638,12 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
-		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		err = SendReferredFriendMessage(ctx, tidb, mgKey, mgDomain, userQuery.Email, newUser.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 
-		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		err = SendWasReferredMessage(ctx, tidb, mgKey, mgDomain, newUser.Email, userQuery.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
@@ -893,12 +893,12 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 			return nil, fmt.Errorf("failed to create trial subscription for referral user: %v, err: %v", user.ID, err)
 		}
 
-		err = SendReferredFriendMessage(ctx, mgKey, mgDomain, userQuery.Email, newUser.UserName)
+		err = SendReferredFriendMessage(ctx, tidb, mgKey, mgDomain, userQuery.Email, newUser.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 
-		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		err = SendWasReferredMessage(ctx, tidb, mgKey, mgDomain, newUser.Email, userQuery.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}

@@ -296,7 +296,7 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 
-		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		err = SendWasReferredMessage(ctx, tidb, mgKey, mgDomain, newUser.Email, userQuery.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
@@ -1807,7 +1807,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 
-		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		err = SendWasReferredMessage(ctx, tidb, mgKey, mgDomain, newUser.Email, userQuery.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
@@ -2251,7 +2251,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
 
-		err = SendWasReferredMessage(ctx, mgKey, mgDomain, newUser.Email, userQuery.UserName)
+		err = SendWasReferredMessage(ctx, tidb, mgKey, mgDomain, newUser.Email, userQuery.UserName)
 		if err != nil {
 			logger.Errorf("SendReferredFriendMessage failed: %v", err)
 		}
