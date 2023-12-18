@@ -38,6 +38,12 @@ func asyncSendWeekInactivityEmail(nodeId int64, ctx context.Context, db *ti.Data
 	err = core.SendWeekInactiveMessage(ctx, db, mgKey, mgDomain, inactivityRequest.Recipient)
 	if err != nil {
 		logger.Errorf("(async-send-week-inactivity-email: %d) failed to send weekly inactivity message: %v", nodeId, err)
+		return
+	}
+
+	// ack the message to the nats queue so it can be deleted
+	if err := msg.Ack(); err != nil {
+		logger.Errorf("(async-send-week-inactivity-email: %d) failed to acknowledge message: %v", nodeId, err)
 	}
 
 	parentSpan.AddEvent(
@@ -68,6 +74,11 @@ func asyncSendMonthInactivityEmail(nodeId int64, ctx context.Context, db *ti.Dat
 	err = core.SendMonthInactiveMessage(ctx, db, mgKey, mgDomain, inactivityRequest.Recipient)
 	if err != nil {
 		logger.Errorf("(async-send-month-inactivity-email: %d) failed to send month inactivity message: %v", nodeId, err)
+	}
+
+	// ack the message to the nats queue so it can be deleted
+	if err := msg.Ack(); err != nil {
+		logger.Errorf("(async-send-month-inactivity-email: %d) failed to acknowledge message: %v", nodeId, err)
 	}
 
 	parentSpan.AddEvent(
@@ -169,7 +180,7 @@ func EmailSystemManagement(ctx context.Context, nodeId int64, tidb *ti.Database,
 		workerPool,
 		streams.StreamEmail,
 		streams.SubjectEmailUserInactiveMonth,
-		"gigo-core-email-inactivity-week",
+		"gigo-core-email-inactivity-month",
 		time.Minute*10,
 		"email",
 		logger,
@@ -179,7 +190,7 @@ func EmailSystemManagement(ctx context.Context, nodeId int64, tidb *ti.Database,
 	)
 
 	parentSpan.AddEvent(
-		"workspace-management-operations-routine",
+		"inactvity-email-operations-routine",
 		trace.WithAttributes(
 			attribute.Bool("success", true),
 		),
