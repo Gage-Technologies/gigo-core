@@ -1542,6 +1542,10 @@ func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.Meili
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete the email_subscription record: %v", err)
 	}
+	_, err = tx.ExecContext(ctx, &callerName, "delete from user_inactivity where user_id = ?", callingUser.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete the user_inactivity record: %v", err)
+	}
 
 	// perform deletion via tx
 	_, err = tx.ExecContext(ctx, &callerName, "delete from users where _id = ?", callingUser.ID)
