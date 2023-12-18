@@ -45,8 +45,12 @@ func StreamInactivityEmailRequests(nodeId int64, ctx context.Context, tidb *ti.D
 				logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to serialize month inactivity message: %v", nodeId, err)
 				continue
 			}
-			js.Publish(streams.SubjectEmailUserInactiveMonth, data)
-			logger.Infof("(stream-inactivity-email-requests-leader: %d) Published month inactivity email request for %s", nodeId, email)
+			_, err = js.Publish(streams.SubjectEmailUserInactiveMonth, data)
+			if err != nil {
+				logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to publish month inactivity email request: %v", nodeId, err)
+				continue
+			}
+
 		} else if sendWeek {
 			msg := models2.NewWeekInactivityMsg{Recipient: email}
 			data, err := serializeMessage(msg)
@@ -54,8 +58,11 @@ func StreamInactivityEmailRequests(nodeId int64, ctx context.Context, tidb *ti.D
 				logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to serialize week inactivity message: %v", nodeId, err)
 				continue
 			}
-			js.Publish(streams.SubjectEmailUserInactiveWeek, data)
-			logger.Infof("(stream-inactivity-email-requests-leader: %d) Published week inactivity email request for %s", nodeId, email)
+			_, err = js.Publish(streams.SubjectEmailUserInactiveWeek, data)
+			if err != nil {
+				logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to publish week inactivity email request: %v", nodeId, err)
+				continue
+			}
 		}
 
 		// Update the user_inactivity record
