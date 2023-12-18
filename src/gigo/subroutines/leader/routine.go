@@ -143,6 +143,12 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, js *mq.Jetstre
 		// handle user day rollover every second
 		publishHandleDayRollover(nodeId, js, logger)
 
+		// send job for email jobs every 3s
+		if execCount%3 == 0 {
+			logger.Infof("(leader: %d) sending email jobs", nodeId)
+			StreamInactivityEmailRequests(nodeId, ctx, tiDB, js, logger)
+		}
+
 		logger.Info("right before the weekly freeze handle function")
 
 		// publishHandlePremiumWeeklyFreeze(nodeId, js, logger)

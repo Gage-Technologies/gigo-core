@@ -1,55 +1,29 @@
 package leader
 
 import (
+	"bytes"
 	"context"
-	"fmt"
-	"gigo-core/gigo/api/external_api/core"
+	"encoding/gob"
 	ti "github.com/gage-technologies/gigo-lib/db"
+	"github.com/gage-technologies/gigo-lib/logging"
+	"github.com/gage-technologies/gigo-lib/mq"
+	models2 "github.com/gage-technologies/gigo-lib/mq/models"
+	"github.com/gage-technologies/gigo-lib/mq/streams"
 	"go.opentelemetry.io/otel"
-	"time"
 )
 
-// UserInactivityEmailCheck
-//
-//	Check for all users that have been inactive and schedules the appropriate emails
-func UserInactivityEmailCheck(ctx context.Context, tidb *ti.Database) error {
-	ctx, span := otel.Tracer("gigo-core").Start(ctx, "user-inactivity-email-check-routine")
+func StreamInactivityEmailRequests(nodeId int64, ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, logger logging.Logger) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "stream-inactivity-email-requests-leader")
 	defer span.End()
-	callerName := "UserInactivityEmailCheck"
-
-	// Calculate the dates for one week and one month ago
-	oneWeekAgo := time.Now().Add(-7 * 24 * time.Hour)
-	oneMonthAgo := time.Now().Add(-30 * 24 * time.Hour)
-	threeWeeksAgo := time.Now().Add(-21 * 24 * time.Hour)
-
-	// Monthly inactivity check
-	monthlyQuery := `UPDATE user_inactivity SET send_month = TRUE, notify_on = NOW() 
-                     WHERE last_login < ? AND last_notified < ? AND send_month = FALSE`
-	if _, err := tidb.ExecContext(ctx, &span, &callerName, monthlyQuery, oneMonthAgo, threeWeeksAgo); err != nil {
-		return fmt.Errorf("failed to query for users inactive for a month: %v", err)
-	}
-
-	// Weekly inactivity check
-	weeklyQuery := `UPDATE user_inactivity SET send_week = TRUE, notify_on = NOW() 
-                    WHERE last_login < ? AND last_notified < ? AND send_week = FALSE AND send_month = FALSE`
-	if _, err := tidb.ExecContext(ctx, &span, &callerName, weeklyQuery, oneWeekAgo, oneWeekAgo); err != nil {
-		return fmt.Errorf("failed to query for users inactive for a week: %v", err)
-	}
-
-	return nil
-}
-
-func SendUserInactivityEmails(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string) error {
-	ctx, span := otel.Tracer("gigo-core").Start(ctx, "send-user-inactivity-emails")
-	defer span.End()
-	callerName := "SendUserInactivityEmails"
+	callerName := "StreamInactivityEmailRequests"
 
 	// Query for users who need to be notified
 	query := `SELECT user_id, email, send_week, send_month FROM user_inactivity 
               WHERE (send_week = TRUE OR send_month = TRUE) AND notify_on < NOW()`
 	rows, err := tidb.QueryContext(ctx, &span, &callerName, query)
 	if err != nil {
-		return fmt.Errorf("failed to query for inactive users: %v", err)
+		logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to query for inactive users: %v", nodeId, err)
+		return
 	}
 	defer rows.Close()
 
@@ -58,31 +32,52 @@ func SendUserInactivityEmails(ctx context.Context, tidb *ti.Database, mailGunKey
 		var email string
 		var sendWeek, sendMonth bool
 
-		if err := rows.Scan(&userID, &email, &sendWeek, &sendMonth); err != nil {
-			return fmt.Errorf("failed to scan row: %v", err)
+		if err = rows.Scan(&userID, &email, &sendWeek, &sendMonth); err != nil {
+			logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to scan row: %v", nodeId, err)
+			continue
 		}
 
-		// Send the appropriate email and update the record
+		// Publish the appropriate email request to Jetstream
 		if sendMonth {
-			if err := core.SendMonthInactiveMessage(ctx, tidb, mailGunKey, mailGunDomain, email); err != nil {
-				return fmt.Errorf("failed to send month inactive email: %v", err)
+			msg := models2.NewMonthInactivityMsg{Recipient: email}
+			data, err := serializeMessage(msg)
+			if err != nil {
+				logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to serialize month inactivity message: %v", nodeId, err)
+				continue
 			}
+			js.Publish(streams.SubjectEmailUserInactiveMonth, data)
+			logger.Infof("(stream-inactivity-email-requests-leader: %d) Published month inactivity email request for %s", nodeId, email)
 		} else if sendWeek {
-			if err := core.SendWeekInactiveMessage(ctx, tidb, mailGunKey, mailGunDomain, email); err != nil {
-				return fmt.Errorf("failed to send week inactive email: %v", err)
+			msg := models2.NewWeekInactivityMsg{Recipient: email}
+			data, err := serializeMessage(msg)
+			if err != nil {
+				logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to serialize week inactivity message: %v", nodeId, err)
+				continue
 			}
+			js.Publish(streams.SubjectEmailUserInactiveWeek, data)
+			logger.Infof("(stream-inactivity-email-requests-leader: %d) Published week inactivity email request for %s", nodeId, email)
 		}
 
 		// Update the user_inactivity record
 		updateQuery := `UPDATE user_inactivity SET last_notified = NOW(), send_week = FALSE, send_month = FALSE WHERE user_id = ?`
 		if _, err := tidb.ExecContext(ctx, &span, &callerName, updateQuery, userID); err != nil {
-			return fmt.Errorf("failed to update user_inactivity record: %v", err)
+			logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to update user_inactivity record: %v user_id: %v", nodeId, err, userID)
 		}
 	}
 
 	if err = rows.Err(); err != nil {
-		return fmt.Errorf("error iterating over rows: %v", err)
+		logger.Errorf("(stream-inactivity-email-requests-leader: %d) error iterating over rows: %v", nodeId, err)
 	}
 
-	return nil
+	logger.Infof("(stream-inactivity-email-requests-leader: %d) Finished StreamInactivityEmailRequests", nodeId)
+}
+
+func serializeMessage(msg interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(msg)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

@@ -55,12 +55,17 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 			GenerateSiteMap(ctx, tiDB, js, storageEngine, nodeId, cfg.HTTPServerConfig.Hostname, logger)
 		}
 
-		// execute once every 5 minutes
-		if execCount%300 == 0 {
+		// execute once every minute
+		if execCount%60 == 0 {
+			// update users last usage for the inactive email notifications
 			UpdateLastUsage(ctx, tiDB, logger)
-			//UserInactivityEmailCheck(ctx, tiDB, logger)
-			//SendUserInactivityEmails(ctx, tiDB, logger, cfg.HTTPServerConfig.MailGunApiKey, cfg.HTTPServerConfig.MailGunDomain)
+
+			// update user inactivity table for the inactive email notifications
+			UserInactivityEmailCheck(ctx, nodeId, tiDB, logger)
 		}
+
+		// execute email system management operations every second
+		EmailSystemManagement(ctx, nodeId, tiDB, js, workerPool, logger, cfg.HTTPServerConfig.MailGunApiKey, cfg.HTTPServerConfig.MailGunDomain)
 
 		// execute workspace management operations every second
 		WorkspaceManagementOperations(ctx, nodeId, tiDB, wsClient, vcsClient, js, workerPool, streakEngine,
