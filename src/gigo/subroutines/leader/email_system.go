@@ -18,8 +18,11 @@ func StreamInactivityEmailRequests(nodeId int64, ctx context.Context, tidb *ti.D
 	callerName := "StreamInactivityEmailRequests"
 
 	// Query for users who need to be notified
-	query := `SELECT user_id, email, send_week, send_month FROM user_inactivity 
-              WHERE (send_week = TRUE OR send_month = TRUE) AND notify_on < NOW()`
+	query := `SELECT user_id, email, send_week, send_month 
+          FROM user_inactivity 
+          WHERE (send_week = TRUE OR send_month = TRUE) 
+          AND notify_on < NOW() 
+          AND notify_on IS NOT NULL`
 	rows, err := tidb.QueryContext(ctx, &span, &callerName, query)
 	if err != nil {
 		logger.Errorf("(stream-inactivity-email-requests-leader: %d) failed to query for inactive users: %v", nodeId, err)

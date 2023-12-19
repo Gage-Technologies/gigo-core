@@ -133,6 +133,10 @@ func SendWeekInactiveMessage(ctx context.Context, tidb *ti.Database, mailGunKey 
 		return nil
 	}
 
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "send-week-inactive-message-core")
+	defer span.End()
+	callerName := "SendWeekInactiveMessage"
+
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
@@ -157,6 +161,13 @@ func SendWeekInactiveMessage(ctx context.Context, tidb *ti.Database, mailGunKey 
 		return fmt.Errorf("failed to send welcome email: %v", err)
 	}
 
+	// Update the notify_on field in user_inactivity table
+	updateQuery := `UPDATE user_inactivity SET notify_on = NULL WHERE email = ?`
+	_, err = tidb.ExecContext(ctx, &span, &callerName, updateQuery, recipient)
+	if err != nil {
+		return fmt.Errorf("failed to update user_inactivity after sending week inactive email: %v", err)
+	}
+
 	return nil
 }
 
@@ -170,6 +181,10 @@ func SendMonthInactiveMessage(ctx context.Context, tidb *ti.Database, mailGunKey
 	if !should {
 		return nil
 	}
+
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "send-month-inactive-message-core")
+	defer span.End()
+	callerName := "SendMonthInactiveMessage"
 
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
@@ -193,6 +208,13 @@ func SendMonthInactiveMessage(ctx context.Context, tidb *ti.Database, mailGunKey
 	_, _, err = mg.Send(ctx, message)
 	if err != nil {
 		return fmt.Errorf("failed to send welcome email: %v", err)
+	}
+
+	// Update the notify_on field in user_inactivity table
+	updateQuery := `UPDATE user_inactivity SET notify_on = NULL WHERE email = ?`
+	_, err = tidb.ExecContext(ctx, &span, &callerName, updateQuery, recipient)
+	if err != nil {
+		return fmt.Errorf("failed to update user_inactivity after sending week inactive email: %v", err)
 	}
 
 	return nil
