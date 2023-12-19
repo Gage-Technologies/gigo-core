@@ -755,6 +755,32 @@ func DeleteMailingListMember(mailGunKey string, mailGunDomain string, userEmail 
 	return nil
 }
 
+// GetMailingListMembers gets all mailing list members for a given mailing lis
+func GetMailingListMembers(mailGunKey string, mailGunDomain string, mailingList string) ([]mailgun.Member, error) {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	list := mg.ListMembers(mailingList, nil)
+
+	// 30 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+
+	// defer cancellation of ctx
+	defer cancel()
+
+	var page, result []mailgun.Member
+	for list.Next(ctx, &page) {
+		result = append(result, page...)
+	}
+	if list.Err() != nil {
+		return nil, fmt.Errorf("GetMailingListMembers failed")
+	}
+
+	return result, nil
+}
+
+// InitializeNewMailingListInBulk only use manually. This function is used to initialize a new mailing list in bulk.
+// It will iterate over all users in the database and add them to the mailing list as long as they have the appropriate email preferences.
 func InitializeNewMailingListInBulk(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string, mailingList string) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "initialize-new-mailing-list-in-bulk")
 	defer span.End()
