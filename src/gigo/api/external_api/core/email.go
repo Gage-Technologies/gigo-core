@@ -682,3 +682,137 @@ func checkPreferences(preferences map[string]interface{}, streak bool, pro bool,
 	// If none of the checks failed, return true
 	return true
 }
+
+// AddMailingListMember adds the passed user info to our mailing list
+func AddMailingListMember(mailGunKey string, mailGunDomain string, userEmail string, username string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// Create a new mailing list member
+	newMember := mailgun.Member{
+		Address:    userEmail,
+		Name:       username,
+		Subscribed: mailgun.Subscribed,
+	}
+
+	// 30 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+
+	// defer cancellation of ctx
+	defer cancel()
+
+	// attempt to add the new mailing list member
+	err := mg.CreateMember(ctx, true, userEmail, newMember)
+	if err != nil {
+		if err != nil {
+			return fmt.Errorf("AddMailingListMember failed to add new member in core: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// UnsubscribeMailingListMember unsubscribe user from our mailing list
+func UnsubscribeMailingListMember(mailGunKey string, mailGunDomain string, userEmail string, username string, mailingList string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// 30 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+
+	// defer cancellation of ctx
+	defer cancel()
+
+	// attempt to unsubscribe member from the mailing list
+	_, err := mg.UpdateMember(ctx, userEmail, mailingList, mailgun.Member{
+		Name:       username,
+		Subscribed: mailgun.Unsubscribed,
+	})
+	if err != nil {
+		return fmt.Errorf("UnsubscribeMailingListMember failed to unsubscribe member in core: %v", err)
+	}
+
+	return nil
+}
+
+// DeleteMailingListMember deletes user from our mailing list
+func DeleteMailingListMember(mailGunKey string, mailGunDomain string, userEmail string, mailingList string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// 30 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+
+	// defer cancellation of ctx
+	defer cancel()
+
+	// attempt to delete member from the mailing list
+	err := mg.DeleteMember(ctx, userEmail, mailingList)
+	if err != nil {
+		return fmt.Errorf("DeleteMailingListMember failed to delete member in core: %v", err)
+	}
+
+	return nil
+}
+
+func InitializeNewMailingListInBulk(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string, mailingList string) error {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "initialize-new-mailing-list-in-bulk")
+	defer span.End()
+	callerName := "InitializeNewMailingListInBulk"
+
+	// Query to retrieve users with newsletter subscription
+	query := `
+    SELECT u.email, u.user_name
+    FROM users u
+    INNER JOIN email_subscription es ON u._id = es.user_id
+    WHERE es.newsletter = TRUE AND es.all_emails != FALSE
+    `
+
+	// Execute the query
+	rows, err := tidb.QueryContext(ctx, &span, &callerName, query)
+	if err != nil {
+		return fmt.Errorf("failed to query for newsletter subscribers: %v", err)
+	}
+	defer rows.Close()
+
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// hold interface array of new members
+	var members []interface{}
+
+	// iterate through rows and create new members, then add them to the member array
+	for rows.Next() {
+		var email, username string
+		// attempt to scan row
+		if err := rows.Scan(&email, &username); err != nil {
+			return fmt.Errorf("failed to scan row: %v", err)
+		}
+
+		//create new mailing list member
+		member := mailgun.Member{
+			Address:    email,
+			Name:       username,
+			Subscribed: mailgun.Subscribed,
+		}
+
+		// append new member to the member array
+		members = append(members, member)
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating over rows: %v", err)
+	}
+
+	// Add members to the mailing list
+	if len(members) > 0 {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*30)
+		defer cancel()
+
+		if err := mg.CreateMemberList(ctx, nil, mailingList, members); err != nil {
+			return fmt.Errorf("failed to add members to mailing list: %v", err)
+		}
+	}
+
+	return nil
+}
