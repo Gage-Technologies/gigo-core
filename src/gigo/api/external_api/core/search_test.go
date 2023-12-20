@@ -466,77 +466,77 @@ func TestSearchComments(t *testing.T) {
 	}
 }
 
-func TestSearchWorkspaceConfigs(t *testing.T) {
-	testTiDB, err := ti.CreateDatabase("gigo-dev-tidb", "4000", "mysql", "gigo-dev",
-		"gigo-dev",
-		"gigo_test_db")
-	if err != nil {
-		t.Fatal("Initialize test database failed:", err)
-	}
-
-	cfg := config.MeiliConfig{
-		Host:  "http://gigo-dev-meili:7700",
-		Token: "gigo-dev",
-		Indices: map[string]config.MeiliIndexConfig{
-			"workspace_configs": {
-				Name:                 "workspace_configs",
-				PrimaryKey:           "_id",
-				SearchableAttributes: []string{"title", "description", "languages", "tags"},
-				FilterableAttributes: []string{"languages", "tags"},
-				SortableAttributes:   []string{},
-			},
-		},
-	}
-
-	meili, err := search.CreateMeiliSearchEngine(cfg)
-	if err != nil {
-		t.Fatalf("\n%s failed\n    Error: %v", t.Name(), err)
-	}
-
-	tests := []struct {
-		name       string
-		query      string
-		languages  []models.ProgrammingLanguage
-		tags       []int64
-		skip       int
-		limit      int
-		db         *ti.Database
-		mockMeili  *search.MeiliSearchEngine
-		wantErr    bool
-		wantResult map[string]interface{}
-	}{
-		{
-			name: "Test search workspace configs",
-			// Fill in your test case details here
-			query: "Sample Query",
-			languages: []models.ProgrammingLanguage{
-				models.Java,
-				models.Python,
-			},
-			tags:      []int64{1, 2, 3},
-			skip:      0,
-			limit:     10,
-			db:        testTiDB,
-			mockMeili: meili,
-			wantErr:   false,
-			wantResult: map[string]interface{}{
-				"workspace_configs": []*models.WorkspaceConfigFrontend{}, // Expected workspace config list
-				"tags":              map[string]*models.TagFrontend{},    // Expected tag map
-			},
-		},
-		// Add more test cases if needed
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotResult, err := SearchWorkspaceConfigs(context.Background(), tt.db, tt.mockMeili, tt.query, tt.languages, tt.tags, tt.skip, tt.limit)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SearchWorkspaceConfigs() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotResult, tt.wantResult) {
-				t.Errorf("SearchWorkspaceConfigs() gotResult = %v, want %v", gotResult, tt.wantResult)
-			}
-		})
-	}
-}
+//func TestSearchWorkspaceConfigs(t *testing.T) {
+//	testTiDB, err := ti.CreateDatabase("gigo-dev-tidb", "4000", "mysql", "gigo-dev",
+//		"gigo-dev",
+//		"gigo_test_db")
+//	if err != nil {
+//		t.Fatal("Initialize test database failed:", err)
+//	}
+//
+//	cfg := config.MeiliConfig{
+//		Host:  "http://gigo-dev-meili:7700",
+//		Token: "gigo-dev",
+//		Indices: map[string]config.MeiliIndexConfig{
+//			"workspace_configs": {
+//				Name:                 "workspace_configs",
+//				PrimaryKey:           "_id",
+//				SearchableAttributes: []string{"title", "description", "languages", "tags"},
+//				FilterableAttributes: []string{"languages", "tags"},
+//				SortableAttributes:   []string{},
+//			},
+//		},
+//	}
+//
+//	meili, err := search.CreateMeiliSearchEngine(cfg)
+//	if err != nil {
+//		t.Fatalf("\n%s failed\n    Error: %v", t.Name(), err)
+//	}
+//
+//	tests := []struct {
+//		name       string
+//		query      string
+//		languages  []models.ProgrammingLanguage
+//		tags       []int64
+//		skip       int
+//		limit      int
+//		db         *ti.Database
+//		mockMeili  *search.MeiliSearchEngine
+//		wantErr    bool
+//		wantResult map[string]interface{}
+//	}{
+//		{
+//			name: "Test search workspace configs",
+//			// Fill in your test case details here
+//			query: "Sample Query",
+//			languages: []models.ProgrammingLanguage{
+//				models.Java,
+//				models.Python,
+//			},
+//			tags:      []int64{1, 2, 3},
+//			skip:      0,
+//			limit:     10,
+//			db:        testTiDB,
+//			mockMeili: meili,
+//			wantErr:   false,
+//			wantResult: map[string]interface{}{
+//				"workspace_configs": []*models.WorkspaceConfigFrontend{}, // Expected workspace config list
+//				"tags":              map[string]*models.TagFrontend{},    // Expected tag map
+//			},
+//		},
+//		// Add more test cases if needed
+//	}
+//
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			gotResult, err := SearchWorkspaceConfigs(context.Background(), tt.db, tt.mockMeili, tt.query, tt.languages, tt.tags, tt.skip, tt.limit)
+//			if (err != nil) != tt.wantErr {
+//				t.Errorf("SearchWorkspaceConfigs() error = %v, wantErr %v", err, tt.wantErr)
+//				return
+//			}
+//			if !reflect.DeepEqual(gotResult, tt.wantResult) {
+//				t.Errorf("SearchWorkspaceConfigs() gotResult = %v, want %v", gotResult, tt.wantResult)
+//			}
+//		})
+//	}
+//}

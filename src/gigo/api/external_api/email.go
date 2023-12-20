@@ -3,6 +3,7 @@ package external_api
 import (
 	"encoding/json"
 	"gigo-core/gigo/api/external_api/core"
+	"github.com/gage-technologies/gigo-lib/db/models"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -225,7 +226,7 @@ func (s *HTTPServer) UpdateEmailPreferences(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Execute core function logic
-	err = core.UpdateEmailPreferences(ctx, s.tiDB, userIDInt64, allEmails.(bool), streak.(bool), pro.(bool), newsletter.(bool), inactivity.(bool), messages.(bool), referrals.(bool), promotional.(bool))
+	err = core.UpdateEmailPreferences(ctx, s.tiDB, s.mailGunKey, s.mailGunDomain, userIDInt64, allEmails.(bool), streak.(bool), pro.(bool), newsletter.(bool), inactivity.(bool), messages.(bool), referrals.(bool), promotional.(bool))
 	if err != nil {
 		// Handle error internally
 		s.handleError(w, "UpdateEmailPreferences core failed", r.URL.Path, "UpdateEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -296,6 +297,16 @@ func (s *HTTPServer) InitializeNewMailingListInBulk(w http.ResponseWriter, r *ht
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "initialize-new-mailing-list-in-bulk-http")
 	defer parentSpan.End()
 
+	// Retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// Return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "CurationAuth", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
 	// Attempt to load JSON from request body
 	reqJson := s.jsonRequest(w, r, "InitializeNewMailingListInBulk", false, "", -1)
 	if reqJson == nil {
@@ -308,6 +319,12 @@ func (s *HTTPServer) InitializeNewMailingListInBulk(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// Attempt to load curatedPostID from body
+	password, ok := s.loadValue(w, r, reqJson, "InitializeNewMailingListInBulk", "password", reflect.String, nil, false, "", "")
+	if !ok {
+		return
+	}
+
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
@@ -316,7 +333,7 @@ func (s *HTTPServer) InitializeNewMailingListInBulk(w http.ResponseWriter, r *ht
 	}
 
 	// Execute core function logic
-	err := core.InitializeNewMailingListInBulk(ctx, s.tiDB, s.mailGunKey, s.mailGunDomain, mailingList.(string))
+	err := core.InitializeNewMailingListInBulk(ctx, s.tiDB, callingUser.(*models.User), s.curatedSecret, password.(string), s.mailGunKey, s.mailGunDomain, mailingList.(string))
 	if err != nil {
 		// Handle error internally
 		s.handleError(w, "InitializeNewMailingListInBulk core failed", r.URL.Path, "InitializeNewMailingListInBulk", r.Method, r.Context().Value(CtxKeyRequestID),

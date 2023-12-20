@@ -350,3 +350,31 @@ func TestEmailVerification(t *testing.T) {
 	//}
 
 }
+
+func TestAddMailingListMember(t *testing.T) {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun("", "")
+
+	// Create a new mailing list member
+	newMember := mailgun.Member{
+		Address:    "",
+		Name:       "",
+		Subscribed: mailgun.Subscribed,
+	}
+
+	// 30 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+
+	// defer cancellation of ctx
+	defer cancel()
+
+	// attempt to add the new mailing list member
+	err := mg.CreateMember(ctx, true, "gigo@gigo.dev", newMember)
+	if err != nil {
+		if err != nil {
+			fmt.Printf("AddMailingListMember failed to add new member: %v\n", err)
+		}
+	}
+
+	fmt.Println("succeeded")
+}

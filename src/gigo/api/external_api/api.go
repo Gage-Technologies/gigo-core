@@ -1838,6 +1838,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/curated/getPostsAdmin", s.GetCuratedPostsForAdmin).Methods("POST")
 	s.router.HandleFunc("/api/curated/auth", s.CurationAuth).Methods("POST")
 	s.router.HandleFunc("/api/email/verify", s.EmailVerification).Methods("POST")
+	s.router.HandleFunc("/api/email/mailingListBulk", s.InitializeNewMailingListInBulk).Methods("POST")
 	s.router.HandleFunc("/api/unsubscribe/check", s.CheckUnsubscribeEmail).Methods("POST")
 	s.router.HandleFunc("/api/unsubscribe/modify", s.UpdateEmailPreferences).Methods("POST")
 	s.router.HandleFunc("/api/unsubscribe/get", s.GetUserEmailPreferences).Methods("POST")

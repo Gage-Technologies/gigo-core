@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	ti "github.com/gage-technologies/gigo-lib/db"
+	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/go-redis/redis/v8"
 	"github.com/mailgun/mailgun-go/v4"
 	"go.opentelemetry.io/otel"
@@ -506,13 +507,23 @@ func CheckUnsubscribeEmail(ctx context.Context, tidb *ti.Database, email string)
 	return map[string]interface{}{"userFound": false}, nil
 }
 
-// UpdateEmailPreferences
-//
-// Updates the email preferences for a given user.
-func UpdateEmailPreferences(ctx context.Context, tidb *ti.Database, userID int64, allEmails bool, streak bool, pro bool, newsletter bool, inactivity bool, messages bool, referrals bool, promotional bool) error {
+// UpdateEmailPreferences updates the email preferences for a given user.
+// Checks if a user should be subscribed or unsubscribed from the mailing list.
+func UpdateEmailPreferences(ctx context.Context, tidb *ti.Database, mgKey string, mgDomain string, userID int64, allEmails bool, streak bool, pro bool, newsletter bool, inactivity bool, messages bool, referrals bool, promotional bool) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "update-email-preferences-core")
 	defer span.End()
 	callerName := "UpdateEmailPreferences"
+
+	// Get current preferences
+	currentPreferences, err := GetUserEmailPreferences(ctx, tidb, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get current email preferences: %v", err)
+	}
+
+	// Determine if mailing list preferences have changed
+	mailingListPreferenceChanged := currentPreferences["allEmails"].(bool) != allEmails ||
+		currentPreferences["newsletter"].(bool) != newsletter ||
+		currentPreferences["promotional"].(bool) != promotional
 
 	// If all_emails is set to false, set all other preferences to false
 	if !allEmails {
@@ -525,7 +536,7 @@ func UpdateEmailPreferences(ctx context.Context, tidb *ti.Database, userID int64
 		promotional = false
 	}
 
-	// Build the update query
+	// Build and execute the update query
 	updateQuery := `
 	UPDATE email_subscription
 	SET 
@@ -539,10 +550,28 @@ func UpdateEmailPreferences(ctx context.Context, tidb *ti.Database, userID int64
 		promotional = ?
 	WHERE user_id = ?
 	`
-
-	// Execute the update query
 	if _, err := tidb.ExecContext(ctx, &span, &callerName, updateQuery, allEmails, streak, pro, newsletter, inactivity, messages, referrals, promotional, userID); err != nil {
 		return fmt.Errorf("failed to update email preferences: %v", err)
+	}
+
+	// Only unsubscribe or resubscribe if mailing list preferences have changed
+	if mailingListPreferenceChanged {
+		// Query to get user's email and username
+		userQuery := "SELECT email, user_name FROM users WHERE _id = ?"
+		var userEmail, username string
+		if err := tidb.QueryRowContext(ctx, &span, &callerName, userQuery, userID).Scan(&userEmail, &username); err != nil {
+			return fmt.Errorf("failed to retrieve user email and username: %v", err)
+		}
+
+		if !allEmails || !newsletter || !promotional {
+			if err := UnsubscribeMailingListMember(mgKey, mgDomain, userEmail, username, "GigoUsers"); err != nil {
+				return fmt.Errorf("failed to unsubscribe user from mailing list: %v", err)
+			}
+		} else {
+			if err := ResubscribeMailingListMember(mgKey, mgDomain, userEmail, username, "GigoUsers"); err != nil {
+				return fmt.Errorf("failed to resubscribe user to mailing list: %v", err)
+			}
+		}
 	}
 
 	return nil
@@ -684,7 +713,7 @@ func checkPreferences(preferences map[string]interface{}, streak bool, pro bool,
 }
 
 // AddMailingListMember adds the passed user info to our mailing list
-func AddMailingListMember(mailGunKey string, mailGunDomain string, userEmail string, username string) error {
+func AddMailingListMember(mailGunKey string, mailGunDomain string, mailingListAddress string, userEmail string, username string) error {
 	// create new Mailgun client
 	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
 
@@ -702,7 +731,7 @@ func AddMailingListMember(mailGunKey string, mailGunDomain string, userEmail str
 	defer cancel()
 
 	// attempt to add the new mailing list member
-	err := mg.CreateMember(ctx, true, userEmail, newMember)
+	err := mg.CreateMember(ctx, true, mailingListAddress, newMember)
 	if err != nil {
 		if err != nil {
 			return fmt.Errorf("AddMailingListMember failed to add new member in core: %v", err)
@@ -727,6 +756,29 @@ func UnsubscribeMailingListMember(mailGunKey string, mailGunDomain string, userE
 	_, err := mg.UpdateMember(ctx, userEmail, mailingList, mailgun.Member{
 		Name:       username,
 		Subscribed: mailgun.Unsubscribed,
+	})
+	if err != nil {
+		return fmt.Errorf("UnsubscribeMailingListMember failed to unsubscribe member in core: %v", err)
+	}
+
+	return nil
+}
+
+// ResubscribeMailingListMember resubscribes the user to our mailing list
+func ResubscribeMailingListMember(mailGunKey string, mailGunDomain string, userEmail string, username string, mailingList string) error {
+	// create new Mailgun client
+	mg := mailgun.NewMailgun(mailGunDomain, mailGunKey)
+
+	// 30 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+
+	// defer cancellation of ctx
+	defer cancel()
+
+	// attempt to unsubscribe member from the mailing list
+	_, err := mg.UpdateMember(ctx, userEmail, mailingList, mailgun.Member{
+		Name:       username,
+		Subscribed: mailgun.Subscribed,
 	})
 	if err != nil {
 		return fmt.Errorf("UnsubscribeMailingListMember failed to unsubscribe member in core: %v", err)
@@ -781,10 +833,20 @@ func GetMailingListMembers(mailGunKey string, mailGunDomain string, mailingList 
 
 // InitializeNewMailingListInBulk only use manually. This function is used to initialize a new mailing list in bulk.
 // It will iterate over all users in the database and add them to the mailing list as long as they have the appropriate email preferences.
-func InitializeNewMailingListInBulk(ctx context.Context, tidb *ti.Database, mailGunKey string, mailGunDomain string, mailingList string) error {
+func InitializeNewMailingListInBulk(ctx context.Context, tidb *ti.Database, callingUser *models.User, secret string, pass string, mailGunKey string, mailGunDomain string, mailingList string) error {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "initialize-new-mailing-list-in-bulk")
 	defer span.End()
 	callerName := "InitializeNewMailingListInBulk"
+
+	// abort if not gigo admin
+	if callingUser == nil || callingUser.UserName != "gigo" {
+		return fmt.Errorf("must be on admin account")
+	}
+
+	// check password against secret
+	if secret != pass {
+		return fmt.Errorf("incorrect password")
+	}
 
 	// Query to retrieve users with newsletter subscription
 	query := `

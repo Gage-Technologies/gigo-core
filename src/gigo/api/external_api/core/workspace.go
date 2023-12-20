@@ -282,7 +282,7 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 				return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
 			}
 			return nil, fmt.Errorf(
-				"failed to query for ws config in post: %v\n    query: %s\n    params: %v",
+				"failed to query for ws config in post: %v\n    query: %v\n    params: %v",
 				err, nil, []interface{}{csId, callingUser.ID})
 		}
 	} else {
@@ -295,7 +295,7 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 				return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
 			}
 			return nil, fmt.Errorf(
-				"failed to query for ws config in post: %v\n    query: %s\n    params: %v",
+				"failed to query for ws config in post: %v\n    query: %v\n    params: %v",
 				err, nil, []interface{}{csId, callingUser.ID})
 		}
 	}
@@ -313,7 +313,7 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 				return map[string]interface{}{"message": "Unable to locate ws config content."}, fmt.Errorf("ws config content not found")
 			}
 			return nil, fmt.Errorf(
-				"failed to query for ws config content: %v\n    query: %s\n    params: %v",
+				"failed to query for ws config content: %v\n    query: %v\n    params: %v",
 				err, nil, []interface{}{csId, callingUser.ID})
 		}
 
