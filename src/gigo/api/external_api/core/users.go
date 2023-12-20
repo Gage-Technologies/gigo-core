@@ -345,10 +345,10 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 			}
 		}
 
-		err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
-		}
+		//err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
+		//}
 
 		// send user sign up message after creation
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
@@ -1870,10 +1870,10 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			}
 		}
 
-		err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
-		}
+		//err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
+		//}
 
 		// send user sign up message after creation
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
@@ -2319,10 +2319,10 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			}
 		}
 
-		err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
-		}
+		//err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
+		//if err != nil {
+		//	return nil, "", fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
+		//}
 
 		// send user sign up message after creation
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
