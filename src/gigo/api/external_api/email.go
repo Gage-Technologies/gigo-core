@@ -291,3 +291,48 @@ func (s *HTTPServer) GetUserEmailPreferences(w http.ResponseWriter, r *http.Requ
 	// Return response
 	s.jsonResponse(r, w, preferences, r.URL.Path, "GetUserEmailPreferences", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
 }
+
+func (s *HTTPServer) InitializeNewMailingListInBulk(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "initialize-new-mailing-list-in-bulk-http")
+	defer parentSpan.End()
+
+	// Attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "InitializeNewMailingListInBulk", false, "", -1)
+	if reqJson == nil {
+		return
+	}
+
+	// Attempt to load mailing list name from body
+	mailingList, ok := s.loadValue(w, r, reqJson, "InitializeNewMailingListInBulk", "mailingList", reflect.String, nil, true, "", "")
+	if !ok {
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "InitializeNewMailingListInBulk", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
+		return
+	}
+
+	// Execute core function logic
+	err := core.InitializeNewMailingListInBulk(ctx, s.tiDB, s.mailGunKey, s.mailGunDomain, mailingList.(string))
+	if err != nil {
+		// Handle error internally
+		s.handleError(w, "InitializeNewMailingListInBulk core failed", r.URL.Path, "InitializeNewMailingListInBulk", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "", "", http.StatusInternalServerError, "internal server error occurred", err)
+		// Exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"initialize-new-mailing-list-in-bulk-http",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+		),
+	)
+
+	// Return success response
+	s.jsonResponse(r, w, map[string]interface{}{"success": true}, r.URL.Path, "InitializeNewMailingListInBulk", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "", "", http.StatusOK)
+}

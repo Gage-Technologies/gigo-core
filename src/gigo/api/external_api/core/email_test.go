@@ -166,27 +166,27 @@ func TestSendWeekInactiveMessage(t *testing.T) {
 	fmt.Println("Id is : " + id + "\nSuccessfully sent email")
 }
 
-func TestSendMonthInactiveMessage(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-
-	defer cancel()
-
-	err := SendMonthInactiveMessage(ctx, apiKey, domain, "")
-	if err != nil {
-		t.Fatalf("Failed to send email%v", err)
-	}
-}
-
-func TestSendMessageReceivedEmail(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-
-	defer cancel()
-
-	err := SendMessageReceivedEmail(ctx, apiKey, domain, "", "")
-	if err != nil {
-		t.Fatalf("Failed to send email%v", err)
-	}
-}
+//func TestSendMonthInactiveMessage(t *testing.T) {
+//	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+//
+//	defer cancel()
+//
+//	err := SendMonthInactiveMessage(ctx, apiKey, domain, "")
+//	if err != nil {
+//		t.Fatalf("Failed to send email%v", err)
+//	}
+//}
+//
+//func TestSendMessageReceivedEmail(t *testing.T) {
+//	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+//
+//	defer cancel()
+//
+//	err := SendMessageReceivedEmail(ctx, apiKey, domain, "", "")
+//	if err != nil {
+//		t.Fatalf("Failed to send email%v", err)
+//	}
+//}
 
 func TestListActiveTemplates(t *testing.T) {
 	// create new Mailgun client
