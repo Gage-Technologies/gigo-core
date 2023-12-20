@@ -653,7 +653,7 @@ func TestDeleteUserAccount(t *testing.T) {
 	}
 
 	// Call the DeleteUserAccount function
-	response, err := DeleteUserAccount(context.Background(), testTiDB, meili, vcsClient, user)
+	response, err := DeleteUserAccount(context.Background(), testTiDB, meili, vcsClient, user, "", "")
 	if err != nil {
 		t.Errorf("DeleteUserAccount() error = %v", err)
 		return

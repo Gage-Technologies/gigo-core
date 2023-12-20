@@ -345,6 +345,11 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 			}
 		}
 
+		err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
+		}
+
 		// send user sign up message after creation
 		err = SendSignUpMessage(ctx, mgKey, mgDomain, user.Email, user.UserName)
 		if err != nil {
@@ -1419,7 +1424,7 @@ func ChangeUserPicture(ctx context.Context, callingUser *models.User, tidb *ti.D
 }
 
 func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.MeiliSearchEngine, vcsClient *git.VCSClient,
-	callingUser *models.User) (map[string]interface{}, error) {
+	callingUser *models.User, mgKey string, mgDomain string) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "delete-user-account-core")
 	defer span.End()
 	callerName := "DeleteUserAccount"
@@ -1551,6 +1556,11 @@ func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.Meili
 	_, err = tx.ExecContext(ctx, &callerName, "delete from users where _id = ?", callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update otp for user: Error: %v", err)
+	}
+
+	err = DeleteMailingListMember(mgKey, mgDomain, callingUser.Email, "GigoUsers")
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete user from mailing list: %v", err)
 	}
 
 	// delete the user's subscription
@@ -1858,6 +1868,11 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			if err != nil {
 				return nil, fmt.Errorf("failed to insert email subscription: %v", err)
 			}
+		}
+
+		err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
 		}
 
 		// send user sign up message after creation
@@ -2302,6 +2317,11 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to insert email subscription: %v", err)
 			}
+		}
+
+		err = AddMailingListMember(mgKey, mgDomain, "GigoUsers", user.Email, user.UserName)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to add new user to the mailing list while creating new user: %v", err)
 		}
 
 		// send user sign up message after creation

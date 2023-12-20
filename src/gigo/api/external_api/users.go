@@ -953,7 +953,7 @@ func (s *HTTPServer) DeleteUserAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.DeleteUserAccount(ctx, s.tiDB, s.meili, s.vscClient, callingUser.(*models.User))
+	res, err := core.DeleteUserAccount(ctx, s.tiDB, s.meili, s.vscClient, callingUser.(*models.User), s.mailGunKey, s.mailGunDomain)
 	if err != nil {
 
 		// select error message dependent on if there was one returned from the function
