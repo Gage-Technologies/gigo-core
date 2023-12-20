@@ -1558,10 +1558,10 @@ func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.Meili
 		return nil, fmt.Errorf("failed to update otp for user: Error: %v", err)
 	}
 
-	err = DeleteMailingListMember(mgKey, mgDomain, callingUser.Email, "GigoUsers")
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete user from mailing list: %v", err)
-	}
+	//err = DeleteMailingListMember(mgKey, mgDomain, callingUser.Email, "GigoUsers")
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to delete user from mailing list: %v", err)
+	//}
 
 	// delete the user's subscription
 	if callingUser.StripeSubscription != nil {
