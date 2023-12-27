@@ -56,7 +56,7 @@ func Login(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 	callerName := "Login"
 
 	// query for user with passed credentials
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where lower(user_name) = lower(?) limit 1", username)
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select u._id as _id, user_name, password, email, phone, user_status, encrypted_service_key, r._id as reward_id, color_palette, render_in_front, name, level, tier, user_rank, coffee, stripe_account, exclusive_agreement, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where (lower(user_name) = lower(?) or lower(email) = lower(?)) and external_auth = 'None' limit 1", username, username)
 	if err != nil {
 		return map[string]interface{}{
 			"message": "invalid username passed",

@@ -69,7 +69,7 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 		}, errors.New("username missing from user creation")
 	}
 
-	username := strings.ReplaceAll(userName, " ", "_")
+	username := normalizeUsername(userName)
 
 	// build query to check if username already exists
 	nameQuery := "select user_name from users where lower(user_name) = lower(?)"
@@ -1611,7 +1611,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// build query to check if username already exists
 	nameQuery := "select user_name from users where lower(user_name) = lower(?)"
 
-	username := strings.ReplaceAll(userInfo.Name, " ", "_")
+	username := normalizeUsername(userInfo.Name)
 
 	// check if username exists, if it does then append a number until it is unique
 	for {
@@ -2080,7 +2080,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	// build query to check if username already exists
 	nameQuery = "select user_name from users where lower(user_name) = lower(?)"
 
-	username := strings.ReplaceAll(m["login"].(string), " ", "_")
+	username := normalizeUsername(m["login"].(string))
 
 	// check if username exists, if it does then append a number until it is unique
 	for {
@@ -2770,4 +2770,12 @@ func DeleteEphemeralUser(ctx context.Context, tidb *ti.Database, vcsClient *git.
 	}
 
 	return map[string]interface{}{"message": "successfully deleted ephemeral users"}, nil
+}
+
+func normalizeUsername(username string) string {
+	// replace spaces with underscores
+	username = strings.ReplaceAll(strings.ToLower(username), " ", "_")
+	
+	// replace @ with _at_
+	return strings.ReplaceAll(username, "@", "_at_")
 }
