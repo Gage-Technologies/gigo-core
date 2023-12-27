@@ -182,7 +182,7 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 	}
 
 	// build query to check if username already exists
-	nameQuery := "select user_name from users where user_name = ?"
+	nameQuery := "select user_name from users where lower(user_name) = lower(?)"
 
 	// query users to ensure username does not already exist
 	response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, userName)
@@ -356,7 +356,7 @@ func CreateAccountFromEphemeral(ctx context.Context, tidb *ti.Database, meili *s
 
 	if referralUser != nil {
 		// query to see if referred user is an actual user
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where lower(user_name) = lower(?) limit 1", referralUser)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to query referral user: %v", err)
@@ -464,7 +464,7 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 	googleId := tokenInfo.UserId
 
 	// build query to check if username already exists
-	nameQuery := "select user_name from users where user_name = ?"
+	nameQuery := "select user_name from users where lower(user_name) = lower(?)"
 
 	// query users to ensure username does not already exist
 	response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, userInfo.Name)
@@ -601,7 +601,7 @@ func CreateAccountFromEphemeralGoogle(ctx context.Context, tidb *ti.Database, me
 	// if the user was referred by a referral link perform referral logic checks
 	if referralUser != nil {
 		// query to see if referred user is an actual user
-		res, err := tx.QueryContext(ctx, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
+		res, err := tx.QueryContext(ctx, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where lower(user_name) = lower(?) limit 1", referralUser)
 		if err != nil {
 			_ = tx.Rollback()
 			if err == sql.ErrNoRows {
@@ -740,7 +740,7 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 	}
 
 	// build query to check if username already exists
-	nameQuery = "select user_name from users where user_name = ?"
+	nameQuery = "select user_name from users where lower(user_name) = lower(?)"
 
 	// query users to ensure username does not already exist
 	response, err = tidb.QueryContext(ctx, &span, &callerName, nameQuery, m["login"].(string))
@@ -859,7 +859,7 @@ func CreateAccountFromEphemeralGithub(ctx context.Context, tidb *ti.Database, me
 
 	if referralUser != nil {
 		// query to see if referred user is an actual user
-		res, err := tx.QueryContext(ctx, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
+		res, err := tx.QueryContext(ctx, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where lower(user_name) = lower(?) limit 1", referralUser)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, fmt.Errorf("failed to query referral user: %v", err)

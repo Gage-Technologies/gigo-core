@@ -502,7 +502,7 @@ func ConfirmGithubLogin(ctx context.Context, tidb *ti.Database, rdb redis.Univer
 
 	// query for user with passed credentials
 	res, err := tidb.QueryContext(ctx, &span, &callerName,
-		"select color_palette, render_in_front, name, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where user_name = ? limit 1", callingUser.UserName,
+		"select color_palette, render_in_front, name, tutorials, stripe_subscription, auth_role, used_free_trial from users u left join rewards r on r._id = u.avatar_reward where lower(user_name) = lower(?) limit 1", callingUser.UserName,
 	)
 	if err != nil {
 		return map[string]interface{}{
@@ -645,7 +645,7 @@ func ReferralUserInfo(ctx context.Context, tidb *ti.Database, username string) (
 	callerName := "ReferralUserInfo"
 
 	// query for important user information for their profile page
-	response, err := tidb.QueryContext(ctx, &span, &callerName, "select tier, u._id as _id, user_name, r._id as reward_id, color_palette, render_in_front, name, user_status from users u left join rewards r on u.avatar_reward = r._id where u.user_name = ? limit 1", username)
+	response, err := tidb.QueryContext(ctx, &span, &callerName, "select tier, u._id as _id, user_name, r._id as reward_id, color_palette, render_in_front, name, user_status from users u left join rewards r on u.avatar_reward = r._id where lower(u.user_name) = lower(?) limit 1", username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for user info: %v", err)
 	}

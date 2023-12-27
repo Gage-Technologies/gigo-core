@@ -72,7 +72,7 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	username := strings.ReplaceAll(userName, " ", "_")
 
 	// build query to check if username already exists
-	nameQuery := "select user_name from users where user_name = ?"
+	nameQuery := "select user_name from users where lower(user_name) = lower(?)"
 
 	// query users to ensure username does not already exist
 	response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, username)
@@ -258,7 +258,7 @@ func CreateNewUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 
 	if referralUser != nil {
 		// query to see if referred user is an actual user
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where lower(user_name) = lower(?) limit 1", referralUser)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query referral user: %v", err)
 		}
@@ -410,7 +410,7 @@ func CreateNewEUser(ctx context.Context, tidb *ti.Database, meili *search.MeiliS
 		userName = "E-" + userName
 
 		// build query to check if username already exists
-		nameQuery := "select user_name from users where user_name = ?"
+		nameQuery := "select user_name from users where lower(user_name) = lower(?)"
 
 		// query users to ensure username does not already exist
 		response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, userName)
@@ -570,7 +570,7 @@ func ValidateUserInfo(ctx context.Context, tidb *ti.Database, userName string, p
 	}
 
 	// build query to check if username already exists
-	nameQuery := "select user_name from users where user_name = ?"
+	nameQuery := "select user_name from users where lower(user_name) = lower(?)"
 
 	// query users to ensure username does not already exist
 	response, err := tidb.QueryContext(ctx, &span, &callerName, nameQuery, userName)
@@ -1269,7 +1269,7 @@ func ChangeUsername(ctx context.Context, callingUser *models.User, tidb *ti.Data
 	}
 
 	// query if username is already in use
-	check, err := tidb.QueryContext(ctx, &span, &callerName, "select * from users where user_name = ?", newUsername)
+	check, err := tidb.QueryContext(ctx, &span, &callerName, "select * from users where lower(user_name) = lower(?)", newUsername)
 	if err != nil {
 		return nil, fmt.Errorf("change username core failed.  Error: %v", err)
 	}
@@ -1283,7 +1283,7 @@ func ChangeUsername(ctx context.Context, callingUser *models.User, tidb *ti.Data
 	check.Close()
 
 	// update username in user model
-	_, err = tidb.ExecContext(ctx, &span, &callerName, "update users set user_name = ? where _id = ?", newUsername, callingUser.ID)
+	_, err = tidb.ExecContext(ctx, &span, &callerName, "update users set lower(user_name) = lower(?) where _id = ?", newUsername, callingUser.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update username. ChangeUsername core.  Error: %v", err)
 	}
@@ -1400,27 +1400,6 @@ func ChangePassword(ctx context.Context, callingUser *models.User, tidb *ti.Data
 	}
 
 	return map[string]interface{}{"message": "Password updated successfully"}, nil
-}
-
-func ChangeUserPicture(ctx context.Context, callingUser *models.User, tidb *ti.Database, newImagePath string) (map[string]interface{}, error) {
-	ctx, span := otel.Tracer("gigo-core").Start(ctx, "change-user-picture-core")
-	defer span.End()
-	callerName := "ChangePassword"
-
-	// ensure input username is valid
-	if len(newImagePath) < 1 || newImagePath == "" {
-		return nil, fmt.Errorf("failed to update user picture, path too short. ChangeUserPicture core")
-	}
-
-	// update thumb in user model
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "update users set user_name = ? where _id = ?", newImagePath, callingUser.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update profile picture. ChangeUserPicture core.  Error: %v", err)
-	}
-
-	defer res.Close()
-
-	return map[string]interface{}{"message": "Profile picture updated successfully"}, nil
 }
 
 func DeleteUserAccount(ctx context.Context, db *ti.Database, meili *search.MeiliSearchEngine, vcsClient *git.VCSClient,
@@ -1630,7 +1609,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	googleId := tokenInfo.UserId
 
 	// build query to check if username already exists
-	nameQuery := "select user_name from users where user_name = ?"
+	nameQuery := "select user_name from users where lower(user_name) = lower(?)"
 
 	username := strings.ReplaceAll(userInfo.Name, " ", "_")
 
@@ -1780,7 +1759,7 @@ func CreateNewGoogleUser(ctx context.Context, tidb *ti.Database, meili *search.M
 
 	if referralUser != nil {
 		// query to see if referred user is an actual user
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where lower(user_name) = lower(?) limit 1", referralUser)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, fmt.Errorf("referral user was not in the database: %v", err)
@@ -2099,7 +2078,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 	}
 
 	// build query to check if username already exists
-	nameQuery = "select user_name from users where user_name = ?"
+	nameQuery = "select user_name from users where lower(user_name) = lower(?)"
 
 	username := strings.ReplaceAll(m["login"].(string), " ", "_")
 
@@ -2232,7 +2211,7 @@ func CreateNewGithubUser(ctx context.Context, tidb *ti.Database, meili *search.M
 
 	if referralUser != nil {
 		// query to see if referred user is an actual user
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where user_name = ? limit 1", referralUser)
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "select stripe_subscription, user_status, _id, first_name, last_name, email from users where lower(user_name) = lower(?) limit 1", referralUser)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to query referral user: %v", err)
 		}

@@ -103,7 +103,7 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 	} else {
 		// if the username is provided retrieve the user's id from the database
 		if username != "" {
-			err := tidb.QueryRowContext(ctx, &span, &callerName, "select _id from user where user_name = ? limit 1", username).Scan(&id)
+			err := tidb.QueryRowContext(ctx, &span, &callerName, "select _id from user where lower(user_name) = lower(?) limit 1", username).Scan(&id)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return nil, fmt.Errorf("not found")

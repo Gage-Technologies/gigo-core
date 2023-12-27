@@ -709,7 +709,7 @@ func queryUserEmailByUsername(ctx context.Context, db *ti.Database, username str
 	callerName := "QueryUserEmailByUsername"
 
 	var email string
-	err := db.QueryRowContext(ctx, &span, &callerName, "select email from users where user_name = ?", username).Scan(&email)
+	err := db.QueryRowContext(ctx, &span, &callerName, "select email from users where lower(user_name) = lower(?)", username).Scan(&email)
 	if err != nil {
 		return "", fmt.Errorf("failed to query for users email: %v", err)
 	}

@@ -1732,7 +1732,6 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/user/changeUsername", s.ChangeUsername).Methods("POST")
 	s.router.HandleFunc("/api/user/changePhone", s.ChangePhoneNumber).Methods("POST")
 	s.router.HandleFunc("/api/user/userProjects", s.UserProjects).Methods("POST")
-	s.router.HandleFunc("/api/user/changeUserPicture", s.ChangeUserPicture).Methods("POST")
 	s.router.HandleFunc("/api/user/changePassword", s.ChangePassword).Methods("POST")
 	s.router.HandleFunc("/api/user/deleteUserAccount", s.DeleteUserAccount).Methods("POST")
 	s.router.HandleFunc("/api/user/subscription", s.GetSubscription).Methods("POST")
