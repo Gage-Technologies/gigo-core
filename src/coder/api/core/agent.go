@@ -232,25 +232,33 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		}
 	}
 
-	// create a git token for the workspace
-	token, _, err := opts.VcsClient.GiteaClient.CreateAccessTokenAdmin(fmt.Sprintf("%d", opts.OwnerId), gitea.CreateAccessTokenOption{
-		Name: fmt.Sprintf("%d", opts.WorkspaceId),
-		// since gitea v1.19.0, the scopes are now required so we
-		// grant just private repo access for the workspace
-		Scopes: []gitea.AccessTokenScope{
-			gitea.AccessTokenScopeRepo,
-		},
-	})
-	if err != nil {
-		// we return for wny unexpected error
-		if !strings.Contains(err.Error(), "access token name has been used already") {
-			return nil, fmt.Errorf("failed to create a token for the workspace: %v", err)
+	var giteaToken string
+
+	if projectType == models.CodeSourceByte {
+		giteaToken = ""
+	} else {
+		// create a git token for the workspace
+		token, _, err := opts.VcsClient.GiteaClient.CreateAccessTokenAdmin(fmt.Sprintf("%d", opts.OwnerId), gitea.CreateAccessTokenOption{
+			Name: fmt.Sprintf("%d", opts.WorkspaceId),
+			// since gitea v1.19.0, the scopes are now required so we
+			// grant just private repo access for the workspace
+			Scopes: []gitea.AccessTokenScope{
+				gitea.AccessTokenScopeRepo,
+			},
+		})
+		if err != nil {
+			// we return for wny unexpected error
+			if !strings.Contains(err.Error(), "access token name has been used already") {
+				return nil, fmt.Errorf("failed to create a token for the workspace: %v", err)
+			}
+			// if the token already exists then we return "exists"
+			// so that the agent knows to skip git configuration
+			token = &gitea.AccessToken{
+				Token: "exists",
+			}
 		}
-		// if the token already exists then we return "exists"
-		// so that the agent knows to skip git configuration
-		token = &gitea.AccessToken{
-			Token: "exists",
-		}
+
+		giteaToken = token.Token
 	}
 
 	// set the workspace as initialized
@@ -352,7 +360,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		WorkspaceIDString:  fmt.Sprintf("%d", opts.WorkspaceId),
 		Repo:               cloneURL,
 		Commit:             commit,
-		GitToken:           token.Token,
+		GitToken:           giteaToken,
 		GitEmail:           fmt.Sprintf("%d@git.%s", opts.OwnerId, opts.AppHostname),
 		GitName:            fmt.Sprintf("%d", opts.OwnerId),
 		Expiration:         expiration.Unix(),

@@ -620,11 +620,21 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 
 	logger.Debugf("destroying workspace %d", destroyWsMsg.ID)
 
-	// delete access token to vcs for the user
-	gitRes, err := vcsClient.GiteaClient.DeleteAccessTokenAdmin(fmt.Sprintf("%d", destroyWsMsg.OwnerID), fmt.Sprintf("%d", destroyWsMsg.ID))
-	if err != nil && gitRes.StatusCode != http.StatusNotFound {
-		logger.Warnf("(workspace: %d) failed to delete workspace vcs access token while deleting workspace: %v", nodeId, err)
+	// query for the workspace CodeSource type
+	var projectType models.CodeSource
+	err = tidb.QueryRowContext(ctx, &span, &callerName, "select &projectType from workspaces where _id = ?", destroyWsMsg.ID).Scan(&projectType)
+	if err != nil {
+		logger.Errorf("(workspace: %d) failed to query workspace CodeSource type: %v", destroyWsMsg.ID, err)
 		return
+	}
+
+	if projectType == models.CodeSourcePost || projectType == models.CodeSourceAttempt {
+		// delete access token to vcs for the user
+		gitRes, err := vcsClient.GiteaClient.DeleteAccessTokenAdmin(fmt.Sprintf("%d", destroyWsMsg.OwnerID), fmt.Sprintf("%d", destroyWsMsg.ID))
+		if err != nil && gitRes.StatusCode != http.StatusNotFound {
+			logger.Warnf("(workspace: %d) failed to delete workspace vcs access token while deleting workspace: %v", nodeId, err)
+			return
+		}
 	}
 
 	// create context for the stop operation
