@@ -136,7 +136,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("failed to query workspaces: %v", err)
 		}
-
+		////
 		return nil, fmt.Errorf("failed to query workspaces: %v", err)
 
 	}
