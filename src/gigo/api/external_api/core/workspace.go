@@ -1847,3 +1847,449 @@ func DeleteEphemeral(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 
 	return nil
 }
+
+func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, snowflakeNode *snowflake.Node,
+	wsStatusUpdater *utils.WorkspaceStatusUpdater, callingUser *models.User, accessUrl string, byteId int64,
+	hostname string, tls bool) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-byte-workspace-core")
+	defer span.End()
+	callerName := "CreateByteWorkspace"
+
+	// attempt to retrieve any existing workspaces
+	res, err := tidb.QueryContext(ctx, &span, &callerName,
+		"select * from workspaces where repo_id = ? and commit = ? and owner_id = ? and code_source_id = ? and state not in (?, ?, ?) limit 1",
+		-1, "", callingUser.ID, byteId, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for existing workspace: %v\n    query: %s\n    params: %v", err,
+			"select * from workspaces where repo_id = ? and commit = ? and owner_id = ? and code_source_id = ? and state not in (?, ?, ?) limit 1",
+			[]interface{}{-1, "", callingUser.ID, byteId, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed})
+	}
+
+	// ensure the closure of the cursor
+	defer res.Close()
+
+	// handle case that a workspace is already live
+	if res.Next() {
+		// attempt to load values from the cursor
+		workspace, err := models.WorkspaceFromSQLNative(res)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load workspace from cursor: %v", err)
+		}
+
+		// update expiration
+		workspace.Expiration = time.Now().Add(time.Minute * 30)
+
+		// handle non-live workspaces by performing a start transition
+		if workspace.State != models.WorkspaceActive && workspace.State != models.WorkspaceStarting {
+			// update workspace in tidb using a tx
+			tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to start transaction for workspace start: %v", err)
+			}
+
+			// update the workspace state
+			workspace.State = models.WorkspaceStarting
+			workspace.InitState = -1
+			workspace.LastStateUpdate = time.Now()
+
+			_, err = tx.ExecContext(ctx, &callerName,
+				"update workspaces set expiration = ?, state = ?, init_state = -1, last_state_update = ? where _id = ?",
+				workspace.Expiration, workspace.State, workspace.LastStateUpdate, workspace.ID,
+			)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("failed to update workspace in database: %v", err)
+			}
+
+			// format start workspace request and marshall it with gob
+			buf := bytes.NewBuffer(nil)
+			encoder := gob.NewEncoder(buf)
+			err = encoder.Encode(models2.StartWorkspaceMsg{
+				ID: workspace.ID,
+			})
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("failed to encode workspace: %v", err)
+			}
+
+			// send workspace start message to jetstream so a follower will
+			// start the workspace
+			_, err = js.PublishAsync(streams.SubjectWorkspaceStart, buf.Bytes())
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("failed to send workspace start message to jetstream: %v", err)
+			}
+
+			// commit update tx
+			err = tx.Commit(&callerName)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("failed to commit transaction for workspace start: %v", err)
+			}
+		} else {
+			// update workspace in tidb
+			_, err = tidb.ExecContext(ctx, &span, &callerName, "update workspaces set expiration = ? where _id = ?", workspace.Expiration, workspace.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update expiration for active workspace in tidb: %v", err)
+			}
+		}
+
+		// TODO we dont need gitea related content for config -- default working directory
+		// get repository name from repo id
+		//repository, _, err := vcsClient.GiteaClient.GetRepoByID(repo)
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to locate repo %d: %v", repo, err)
+		//}
+		//
+		//// retrieve the gigo workspace config for this repo and commit
+		//configBytes, gitRes, err := vcsClient.GiteaClient.GetFile(
+		//	fmt.Sprintf("%d", callingUser.ID),
+		//	repository.Name,
+		//	commit,
+		//	".gigo/workspace.yaml",
+		//)
+		//if err != nil {
+		//	buf, _ := io.ReadAll(gitRes.Body)
+		//	return nil, fmt.Errorf("failed to retrieve gigoconfig: %v\n    response: %d - %q", err, gitRes.StatusCode, string(buf))
+		//}
+		//
+		//// parse config bytes into workspace config
+		//var gigoConfig workspace_config.GigoWorkspaceConfig
+		//err = yaml.Unmarshal(configBytes, &gigoConfig)
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to parse new config: %v", err)
+		//}
+		//
+		//// TODO probably not relevant
+		//if workspace.CodeSourceType == 1 {
+		//	_, err = tidb.ExecContext(ctx, &span, &callerName, "update attempt set updated_at = ? where _id = ?", time.Now(), workspace.CodeSourceID)
+		//	if err != nil {
+		//		return nil, fmt.Errorf("failed to update row for attempt project information: %v", err)
+		//	}
+		//} else {
+		//	_, err = tidb.ExecContext(ctx, &span, &callerName, "update post set updated_at = ? where _id = ?", time.Now(), workspace.CodeSourceID)
+		//	if err != nil {
+		//		return nil, fmt.Errorf("failed to update row for attempt project information: %v", err)
+		//	}
+		//}
+
+		// push workspace status update to subscribers
+		wsStatusUpdater.PushStatus(ctx, workspace.ID, workspace)
+
+		return map[string]interface{}{
+			"message": "Workspace Created Successfully",
+			//"workspace_url": fmt.Sprintf("/editor/%d/%d-%s?folder=%s", callingUser.ID, workspace.ID, commit, url.QueryEscape(gigoConfig.WorkingDirectory)),
+			"workspace": workspace.ToFrontend(hostname, tls),
+		}, nil
+	}
+
+	// close cursor explicitly
+	_ = res.Close()
+
+	// TODO what to do with workspace settings?
+
+	// select user defaults
+	var wsSettings models.WorkspaceSettings
+
+	if callingUser.WorkspaceSettings == nil {
+		return nil, fmt.Errorf("user workspace settings are not set")
+	}
+	wsSettings = *callingUser.WorkspaceSettings
+
+	// TODO create a default config specifically for bytes
+
+	// set the default workspace config for bytes
+	wsConfig := workspace_config.GigoWorkspaceConfig{
+		Version: 0.1,
+		Resources: struct {
+			CPU  int `yaml:"cpu"`
+			Mem  int `yaml:"mem"`
+			Disk int `yaml:"disk"`
+			GPU  struct {
+				Count int    `yaml:"count"`
+				Class string `yaml:"class"`
+			} `yaml:"gpu"`
+		}{
+			CPU:  1,  // number of CPUs
+			Mem:  1,  // in GB
+			Disk: 10, // in GB
+			GPU: struct {
+				Count int    `yaml:"count"`
+				Class string `yaml:"class"`
+			}{
+				Count: 1,
+				Class: "p4",
+			},
+		},
+		BaseContainer:    "gigodev/gimg:base-ubuntu",
+		WorkingDirectory: "/home/gigo/codebase/",
+		Environment:      nil,
+		Containers:       nil,
+		VSCode:           workspace_config.GigoVSCodeConfig{},
+		PortForward:      nil,
+		Exec:             nil,
+	}
+
+	// create id for new workspace
+	wsId := snowflakeNode.Generate().Int64()
+
+	///////
+
+	//var workspaceConfigId int64
+	//
+	//if csType == models.CodeSourcePost {
+	//	// query attempts for the passed id and user
+	//	err = tidb.QueryRowContext(ctx, &span, &callerName,
+	//		"select workspace_config from post where _id = ?", byteId,
+	//	).Scan(&workspaceConfigId)
+	//	if err != nil {
+	//		if err == sql.ErrNoRows {
+	//			return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
+	//		}
+	//		return nil, fmt.Errorf(
+	//			"failed to query for ws config in post: %v\n    query: %v\n    params: %v",
+	//			err, nil, []interface{}{byteId, callingUser.ID})
+	//	}
+	//} else {
+	//	// query attempts for the passed id and user
+	//	err = tidb.QueryRowContext(ctx, &span, &callerName,
+	//		"select p.workspace_config from post p join attempt a on p._id = a.post_id where a._id = ?", byteId,
+	//	).Scan(&workspaceConfigId)
+	//	if err != nil {
+	//		if err == sql.ErrNoRows {
+	//			return map[string]interface{}{"message": "Unable to locate ws config in post."}, fmt.Errorf("ws config in post not found")
+	//		}
+	//		return nil, fmt.Errorf(
+	//			"failed to query for ws config in post: %v\n    query: %v\n    params: %v",
+	//			err, nil, []interface{}{byteId, callingUser.ID})
+	//	}
+	//}
+	//
+	//if workspaceConfigId > 0 {
+	//	var comparisonContent string
+	//	var wsConfigRevision int64
+	//
+	//	// query attempts for the passed id and user
+	//	err = tidb.QueryRowContext(ctx, &span, &callerName,
+	//		"select content, revision from workspace_config where _id = ? limit 1", workspaceConfigId,
+	//	).Scan(&comparisonContent, &wsConfigRevision)
+	//	if err != nil {
+	//		if err == sql.ErrNoRows {
+	//			return map[string]interface{}{"message": "Unable to locate ws config content."}, fmt.Errorf("ws config content not found")
+	//		}
+	//		return nil, fmt.Errorf(
+	//			"failed to query for ws config content: %v\n    query: %v\n    params: %v",
+	//			err, nil, []interface{}{byteId, callingUser.ID})
+	//	}
+	//
+	//	// validate that the config is in the right format
+	//	var wsCfgComparison workspace_config.GigoWorkspaceConfig
+	//	err = yaml.Unmarshal([]byte(comparisonContent), &wsCfgComparison)
+	//	if err != nil {
+	//		return map[string]interface{}{"message": "config is not found"}, err
+	//	}
+	//
+	//	isSame := true
+	//
+	//	if wsCfgComparison.Version != wsConfig.Version {
+	//		isSame = false
+	//	}
+	//
+	//	if wsCfgComparison.BaseContainer != wsConfig.BaseContainer {
+	//		isSame = false
+	//	}
+	//
+	//	if wsCfgComparison.WorkingDirectory != wsConfig.WorkingDirectory {
+	//		isSame = false
+	//	}
+	//
+	//	if wsCfgComparison.Resources.CPU != wsConfig.Resources.CPU {
+	//		isSame = false
+	//	}
+	//
+	//	if wsCfgComparison.Resources.Mem != wsConfig.Resources.Mem {
+	//		isSame = false
+	//	}
+	//
+	//	if wsCfgComparison.Resources.Disk != wsConfig.Resources.Disk {
+	//		isSame = false
+	//	}
+	//
+	//	if isSame {
+	//		_, err = tidb.ExecContext(ctx, &span, &callerName, "Update workspace_config SET completions = completions + 1 Where _id = ? and revision = ?", workspaceConfigId, wsConfigRevision)
+	//		if err != nil {
+	//			return nil, fmt.Errorf("failed to update workspace config uses: %v", err)
+	//		}
+	//	}
+	//}
+
+	/////
+
+	// TODO should be irrelevant considering the config should be consistent
+	// create expiration for workspace
+	expiration := time.Now().Add(time.Minute * 15)
+
+	var overAllocated *models.OverAllocated = nil
+	//overAllocatedMessage := ""
+	//
+	//if callingUser.UserStatus != models.UserStatusPremium {
+	//	if wsConfig.Resources.CPU > 2 {
+	//		wsConfig.Resources.CPU = 2
+	//		overAllocated = &models.OverAllocated{CPU: wsConfig.Resources.CPU, RAM: wsConfig.Resources.Mem, DISK: wsConfig.Resources.Disk}
+	//		overAllocatedMessage = fmt.Sprintf(
+	//			"over-allocated CPUs: %d",
+	//			wsConfig.Resources.CPU,
+	//		)
+	//	}
+	//	if wsConfig.Resources.Mem > 3 {
+	//		wsConfig.Resources.Mem = 3
+	//		overAllocated = &models.OverAllocated{CPU: wsConfig.Resources.CPU, RAM: wsConfig.Resources.Mem, DISK: wsConfig.Resources.Disk}
+	//		if overAllocatedMessage != "" {
+	//			overAllocatedMessage = fmt.Sprintf(
+	//				", RAM: %d",
+	//				wsConfig.Resources.CPU,
+	//			)
+	//		} else {
+	//			overAllocatedMessage = fmt.Sprintf(
+	//				"over-allocated RAM: %d",
+	//				wsConfig.Resources.CPU,
+	//			)
+	//		}
+	//	}
+	//	if wsConfig.Resources.Disk > 15 {
+	//		wsConfig.Resources.Disk = 15
+	//		overAllocated = &models.OverAllocated{CPU: wsConfig.Resources.CPU, RAM: wsConfig.Resources.Mem, DISK: wsConfig.Resources.Disk}
+	//		if overAllocatedMessage != "" {
+	//			overAllocatedMessage = fmt.Sprintf(
+	//				", DISK: %d",
+	//				wsConfig.Resources.CPU,
+	//			)
+	//		} else {
+	//			overAllocatedMessage = fmt.Sprintf(
+	//				"over-allocated DISK: %d",
+	//				wsConfig.Resources.CPU,
+	//			)
+	//		}
+	//	}
+	//} else {
+	//	if wsConfig.Resources.CPU > 6 {
+	//		wsConfig.Resources.CPU = 6
+	//		overAllocated = &models.OverAllocated{CPU: wsConfig.Resources.CPU, RAM: wsConfig.Resources.Mem, DISK: wsConfig.Resources.Disk}
+	//		overAllocatedMessage = fmt.Sprintf(
+	//			"over-allocated CPUs: %d",
+	//			wsConfig.Resources.CPU,
+	//		)
+	//	}
+	//	if wsConfig.Resources.Mem > 8 {
+	//		wsConfig.Resources.Mem = 8
+	//		overAllocated = &models.OverAllocated{CPU: wsConfig.Resources.CPU, RAM: wsConfig.Resources.Mem, DISK: wsConfig.Resources.Disk}
+	//		if overAllocatedMessage != "" {
+	//			overAllocatedMessage = fmt.Sprintf(
+	//				", RAM: %d",
+	//				wsConfig.Resources.CPU,
+	//			)
+	//		} else {
+	//			overAllocatedMessage = fmt.Sprintf(
+	//				"over-allocated RAM: %d",
+	//				wsConfig.Resources.CPU,
+	//			)
+	//		}
+	//	}
+	//	if wsConfig.Resources.Disk > 50 {
+	//		wsConfig.Resources.Disk = 50
+	//		overAllocated = &models.OverAllocated{CPU: wsConfig.Resources.CPU, RAM: wsConfig.Resources.Mem, DISK: wsConfig.Resources.Disk}
+	//		if overAllocatedMessage != "" {
+	//			overAllocatedMessage = fmt.Sprintf(
+	//				", DISK: %d",
+	//				wsConfig.Resources.CPU,
+	//			)
+	//		} else {
+	//			overAllocatedMessage = fmt.Sprintf(
+	//				"over-allocated DISK: %d",
+	//				wsConfig.Resources.CPU,
+	//			)
+	//		}
+	//	}
+	//}
+
+	// create a new workspace
+	workspace, err := models.CreateWorkspace(
+		wsId, -1, byteId, models.CodeSourceByte, time.Now(), callingUser.ID, -1, expiration, "",
+		&wsSettings, overAllocated, []models.WorkspacePort{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workspace model: %v", err)
+	}
+
+	// set workspace init state to -1
+	workspace.InitState = -1
+
+	// format workspace for sql insertion
+	wsInsertionStatements, err := workspace.ToSQLNative()
+	if err != nil {
+		return nil, fmt.Errorf("failed to format workspace for insertion: %v", err)
+	}
+
+	// create tx for insertion
+	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tx for workspace insertion: %v", err)
+	}
+
+	// defer rollback incase we fail
+	defer tx.Rollback()
+
+	// iterate over statements executing them in sql
+	for _, statement := range wsInsertionStatements {
+		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to perform insertion: %v\n    statement: %s\n    params: %v", err, statement.Statement, statement.Values)
+		}
+	}
+
+	// format create workspace request and marshall it with gob
+	buf := bytes.NewBuffer(nil)
+	encoder := gob.NewEncoder(buf)
+	err = encoder.Encode(models2.CreateWorkspaceMsg{
+		WorkspaceID: workspace.ID,
+		OwnerID:     callingUser.ID,
+		OwnerEmail:  callingUser.Email,
+		OwnerName:   callingUser.UserName,
+		Disk:        wsConfig.Resources.Disk,
+		CPU:         wsConfig.Resources.CPU,
+		Memory:      wsConfig.Resources.Mem,
+		Container:   wsConfig.BaseContainer,
+		AccessUrl:   accessUrl,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to encode workspace: %v", err)
+	}
+
+	// send workspace create message to jetstream so a follower will
+	// create the workspace
+	_, err = js.PublishAsync(streams.SubjectWorkspaceCreate, buf.Bytes())
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to send workspace create message to jetstream: %v", err)
+	}
+
+	// push workspace status update to subscribers
+	wsStatusUpdater.PushStatus(ctx, workspace.ID, workspace)
+
+	// commit tx
+	err = tx.Commit(&callerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit tx: %v", err)
+	}
+
+	// increment init state before frontend to represent the step that we are working on
+	workspace.InitState++
+
+	return map[string]interface{}{
+		"message": "Workspace Created Successfully",
+		//"workspace_url":          fmt.Sprintf("/editor/%d/%d-%s?folder=%s", callingUser.ID, workspace.ID, commit, url.QueryEscape(wsConfig.WorkingDirectory)),
+		"workspace": workspace.ToFrontend(hostname, tls),
+	}, nil
+}
