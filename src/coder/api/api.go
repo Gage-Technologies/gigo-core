@@ -205,9 +205,9 @@ func (api *WorkspaceAPI) authenticateAgent(next http.Handler) http.Handler {
 		var agentId int64
 		var ownerId int64
 		err = api.DB.QueryRowContext(ctx, &parentSpan, &callerName,
-			"select a._id, w.owner_id from workspaces w join workspace_agent a on a.workspace_id = w._id where w._id = ? and a.secret = uuid_to_bin(?) order by a.created_at desc limit 1",
-			workspaceID, token,
-		).Scan(&agentId, &ownerId)
+			"select a._id, w.owner_id, w._id from workspaces w join workspace_agent a left join workspace_pool wsp on w._id = wsp.workspace_table_id on a.workspace_id = w._id where (w._id = ? or wsp._id = ?) and a.secret = uuid_to_bin(?) order by a.created_at desc limit 1",
+			workspaceID, workspaceID, token,
+		).Scan(&agentId, &ownerId, &workspaceID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				api.HandleError(w, "agent not found", r.URL.Path, "authenticateAgent",

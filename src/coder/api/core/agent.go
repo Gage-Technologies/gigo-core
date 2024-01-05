@@ -134,7 +134,10 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 	).Scan(&repo, &commit, &expiration, &wsSettingsBytes, &initState, &state, &projectId, &projectType, &createdAt, &startTime)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("failed to query workspaces: %v", err)
+			///// ASK SAM
+			return &agentsdk.WorkspaceAgentMetadata{
+				Unassigned: true,
+			}, nil
 		}
 		////
 		return nil, fmt.Errorf("failed to query workspaces: %v", err)
