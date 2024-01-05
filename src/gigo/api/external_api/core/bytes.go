@@ -42,7 +42,7 @@ func StartByteAttempt(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 
 	byteAttempt, err := models.CreateByteAttempts(sf.Generate().Int64(), byteId, callingUser.ID, "")
 	if err != nil {
-		fmt.Errorf("failed to create byte attempt struct: %v", err)
+		return nil, fmt.Errorf("failed to create byte attempt struct: %v", err)
 	}
 
 	// format byte attempt for insertion

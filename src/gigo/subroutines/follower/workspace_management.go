@@ -622,7 +622,7 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 
 	// query for the workspace CodeSource type
 	var projectType models.CodeSource
-	err = tidb.QueryRowContext(ctx, &span, &callerName, "select &projectType from workspaces where _id = ?", destroyWsMsg.ID).Scan(&projectType)
+	err = tidb.QueryRowContext(ctx, &span, &callerName, "select code_source_type from workspaces where _id = ?", destroyWsMsg.ID).Scan(&projectType)
 	if err != nil {
 		logger.Errorf("(workspace: %d) failed to query workspace CodeSource type: %v", destroyWsMsg.ID, err)
 		return
