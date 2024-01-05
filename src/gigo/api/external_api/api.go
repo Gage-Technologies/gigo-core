@@ -1872,6 +1872,12 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/stripe/stripeCheckoutSession", s.StripeCheckoutSession).Methods("POST")
 	s.router.HandleFunc("/api/stripe/premiumMembershipSession", s.StripePremiumMembershipSession).Methods("POST")
 
+	// ////////////////////////////////////Bytes
+	s.router.HandleFunc("/api/bytes/startByteAttempt", s.StartByteAttempt).Methods("POST")
+	s.router.HandleFunc("/api/bytes/getByteAttempt", s.GetByteAttempt).Methods("POST")
+	s.router.HandleFunc("/api/bytes/getRecommendedBytes", s.GetRecommendedBytes).Methods("POST")
+	s.router.HandleFunc("/api/bytes/getByte", s.GetByte).Methods("POST")
+
 	// /////////////////////////////////////////// Internal
 	internalWsRouter := s.router.PathPrefix("/internal/v1/ws").Subrouter()
 	internalWsRouter.Use(s.authenticateAgent)

@@ -151,19 +151,26 @@ func GetByte(ctx context.Context, tidb *ti.Database, byteId int64) (map[string]i
 	defer span.End()
 	callerName := "GetBytes"
 
-	// query for 50 bytes
+	// query for the byte with the given ID
 	res, err := tidb.QueryContext(ctx, &span, &callerName, "select * from bytes where _id = ?", byteId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for the byte metadata: %v", err)
 	}
-
-	// ensure the closure of the rows
 	defer res.Close()
+
+	if !res.Next() {
+		return nil, fmt.Errorf("no byte found with id: %d", byteId)
+	}
 
 	byte := &models.BytesFrontend{}
 	err = res.Scan(&byte.ID, &byte.Name, &byte.Description, &byte.OutlineContent, &byte.DevSteps)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan byte: %v", err)
+	}
+
+	// Check for more rows. If there are, it's an unexpected situation.
+	if res.Next() {
+		return nil, fmt.Errorf("unexpected multiple rows for byte id: %d", byteId)
 	}
 
 	return map[string]interface{}{"rec_bytes": byte}, nil
