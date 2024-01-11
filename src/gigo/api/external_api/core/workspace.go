@@ -22,6 +22,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"golang.org/x/mod/semver"
 
+	"gigo-core/gigo/constants"
 	"gigo-core/gigo/utils"
 
 	"github.com/bwmarrin/snowflake"
@@ -1957,36 +1958,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 	wsSettings = *callingUser.WorkspaceSettings
 
 	// set the default workspace config for bytes
-	wsConfig := workspace_config.GigoWorkspaceConfig{
-		Version: 0.1,
-		Resources: struct {
-			CPU  int `yaml:"cpu"`
-			Mem  int `yaml:"mem"`
-			Disk int `yaml:"disk"`
-			GPU  struct {
-				Count int    `yaml:"count"`
-				Class string `yaml:"class"`
-			} `yaml:"gpu"`
-		}{
-			CPU:  1,  // number of CPUs
-			Mem:  1,  // in GB
-			Disk: 10, // in GB
-			GPU: struct {
-				Count int    `yaml:"count"`
-				Class string `yaml:"class"`
-			}{
-				Count: 1,
-				Class: "p4",
-			},
-		},
-		BaseContainer:    "gigodev/gimg:bytes-base-ubuntu",
-		WorkingDirectory: "/home/gigo/codebase/",
-		Environment:      nil,
-		Containers:       nil,
-		VSCode:           workspace_config.GigoVSCodeConfig{},
-		PortForward:      nil,
-		Exec:             nil,
-	}
+	wsConfig := constants.BytesWorkspaceConfig
 
 	// create id for new workspace
 	wsId := snowflakeNode.Generate().Int64()

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gigo-core/gigo/config"
+	"gigo-core/gigo/constants"
 	"gigo-core/gigo/utils"
 	"io"
 	"net/url"
@@ -167,7 +168,8 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 			}
 			return nil, fmt.Errorf("failed to query project workspaces: %v", err)
 		}
-
+	} else if projectType == models.CodeSourceByte {
+		challengeType = models.BytesChallenge
 	} else {
 		err = opts.DB.QueryRowContext(ctx, &span, &callerName,
 			"SELECT post_type FROM attempt WHERE _id = ? LIMIT 1",
@@ -194,23 +196,28 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		return nil, fmt.Errorf("failed to retrieve repository URL: %v", err)
 	}
 
-	// retrieve the gigo workspace config for this repo and commit
-	configBytes, gitRes, err := opts.VcsClient.GiteaClient.GetFile(
-		fmt.Sprintf("%d", opts.OwnerId),
-		repository.Name,
-		commit,
-		".gigo/workspace.yaml",
-	)
-	if err != nil {
-		buf, _ := io.ReadAll(gitRes.Body)
-		return nil, fmt.Errorf("failed to retrieve gigoconfig: %v\n    response: %d - %q", err, gitRes.StatusCode, string(buf))
-	}
-
-	// parse config bytes into workspace config
 	var gigoConfig workspace_config.GigoWorkspaceConfig
-	err = yaml.Unmarshal(configBytes, &gigoConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse new config: %v", err)
+
+	if projectType != models.CodeSourceByte {
+		// retrieve the gigo workspace config for this repo and commit
+		configBytes, gitRes, err := opts.VcsClient.GiteaClient.GetFile(
+			fmt.Sprintf("%d", opts.OwnerId),
+			repository.Name,
+			commit,
+			".gigo/workspace.yaml",
+		)
+		if err != nil {
+			buf, _ := io.ReadAll(gitRes.Body)
+			return nil, fmt.Errorf("failed to retrieve gigoconfig: %v\n    response: %d - %q", err, gitRes.StatusCode, string(buf))
+		}
+
+		// parse config bytes into workspace config
+		err = yaml.Unmarshal(configBytes, &gigoConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse new config: %v", err)
+		}
+	} else {
+		gigoConfig = constants.BytesWorkspaceConfig
 	}
 
 	// attempt to route any of the container images in the containers spec
