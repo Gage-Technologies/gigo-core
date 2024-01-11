@@ -46,6 +46,10 @@ const (
 	MessageTypeUpdateChatMute
 	MessageTypeChatUpdatedEvent
 	MessageTypeRecordWebUsage
+	MessageTypeAgentExecRequest
+	MessageTypeAgentExecResponse
+	MessageTypeAgentLintRequest
+	MessageTypeAgentLintResponse
 )
 
 func (t MessageType) String() string {
@@ -70,5 +74,9 @@ func (t MessageType) String() string {
 		"MessageTypeUpdateChatMute",
 		"MessageTypeChatUpdatedEvent",
 		"MessageTypeRecordWebUsage",
+		"MessageTypeAgentExecRequest",
+		"MessageTypeAgentExecResponse",
+		"MessageTypeAgentLintRequest",
+		"MessageTypeAgentLintResponse",
 	}[t]
 }

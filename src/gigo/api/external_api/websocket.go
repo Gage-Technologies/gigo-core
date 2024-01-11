@@ -251,6 +251,13 @@ func (s *HTTPServer) masterWebSocketLoop(socket *masterWebSocket) {
 	}
 	socket.plugins = append(socket.plugins, workspacePlugin)
 
+	byteAgentPlugin, err := NewPluginByteAgent(socket.ctx, s, socket)
+	if err != nil {
+		socket.logger.Errorf("failed to initialize byte agent plugin: %v", err)
+		return
+	}
+	socket.plugins = append(socket.plugins, byteAgentPlugin)
+
 	// create a ticker to send a ping to the client every 30 seconds
 	// to ensure the connection is still alive
 	ticker := time.NewTicker(30 * time.Second)
@@ -289,6 +296,13 @@ func (s *HTTPServer) masterWebSocketLoop(socket *masterWebSocket) {
 				continue
 			}
 		case msg := <-workspacePlugin.OutgoingMessages():
+			// forward message to client
+			err := wsjson.Write(socket.ctx, socket.ws, msg)
+			if err != nil {
+				socket.logger.Errorf("failed to forward message to client: %v", err)
+				continue
+			}
+		case msg := <-byteAgentPlugin.OutgoingMessages():
 			// forward message to client
 			err := wsjson.Write(socket.ctx, socket.ws, msg)
 			if err != nil {
