@@ -51,6 +51,7 @@ const (
 	MessageTypeAgentLintRequest
 	MessageTypeAgentLintResponse
 	MessageTypeByteLivePing
+	MessageTypeByteUpdateCode
 )
 
 func (t MessageType) String() string {
@@ -80,5 +81,6 @@ func (t MessageType) String() string {
 		"MessageTypeAgentLintRequest",
 		"MessageTypeAgentLintResponse",
 		"MessageTypeByteLivePing",
+		"MessageTypeByteUpdateCode",
 	}[t]
 }

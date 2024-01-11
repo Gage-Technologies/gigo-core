@@ -64,6 +64,11 @@ type ByteLivePingRequest struct {
 	ByteAttemptID string `json:"byte_attempt_id" validate:"required,number"`
 }
 
+type ByteUpdateCodeRequest struct {
+	ByteAttemptID string `json:"byte_attempt_id" validate:"required,number"`
+	Content       string `json:"content" validate:"required"`
+}
+
 type WebSocketPluginBytesAgent struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -130,46 +135,16 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 
 	// handle byte live ping request
 	if msg.Type == ws.MessageTypeByteLivePing {
-		// unmarshal the inner payload
-		var pingReq ByteLivePingRequest
-		err = json.Unmarshal(innerBuf, &pingReq)
-		if err != nil {
-			p.socket.logger.Errorf("failed to unmarshal inner payload: %v", err)
-			// handle internal server error via websocket
-			p.outputChan <- ws.PrepMessage[any](
-				msg.SequenceID,
-				ws.MessageTypeGenericError,
-				ws.GenericErrorPayload{
-					Code:  ws.ResponseCodeServerError,
-					Error: "internal server error occurred",
-				},
-			)
-			return
-		}
-
-		// validate the new message payload
-		if !p.s.validateWebSocketPayload(p.ctx, p.socket.ws, msg, pingReq) {
-			return
-		}
-
-		// parse byte attempt id to int64
-		byteAttemptID, _ := strconv.ParseInt(pingReq.ByteAttemptID, 10, 64)
-
 		// extend the workspace expiration by 10 minutes
-		err = p.extendWorkspaceExpiration(byteAttemptID)
-		if err != nil {
-			p.socket.logger.Errorf("failed to extend workspace expiration: %v", err)
-			// handle internal server error via websocket
-			p.outputChan <- ws.PrepMessage[any](
-				msg.SequenceID,
-				ws.MessageTypeGenericError,
-				ws.GenericErrorPayload{
-					Code:  ws.ResponseCodeServerError,
-					Error: "internal server error occurred",
-				},
-			)
-			return
-		}
+		p.extendWorkspaceExpiration(msg, innerBuf)
+		return
+	}
+
+	// handle byte live ping request
+	if msg.Type == ws.MessageTypeByteUpdateCode {
+		// update the byte code
+		p.updateByteAttemptCode(msg, innerBuf)
+		return
 	}
 
 	// unmarshal the inner payload
@@ -471,20 +446,106 @@ func (p *WebSocketPluginBytesAgent) relayConnHandler(conn agentWebSocketConn) {
 	}
 }
 
-func (p *WebSocketPluginBytesAgent) extendWorkspaceExpiration(byteAttemptID int64) error {
+func (p *WebSocketPluginBytesAgent) extendWorkspaceExpiration(msg *ws.Message[any], innerBuf []byte) {
 	ctx, span := otel.Tracer("gigo-core").Start(p.ctx, "byte-extend-workspace-expiration")
 	defer span.End()
 	callerName := "extendWorkspaceExpiration"
 
-	_, err := p.s.tiDB.Exec(
+	// unmarshal the inner payload
+	var pingReq ByteLivePingRequest
+	err := json.Unmarshal(innerBuf, &pingReq)
+	if err != nil {
+		p.socket.logger.Errorf("failed to unmarshal inner payload: %v", err)
+		// handle internal server error via websocket
+		p.outputChan <- ws.PrepMessage[any](
+			msg.SequenceID,
+			ws.MessageTypeGenericError,
+			ws.GenericErrorPayload{
+				Code:  ws.ResponseCodeServerError,
+				Error: "internal server error occurred",
+			},
+		)
+		return
+	}
+
+	// validate the new message payload
+	if !p.s.validateWebSocketPayload(p.ctx, p.socket.ws, msg, pingReq) {
+		return
+	}
+
+	// parse byte attempt id to int64
+	byteAttemptID, _ := strconv.ParseInt(pingReq.ByteAttemptID, 10, 64)
+
+	_, err = p.s.tiDB.Exec(
 		ctx, &span, &callerName,
 		"update workspaces set expiration = ? where code_source_id = ?",
 		time.Now().Add(time.Minute*10), byteAttemptID,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to extend workspace expiration: %v", err)
+		p.socket.logger.Errorf("failed to update workspace expiration: %v", err)
+		// handle internal server error via websocket
+		p.outputChan <- ws.PrepMessage[any](
+			msg.SequenceID,
+			ws.MessageTypeGenericError,
+			ws.GenericErrorPayload{
+				Code:  ws.ResponseCodeServerError,
+				Error: "internal server error occurred",
+			},
+		)
+		return
 	}
-	return nil
+	return
+}
+
+func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], innerBuf []byte) {
+	ctx, span := otel.Tracer("gigo-core").Start(p.ctx, "byte-update-attempt-code")
+	defer span.End()
+	callerName := "updateByteAttemptCode"
+
+	// unmarshal the inner payload
+	var updaetReq ByteUpdateCodeRequest
+	err := json.Unmarshal(innerBuf, &updaetReq)
+	if err != nil {
+		p.socket.logger.Errorf("failed to unmarshal inner payload: %v", err)
+		// handle internal server error via websocket
+		p.outputChan <- ws.PrepMessage[any](
+			msg.SequenceID,
+			ws.MessageTypeGenericError,
+			ws.GenericErrorPayload{
+				Code:  ws.ResponseCodeServerError,
+				Error: "internal server error occurred",
+			},
+		)
+		return
+	}
+
+	// validate the new message payload
+	if !p.s.validateWebSocketPayload(p.ctx, p.socket.ws, msg, updaetReq) {
+		return
+	}
+
+	// parse byte attempt id to int64
+	byteAttemptID, _ := strconv.ParseInt(updaetReq.ByteAttemptID, 10, 64)
+
+	_, err = p.s.tiDB.Exec(
+		ctx, &span, &callerName,
+		"update byte_attempt set expiration = ? where code_source_id = ?",
+		updaetReq.Content, byteAttemptID,
+	)
+	if err != nil {
+		p.socket.logger.Errorf("failed to update byte attempt code: %v", err)
+		// handle internal server error via websocket
+		p.outputChan <- ws.PrepMessage[any](
+			msg.SequenceID,
+			ws.MessageTypeGenericError,
+			ws.GenericErrorPayload{
+				Code:  ws.ResponseCodeServerError,
+				Error: "internal server error occurred",
+			},
+		)
+		return
+	}
+	return
 }
 
 func formatPayloadForAgent(msg *ws.Message[any], inner any) (AgentWebSocketPayload, error) {
