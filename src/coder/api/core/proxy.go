@@ -92,6 +92,30 @@ func DesktopProxy(ctx context.Context, db *ti.Database, workspaceId int64, owner
 	return agentId, nil
 }
 
+func AgentProxy(ctx context.Context, db *ti.Database, workspaceId int64, ownerId int64) (int64, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "agent-proxy")
+	defer span.End()
+	callerName := "AgentProxy"
+
+	// create variables to load agent id and serialized ports into
+	agentId := int64(-1)
+	var portsBuf []byte
+
+	// query database for the current workspace agent
+	err := db.QueryRowContext(ctx, &span, &callerName,
+		"select a._id, w.ports from workspaces w join workspace_agent a on a.workspace_id = w._id where w._id = ? and w.owner_id = ? and a.state = ? and w.state = ? order by a.created_at desc limit 1",
+		workspaceId, ownerId, models.WorkspaceAgentStateRunning, models.WorkspaceActive,
+	).Scan(&agentId, &portsBuf)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return -1, fmt.Errorf("agent not found")
+		}
+		return -1, fmt.Errorf("failed to query database for workspace agent: %v", err)
+	}
+
+	return agentId, nil
+}
+
 func PortProxyGetWorkspaceAgentID(ctx context.Context, db *ti.Database, workspaceId int64, ownerId int64, targetPort uint16) (int64, *models.WorkspacePort, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "port-proxy-get-workspace-agent-id")
 	defer span.End()

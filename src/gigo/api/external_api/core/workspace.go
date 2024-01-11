@@ -1940,6 +1940,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 
 		return map[string]interface{}{
 			"message": "Workspace Created Successfully",
+			"agent_url": fmt.Sprintf("/agent/%d/%d/ws", callingUser.ID, workspace.ID),
 			"workspace": workspace.ToFrontend(hostname, tls),
 		}, nil
 	}
@@ -2074,6 +2075,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 
 	return map[string]interface{}{
 		"message": "Workspace Created Successfully",
+		"agent_url": fmt.Sprintf("/agent/%d/%d/ws", callingUser.ID, workspace.ID),
 		"workspace": workspace.ToFrontend(hostname, tls),
 	}, nil
 }
