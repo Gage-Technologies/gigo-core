@@ -1955,7 +1955,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 		return nil, fmt.Errorf("user workspace settings are not set")
 	}
 	wsSettings = *callingUser.WorkspaceSettings
-	
+
 	// set the default workspace config for bytes
 	wsConfig := workspace_config.GigoWorkspaceConfig{
 		Version: 0.1,
@@ -1979,7 +1979,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 				Class: "p4",
 			},
 		},
-		BaseContainer:    "gigodev/gimg:byte-base-ubuntu",
+		BaseContainer:    "gigodev/gimg:bytes-base-ubuntu",
 		WorkingDirectory: "/home/gigo/codebase/",
 		Environment:      nil,
 		Containers:       nil,
