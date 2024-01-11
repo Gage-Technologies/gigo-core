@@ -190,15 +190,16 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		return nil, fmt.Errorf("failed to unmarshall workspace settings: %v", err)
 	}
 
-	// use the repo id to retrieve the repository URL
-	repository, _, err := opts.VcsClient.GiteaClient.GetRepoByID(repo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve repository URL: %v", err)
-	}
-
 	var gigoConfig workspace_config.GigoWorkspaceConfig
 
+	cloneURL := ""
 	if projectType != models.CodeSourceByte {
+		// use the repo id to retrieve the repository URL
+		repository, _, err := opts.VcsClient.GiteaClient.GetRepoByID(repo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve repository URL: %v", err)
+		}
+
 		// retrieve the gigo workspace config for this repo and commit
 		configBytes, gitRes, err := opts.VcsClient.GiteaClient.GetFile(
 			fmt.Sprintf("%d", opts.OwnerId),
@@ -215,6 +216,16 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		err = yaml.Unmarshal(configBytes, &gigoConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse new config: %v", err)
+		}
+
+		// parse the clone url to retrieve only the path to the repository
+		parsedCloneUrl, err := url.Parse(repository.CloneURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse clone url: %v", err)
+		}
+		cloneURL = opts.VcsClient.HostUrl + parsedCloneUrl.Path
+		if opts.GitUseTLS {
+			cloneURL = strings.ReplaceAll(cloneURL, "http://", "https://")
 		}
 	} else {
 		gigoConfig = constants.BytesWorkspaceConfig
@@ -353,16 +364,6 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 				return nil, fmt.Errorf("failed to commit transaction: %v", err)
 			}
 		}
-	}
-
-	// parse the clone url to retrieve only the path to the repository
-	parsedCloneUrl, err := url.Parse(repository.CloneURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse clone url: %v", err)
-	}
-	cloneURL := opts.VcsClient.HostUrl + parsedCloneUrl.Path
-	if opts.GitUseTLS {
-		cloneURL = strings.ReplaceAll(cloneURL, "http://", "https://")
 	}
 
 	return &agentsdk.WorkspaceAgentMetadata{

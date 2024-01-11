@@ -1351,9 +1351,9 @@ func (s *HTTPServer) authenticateAgent(next http.Handler) http.Handler {
 		defer span.End()
 		callerName := "authenticateAgent"
 		err = s.tiDB.QueryRow(sctx, &span, &callerName,
-			"select a._id, w.owner_id from workspaces w join workspace_agent a on a.workspace_id = w._id where w._id = ? and a.secret = uuid_to_bin(?) order by a.created_at desc limit 1",
-			workspaceID, token,
-		).Scan(&agentId, &ownerId)
+			"select a._id, w.owner_id, w._id from workspaces w join workspace_agent a on a.workspace_id = w._id left join workspace_pool wsp on w._id = wsp.workspace_table_id where (w._id = ? or wsp._id = ?) and a.secret = uuid_to_bin(?) order by a.created_at desc limit 1",
+			workspaceID, workspaceID, token,
+		).Scan(&agentId, &ownerId, &workspaceID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				s.handleError(w, "agent not found", r.URL.Path, "authenticateAgent",
