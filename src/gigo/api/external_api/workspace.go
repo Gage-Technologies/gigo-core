@@ -1326,7 +1326,7 @@ func (s *HTTPServer) CreateByteWorkspace(w http.ResponseWriter, r *http.Request)
 	}
 
 	// attempt to load code source id from body
-	byteIdI, ok := s.loadValue(w, r, reqJson, "CreateByteWorkspace", "bytes_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	byteIdI, ok := s.loadValue(w, r, reqJson, "CreateByteWorkspace", "byte_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
 	if byteIdI == nil || !ok {
 		return
 	}

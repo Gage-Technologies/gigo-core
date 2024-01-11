@@ -1877,6 +1877,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/bytes/getByteAttempt", s.GetByteAttempt).Methods("POST")
 	s.router.HandleFunc("/api/bytes/getRecommendedBytes", s.GetRecommendedBytes).Methods("POST")
 	s.router.HandleFunc("/api/bytes/getByte", s.GetByte).Methods("POST")
+	s.router.HandleFunc("/api/bytes/createWorkspace", s.CreateByteWorkspace).Methods("POST")
 
 	// /////////////////////////////////////////// Internal
 	internalWsRouter := s.router.PathPrefix("/internal/v1/ws").Subrouter()
