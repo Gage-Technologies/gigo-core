@@ -1939,7 +1939,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 		wsStatusUpdater.PushStatus(ctx, workspace.ID, workspace)
 
 		return map[string]interface{}{
-			"message": "Workspace Created Successfully",
+			"message":   "Workspace Created Successfully",
 			"agent_url": fmt.Sprintf("/agent/%d/%d/ws", callingUser.ID, workspace.ID),
 			"workspace": workspace.ToFrontend(hostname, tls),
 		}, nil
@@ -1948,8 +1948,6 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 	// close cursor explicitly
 	_ = res.Close()
 
-	// TODO what to do with workspace settings?
-
 	// select user defaults
 	var wsSettings models.WorkspaceSettings
 
@@ -1957,9 +1955,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 		return nil, fmt.Errorf("user workspace settings are not set")
 	}
 	wsSettings = *callingUser.WorkspaceSettings
-
-	// TODO create a default config specifically for bytes
-
+	
 	// set the default workspace config for bytes
 	wsConfig := workspace_config.GigoWorkspaceConfig{
 		Version: 0.1,
@@ -1983,7 +1979,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 				Class: "p4",
 			},
 		},
-		BaseContainer:    "gigodev/gimg:base-ubuntu",
+		BaseContainer:    "gigodev/gimg:byte-base-ubuntu",
 		WorkingDirectory: "/home/gigo/codebase/",
 		Environment:      nil,
 		Containers:       nil,
@@ -1995,7 +1991,6 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 	// create id for new workspace
 	wsId := snowflakeNode.Generate().Int64()
 
-	// TODO should be irrelevant considering the config should be consistent
 	// create expiration for workspace
 	expiration := time.Now().Add(time.Minute * 15)
 
@@ -2074,7 +2069,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 	workspace.InitState++
 
 	return map[string]interface{}{
-		"message": "Workspace Created Successfully",
+		"message":   "Workspace Created Successfully",
 		"agent_url": fmt.Sprintf("/agent/%d/%d/ws", callingUser.ID, workspace.ID),
 		"workspace": workspace.ToFrontend(hostname, tls),
 	}, nil
