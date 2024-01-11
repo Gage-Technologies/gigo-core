@@ -11,6 +11,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/sourcegraph/conc"
+	"go.opentelemetry.io/otel"
 	"net"
 	"net/http"
 	"nhooyr.io/websocket"
@@ -59,6 +60,10 @@ type agentWebSocketConn struct {
 	workspaceID     int64
 }
 
+type ByteLivePingRequest struct {
+	ByteAttemptID string `json:"byte_attempt_id" validate:"required,number"`
+}
+
 type WebSocketPluginBytesAgent struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -102,7 +107,8 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 
 	// skip any message that is not within the purview of the bytes agent plugin
 	if msg.Type != ws.MessageTypeAgentExecRequest &&
-		msg.Type != ws.MessageTypeAgentLintRequest {
+		msg.Type != ws.MessageTypeAgentLintRequest &&
+		msg.Type != ws.MessageTypeByteLivePing {
 		return
 	}
 
@@ -122,6 +128,50 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		return
 	}
 
+	// handle byte live ping request
+	if msg.Type == ws.MessageTypeByteLivePing {
+		// unmarshal the inner payload
+		var pingReq ByteLivePingRequest
+		err = json.Unmarshal(innerBuf, &pingReq)
+		if err != nil {
+			p.socket.logger.Errorf("failed to unmarshal inner payload: %v", err)
+			// handle internal server error via websocket
+			p.outputChan <- ws.PrepMessage[any](
+				msg.SequenceID,
+				ws.MessageTypeGenericError,
+				ws.GenericErrorPayload{
+					Code:  ws.ResponseCodeServerError,
+					Error: "internal server error occurred",
+				},
+			)
+			return
+		}
+
+		// validate the new message payload
+		if !p.s.validateWebSocketPayload(p.ctx, p.socket.ws, msg, pingReq) {
+			return
+		}
+
+		// parse byte attempt id to int64
+		byteAttemptID, _ := strconv.ParseInt(pingReq.ByteAttemptID, 10, 64)
+
+		// extend the workspace expiration by 10 minutes
+		err = p.extendWorkspaceExpiration(byteAttemptID)
+		if err != nil {
+			p.socket.logger.Errorf("failed to extend workspace expiration: %v", err)
+			// handle internal server error via websocket
+			p.outputChan <- ws.PrepMessage[any](
+				msg.SequenceID,
+				ws.MessageTypeGenericError,
+				ws.GenericErrorPayload{
+					Code:  ws.ResponseCodeServerError,
+					Error: "internal server error occurred",
+				},
+			)
+			return
+		}
+	}
+
 	// unmarshal the inner payload
 	var agentReqMsg AgentWsRequestMessage
 	err = json.Unmarshal(innerBuf, &agentReqMsg)
@@ -136,6 +186,11 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 				Error: "internal server error occurred",
 			},
 		)
+		return
+	}
+
+	// validate the new message payload
+	if !p.s.validateWebSocketPayload(p.ctx, p.socket.ws, msg, agentReqMsg) {
 		return
 	}
 
@@ -414,6 +469,22 @@ func (p *WebSocketPluginBytesAgent) relayConnHandler(conn agentWebSocketConn) {
 		}
 		p.outputChan <- m
 	}
+}
+
+func (p *WebSocketPluginBytesAgent) extendWorkspaceExpiration(byteAttemptID int64) error {
+	ctx, span := otel.Tracer("gigo-core").Start(p.ctx, "byte-extend-workspace-expiration")
+	defer span.End()
+	callerName := "extendWorkspaceExpiration"
+
+	_, err := p.s.tiDB.Exec(
+		ctx, &span, &callerName,
+		"update workspaces set expiration = ? where code_source_id = ?",
+		time.Now().Add(time.Minute*10), byteAttemptID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to extend workspace expiration: %v", err)
+	}
+	return nil
 }
 
 func formatPayloadForAgent(msg *ws.Message[any], inner any) (AgentWebSocketPayload, error) {
