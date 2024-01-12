@@ -40,7 +40,7 @@ select
 from workspaces 
 where
     -- require that the workspace is expired
-    expiration < now() and 
+    expiration < now() and code_source_type < 3 and
     (
 		-- any workspace that is active or starting
 		(state = 0 or state = 1) or
@@ -53,13 +53,26 @@ const queryWorkspaceDestroySuspended = `
 select 
     * 
 from workspaces 
-where 
-    expiration < date_sub(now(), interval 24 hour) and
-    (
-		-- any workspace that is suspended, stopping, or failed
-		(state = 3 or state = 5 or state = 2) or
-		-- any workspace that is removing but has not been removed in the last 15 minutes
-		(state = 4 and last_state_update < date_sub(now(), interval 15 minute))
+where
+	-- logic for destroying suspended workspaces
+	(
+		expiration < date_sub(now(), interval 24 hour) and
+		(
+			-- any workspace that is suspended, stopping, or failed
+			(state = 3 or state = 5 or state = 2) or
+			-- any workspace that is removing but has not been removed in the last 15 minutes
+			(state = 4 and last_state_update < date_sub(now(), interval 15 minute))
+		)
+	) or
+	-- logic for destroying expired byte workspaces
+	(
+		code_source_type = 3 and expiration < now() and
+		(
+			-- any workspace state other than removing
+			state in (0, 1, 2, 3, 5) or 
+			-- any workspace that is removing but has not been removed in the last 15 minutes
+			(state = 4 and last_state_update < date_sub(now(), interval 15 minute))
+		)
 	)
 `
 
