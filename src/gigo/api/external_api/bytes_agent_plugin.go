@@ -529,7 +529,7 @@ func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], 
 
 	_, err = p.s.tiDB.Exec(
 		ctx, &span, &callerName,
-		"update byte_attempt set expiration = ? where code_source_id = ?",
+		"update byte_attempts set content = ?, modified = true where _id = ?",
 		updaetReq.Content, byteAttemptID,
 	)
 	if err != nil {

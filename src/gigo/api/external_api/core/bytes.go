@@ -115,13 +115,12 @@ func GetByteAttempt(ctx context.Context, tidb *ti.Database, callingUser *models.
 
 // GetRecommendedBytes for now return the top 50 bytes but do not include the content or plan content
 func GetRecommendedBytes(ctx context.Context, tidb *ti.Database) (map[string]interface{}, error) {
-
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-recommended-bytes-core")
 	defer span.End()
 	callerName := "GetRecommendedBytes"
 
 	// query for 50 bytes
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select _id, name, description from bytes limit 50")
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select _id, name, description, lang from bytes limit 50")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query recommended bytes: %v", err)
 	}
@@ -132,13 +131,13 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database) (map[string]int
 	bytes := make([]*models.BytesFrontend, 0)
 
 	for res.Next() {
-		byte := &models.BytesFrontend{}
-		err = res.Scan(&byte.ID, &byte.Name, &byte.Description)
+		byte := models.BytesFrontend{}
+		err = res.Scan(&byte.ID, &byte.Name, &byte.Description, &byte.Lang)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan bytes: %v", err)
 		}
 
-		bytes = append(bytes, byte)
+		bytes = append(bytes, &byte)
 	}
 
 	return map[string]interface{}{"rec_bytes": bytes}, nil
@@ -146,7 +145,6 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database) (map[string]int
 
 // GetByte returns the full metadata of the Byte
 func GetByte(ctx context.Context, tidb *ti.Database, byteId int64) (map[string]interface{}, error) {
-
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-bytes-core")
 	defer span.End()
 	callerName := "GetBytes"
