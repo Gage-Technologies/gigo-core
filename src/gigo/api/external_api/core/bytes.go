@@ -163,7 +163,7 @@ func GetByte(ctx context.Context, tidb *ti.Database, byteId int64) (map[string]i
 	}
 
 	byte := &models.BytesFrontend{}
-	err = res.Scan(&byte.ID, &byte.Name, &byte.Description, &byte.OutlineContent, &byte.DevSteps)
+	err = res.Scan(&byte.ID, &byte.Name, &byte.Description, &byte.OutlineContent, &byte.DevSteps, &byte.Lang)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan byte: %v", err)
 	}
