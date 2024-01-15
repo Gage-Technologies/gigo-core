@@ -292,7 +292,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		}
 
 		// establish a new connection to the byte agent
-		ac, acRes, err := websocket.Dial(p.ctx, fmt.Sprintf("ws://dummy/ws"), &websocket.DialOptions{
+		ac, acRes, err := websocket.Dial(p.ctx, fmt.Sprintf("ws://dummy/api/v1/ws"), &websocket.DialOptions{
 			HTTPClient: &client,
 			HTTPHeader: http.Header{
 				"Authorization": []string{
