@@ -1856,15 +1856,25 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 	defer span.End()
 	callerName := "CreateByteWorkspace"
 
+	// retrieve the byte attempt id
+	var byteAttemptID int64
+	err := tidb.QueryRowContext(ctx, &span, &callerName,
+		"select _id from byte_attempts where byte_id = ? and author_id = ? limit 1",
+		byteId, callingUser.ID,
+	).Scan(&byteAttemptID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve byte attempt id: %v", err)
+	}
+
 	// attempt to retrieve any existing workspaces
 	res, err := tidb.QueryContext(ctx, &span, &callerName,
 		"select * from workspaces where repo_id = ? and commit = ? and owner_id = ? and code_source_id = ? and state not in (?, ?, ?) limit 1",
-		-1, "", callingUser.ID, byteId, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed,
+		-1, "", callingUser.ID, byteAttemptID, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query for existing workspace: %v\n    query: %s\n    params: %v", err,
 			"select * from workspaces where repo_id = ? and commit = ? and owner_id = ? and code_source_id = ? and state not in (?, ?, ?) limit 1",
-			[]interface{}{-1, "", callingUser.ID, byteId, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed})
+			[]interface{}{-1, "", callingUser.ID, byteAttemptID, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed})
 	}
 
 	// ensure the closure of the cursor
@@ -1968,7 +1978,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 
 	// create a new workspace
 	workspace, err := models.CreateWorkspace(
-		wsId, -1, byteId, models.CodeSourceByte, time.Now(), callingUser.ID, -1, expiration, "",
+		wsId, -1, byteAttemptID, models.CodeSourceByte, time.Now(), callingUser.ID, -1, expiration, "",
 		&wsSettings, nil, []models.WorkspacePort{},
 	)
 	if err != nil {
