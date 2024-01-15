@@ -19,28 +19,32 @@ func StartByteAttempt(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	callerName := "StartByteAttempt"
 
 	// ensure this user doesn't have an attempt already
-	var existingByteAttemptId int64
+	var existingByteAttempt models.ByteAttempts
 	err := tidb.QueryRowContext(ctx, &span, &callerName,
-		"select _id from byte_attempts where byte_id = ? and author_id = ? limit 1", byteId, callingUser.ID,
-	).Scan(&existingByteAttemptId)
+		"select _id, byte_id, author_id, content, modified from byte_attempts where byte_id = ? and author_id = ? limit 1", byteId, callingUser.ID,
+	).Scan(&existingByteAttempt.ID, &existingByteAttempt.ByteID, &existingByteAttempt.AuthorID, &existingByteAttempt.Content, &existingByteAttempt.Modified)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get attempt count: %v", err)
 	}
 
 	// if they already have an attempt, return the content of the attempt
-	if existingByteAttemptId > 0 {
-		var byteContent string
-		err := tidb.QueryRowContext(ctx, &span, &callerName,
-			"select content from byte_attempts where _id = ?", existingByteAttemptId,
-		).Scan(&byteContent)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get existing byte attempt content: %v", err)
-		}
-
-		return map[string]interface{}{"content": byteContent}, nil
+	if existingByteAttempt.ID > 0 {
+		return map[string]interface{}{
+			"message":      "Existing attempt found.",
+			"byte_attempt": existingByteAttempt.ToFrontend(),
+		}, nil
 	}
 
-	byteAttempt, err := models.CreateByteAttempts(sf.Generate().Int64(), byteId, callingUser.ID, "")
+	// Fetch outline_content for the byte
+	var outlineContent string
+	err = tidb.QueryRowContext(ctx, &span, &callerName,
+		"select outline_content from bytes where _id = ?", byteId,
+	).Scan(&outlineContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get byte outline content: %v", err)
+	}
+
+	byteAttempt, err := models.CreateByteAttempts(sf.Generate().Int64(), byteId, callingUser.ID, outlineContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create byte attempt struct: %v", err)
 	}
