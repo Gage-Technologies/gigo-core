@@ -372,6 +372,8 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		)
 		return
 	}
+	buf, _ := json.Marshal(agentMsg)
+	p.socket.logger.Debugf("forwarding message to byte agent %d: %s", byteAttemptID, string(buf))
 	err = wsjson.Write(p.ctx, conn.Conn, agentMsg)
 	if err != nil {
 		p.socket.logger.Errorf("failed to write message to agent: %v", err)
@@ -423,6 +425,9 @@ func (p *WebSocketPluginBytesAgent) relayConnHandler(conn agentWebSocketConn) {
 			return
 		}
 
+		buf, _ := json.Marshal(message)
+		p.socket.logger.Debugf("received response from agent ws %d: %s", conn.byteID, string(buf))
+
 		// update the last interaction time
 		t := time.Now()
 		conn.lastMessageTime = &t
@@ -440,7 +445,10 @@ func (p *WebSocketPluginBytesAgent) relayConnHandler(conn agentWebSocketConn) {
 					Error: "internal server error occurred",
 				},
 			)
-			return
+			continue
+		}
+		if m.SequenceID == "" {
+			continue
 		}
 		p.outputChan <- m
 	}
@@ -583,6 +591,8 @@ func formatPayloadFromAgent(msg AgentWebSocketPayload) (ws.Message[any], error) 
 		t = ws.MessageTypeValidationError
 	case AgentWebSocketMessageTypeGenericError:
 		t = ws.MessageTypeGenericError
+	case AgentWebSocketMessageTypeInit:
+		return ws.Message[any]{}, nil
 	default:
 		return ws.Message[any]{}, fmt.Errorf("unsupported message type: %v", msg.Type)
 	}
