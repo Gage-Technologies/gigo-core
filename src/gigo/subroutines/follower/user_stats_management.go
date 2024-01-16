@@ -419,9 +419,11 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 			return fmt.Errorf("failed to scan query results: %v", err)
 		}
 
+		logger.Debugf("(premiumWeeklyFreeze) attempting to perform streak freeze update for user: %v", user.ID)
+
 		keyName := "premium-streak-freeze-" + fmt.Sprintf("%d", user.ID)
 
-		_, err := rdb.Get(ctx, keyName).Result()
+		_, err = rdb.Get(ctx, keyName).Result()
 		if err == redis.Nil {
 			location, err := time.LoadLocation(user.Timezone)
 			if err != nil {
@@ -447,6 +449,8 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 			finalTime := startTime.Sub(currentTime)
 
 			_ = rdb.Set(ctx, keyName, user.ID, finalTime)
+
+			logger.Debugf("(premiumWeeklyFreeze) updated user_stats with new streak freezes for user: %v", user.ID)
 		} else if err != nil {
 			logger.Error(fmt.Sprintf("(premiumWeeklyFreeze) failed to get users redi key: %v\n",
 				err))
