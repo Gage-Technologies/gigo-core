@@ -423,7 +423,7 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 
 		keyName := "premium-streak-freeze-" + fmt.Sprintf("%d", user.ID)
 
-		_, err = rdb.Get(ctx, keyName).Result()
+		rediRes, err := rdb.Get(ctx, keyName).Result()
 		if err == redis.Nil {
 			location, err := time.LoadLocation(user.Timezone)
 			if err != nil {
@@ -436,6 +436,7 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 
 			_, err = db.ExecContext(ctx, &span, &callerName, updateQuery, user.ID)
 			if err != nil {
+				logger.Error(fmt.Sprintf("(premiumWeeklyFreeze) failed to execute query: %v\n", err))
 				return fmt.Errorf("failed to execute query: %v", err)
 			}
 
@@ -448,16 +449,18 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 			//subtract the times to get the duration until the start of the following week
 			finalTime := startTime.Sub(currentTime)
 
+			logger.Debugf("(premiumWeeklyFreeze) duration until key is updated: %v", finalTime)
+
 			_ = rdb.Set(ctx, keyName, user.ID, finalTime)
 
 			logger.Debugf("(premiumWeeklyFreeze) updated user_stats with new streak freezes for user: %v", user.ID)
 		} else if err != nil {
 			logger.Error(fmt.Sprintf("(premiumWeeklyFreeze) failed to get users redi key: %v\n",
 				err))
-			return fmt.Errorf("failed to get users redi key: %v", err)
+			//return fmt.Errorf("failed to get users redi key: %v", err)
 		} else {
-			logger.Debugf("(premiumWeeklyFreeze) user had redi key: %v", user.ID)
-			return nil
+			logger.Debugf("(premiumWeeklyFreeze) user had redi key: %v with key signature: %v", user.ID, rediRes)
+			//return nil
 		}
 	}
 
