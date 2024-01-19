@@ -15,13 +15,13 @@ import (
 	"net/http"
 )
 
-func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database, id int64, username string, post bool, attempt bool, storageEngine storage.Storage) (io.ReadCloser, error) {
+func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database, id int64, username string, sourceType models.CodeSource, storageEngine storage.Storage) (io.ReadCloser, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "site-images-core")
 	defer span.End()
 	callerName := "SiteImages"
 
 	path := ""
-	if post {
+	if sourceType == models.CodeSourcePost {
 		// throw an error if no id is provided
 		if id == 0 {
 			return nil, fmt.Errorf("id is required")
@@ -61,7 +61,7 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 		}
 
 		path = fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash)
-	} else if attempt {
+	} else if sourceType == models.CodeSourceAttempt {
 		// throw an error if no id is provided
 		if id == 0 {
 			return nil, fmt.Errorf("id is required")
@@ -100,6 +100,45 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 		}
 
 		path = fmt.Sprintf("attempt/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash)
+	} else if sourceType == models.CodeSourceByte {
+		// throw an error if no id is provided
+		if id == 0 {
+			return nil, fmt.Errorf("id is required")
+		}
+
+		// query for the post to validate its availability
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "select published from post where _id = ? limit 1", id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query post: %v", err)
+		}
+
+		defer res.Close()
+
+		// check if post was found with given id
+		if res == nil || !res.Next() {
+			return nil, fmt.Errorf("not found")
+		}
+
+		// create variables to hold values from curso
+		var published bool
+
+		// attempt to decode res into variables
+		err = res.Scan(&published)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan values from cursor: %v", err)
+		}
+
+		if published != true && (callingUser == nil || callingUser.AuthRole != models.Admin) {
+			return nil, fmt.Errorf("not found")
+		}
+
+		// write thumbnail to final location
+		idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", id)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash post id: %v", err)
+		}
+
+		path = fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash)
 	} else {
 		// if the username is provided retrieve the user's id from the database
 		if username != "" {

@@ -44,9 +44,8 @@ func TestSiteImages(t *testing.T) {
 
 	// Test the SiteImages function for user images
 	id := testUser.ID
-	post := false
 
-	rc, err := SiteImages(context.Background(), testUser, testTiDB, id, "test", post, false, storageEngine)
+	rc, err := SiteImages(context.Background(), testUser, testTiDB, id, "test", models.CodeSourcePost, storageEngine)
 	if err != nil {
 		t.Errorf("SiteImages() error = %v", err)
 		return

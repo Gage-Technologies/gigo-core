@@ -50,18 +50,22 @@ func (s *HTTPServer) SiteImages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	source := models.CodeSource(-1)
 	// check if the called path is for a post
-	post := strings.HasPrefix(r.URL.Path, "/static/posts")
-
-	// check if the called path is for a post
-	attempt := strings.HasPrefix(r.URL.Path, "/static/attempts")
+	if strings.HasPrefix(r.URL.Path, "/static/posts") {
+		source = models.CodeSourcePost
+	} else if strings.HasPrefix(r.URL.Path, "/static/attempts") {
+		source = models.CodeSourceAttempt
+	} else if strings.HasPrefix(r.URL.Path, "/static/bytes") {
+		source = models.CodeSourceByte
+	}
 
 	// parse id to int if all the characters are numerical
 	var username string
 	id, err := strconv.ParseInt(idString, 10, 64)
 	if err != nil {
 		username = idString
-		if post {
+		if source != -1 {
 			// handle error internally
 			s.handleError(w, "failed to parse id to int", r.URL.Path, "SiteImages", r.Method, r.Context().Value(CtxKeyRequestID),
 				network.GetRequestIP(r), userName, userId, http.StatusUnprocessableEntity, "invalid id", err)
@@ -70,7 +74,7 @@ func (s *HTTPServer) SiteImages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	img, err := core.SiteImages(ctx, finalCallingUser, s.tiDB, id, username, post, attempt, s.storageEngine)
+	img, err := core.SiteImages(ctx, finalCallingUser, s.tiDB, id, username, source, s.storageEngine)
 	if err != nil {
 		if err.Error() == "not found" {
 			s.handleError(w, "SiteImages not found", r.URL.Path, "SiteImages", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -95,7 +99,7 @@ func (s *HTTPServer) SiteImages(w http.ResponseWriter, r *http.Request) {
 	defer img.Close()
 
 	// add headers
-	if post || attempt {
+	if source != -1 {
 		w.Header().Set("Content-Type", "image/jpeg")
 	} else {
 		w.Header().Set("Content-Type", "image/svg+xml")
