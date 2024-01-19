@@ -113,6 +113,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 	// skip any message that is not within the purview of the bytes agent plugin
 	if msg.Type != ws.MessageTypeAgentExecRequest &&
 		msg.Type != ws.MessageTypeAgentLintRequest &&
+		msg.Type != ws.MessageTypeByteUpdateCode &&
 		msg.Type != ws.MessageTypeByteLivePing {
 		return
 	}

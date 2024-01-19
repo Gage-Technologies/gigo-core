@@ -2,11 +2,12 @@ package utils
 
 import (
 	"fmt"
-	"golang.org/x/image/draw"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
+
+	"golang.org/x/image/draw"
 )
 
 // PrepImageFile
@@ -17,7 +18,7 @@ import (
 //	Args
 //		src		- io.ReadCloser, source file that will be loaded as an image
 //		dst 	- io.WriteCloser, destination file that the sanitized image will be written to (in jpeg format)
-func PrepImageFile(src io.ReadCloser, dst io.WriteCloser) error {
+func PrepImageFile(src io.ReadCloser, dst io.WriteCloser, vertical bool) error {
 	// defer closure of source file
 	defer src.Close()
 	// defer closure of destination file
@@ -36,10 +37,19 @@ func PrepImageFile(src io.ReadCloser, dst io.WriteCloser) error {
 		img = pngImg
 	}
 
-	// create a new image to hold the resized image matrix of 500x500 pixels
-	resized := image.NewRGBA(image.Rect(0, 0, 896, 504))
+	// calculate new dimensions based on aspect ratio
+	width := float64(img.Bounds().Max.X)
+	height := float64(img.Bounds().Max.Y)
+	if vertical {
+		width = height * 9 / 16
+	} else {
+		height = width * 9 / 16
+	}
 
-	// resize the image to 500x500
+	// create a new image to hold the resized image matrix
+	resized := image.NewRGBA(image.Rect(0, 0, int(width), int(height)))
+
+	// resize the image to the new dimensions
 	draw.CatmullRom.Scale(resized, resized.Rect, img, img.Bounds(), draw.Over, nil)
 
 	// write the image as a new jpeg file

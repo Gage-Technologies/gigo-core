@@ -1,14 +1,141 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
+	"gigo-core/gigo/utils"
+
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
+	"github.com/gage-technologies/gigo-lib/search"
+	"github.com/gage-technologies/gigo-lib/storage"
+	utils2 "github.com/gage-technologies/gigo-lib/utils"
+	"github.com/go-git/go-git/v5/utils/ioutil"
 	"go.opentelemetry.io/otel"
 )
+
+type CreateByteParams struct {
+	Ctx              context.Context
+	Tidb             *ti.Database
+	Sf               *snowflake.Node
+	CallingUser      *models.User
+	StorageEngine    storage.Storage
+	Meili            *search.MeiliSearchEngine
+	Name             string
+	Description      string
+	Outline          string
+	DevelopmentSteps string
+	Language         models.ProgrammingLanguage
+	Thumbnail        string
+}
+
+func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-byte-core")
+	defer span.End()
+	callerName := "CreateByte"
+
+	// create a new id for the post
+	id := params.Sf.Generate().Int64()
+
+	// get temp thumbnail file from storage
+	thumbnailTempFile, err := params.StorageEngine.GetFile(params.Thumbnail)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
+	}
+	defer thumbnailTempFile.Close()
+
+	// sanitize thumbnail image
+	thumbnailBuffer := bytes.NewBuffer([]byte{})
+	err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prep thumbnail file: %v", err)
+	}
+
+	// record failure state to cleanup on exit
+	failed := true
+
+	// defer function to cleanup repo on failure
+	defer func() {
+		// skip cleanup if we succeeded
+		if !failed {
+			return
+		}
+
+		_ = params.Meili.DeleteDocuments("bytes", id)
+	}()
+
+	// create a new byte
+	bytes, err := models.CreateBytes(
+		id,
+		params.Name,
+		params.Description,
+		params.Outline,
+		params.DevelopmentSteps,
+		params.Language,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create byte: %v", err)
+	}
+
+	// format the post into sql insert statements
+	statements, err := bytes.ToSQLNative()
+	if err != nil {
+		return nil, fmt.Errorf("failed to format byte into insert statements: %v", err)
+	}
+
+	// create transaction for byte insertion
+	tx, err := params.Tidb.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create insert tx: %v", err)
+	}
+
+	// iterate over insert statements performing insertion into sql
+	for _, statement := range statements {
+		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to perform insertion statement for byte: %v\n    statement: %s\n    params: %v", err, statement.Statement, statement.Values)
+		}
+	}
+
+	// write thumbnail to final location
+	idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", id)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash bytes id: %v", err)
+	}
+	err = params.StorageEngine.CreateFile(
+		fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash),
+		thumbnailBuffer.Bytes(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write thumbnail to final location: %v", err)
+	}
+
+	// attempt to insert the prost into the search engine to make it discoverable
+	err = params.Meili.AddDocuments("bytes", bytes.ToSearch())
+	if err != nil {
+		return nil, fmt.Errorf("failed to add bytes to search engine: %v", err)
+	}
+
+	// format byte to frontend object
+	fp := bytes.ToFrontend()
+	if err != nil {
+		return nil, fmt.Errorf("failed to format byte to frontend object: %v", err)
+	}
+
+	// commit insert tx
+	err = tx.Commit(&callerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit")
+	}
+
+	// set success flag
+	failed = false
+
+	return map[string]interface{}{"message": "Byte created successfully.", "byte": fp}, nil
+}
 
 // StartByteAttempt creates a new `ByteAttempt` from the passed `Byte` and creates a new workspace.
 func StartByteAttempt(ctx context.Context, tidb *ti.Database, sf *snowflake.Node, callingUser *models.User,

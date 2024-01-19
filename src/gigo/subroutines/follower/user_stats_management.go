@@ -337,11 +337,11 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 	logger.Debugf("starting premiumWeeklyFreeze")
 	// create array to hold timezones that are past midnight in their local time
 
-	//beginningOFDayZone := make([]interface{}, 0)
-	//bParamSlots := make([]string, 0)
+	// beginningOFDayZone := make([]interface{}, 0)
+	// bParamSlots := make([]string, 0)
 	//
-	//// iterate over all timezones available
-	//for _, v := range timezones {
+	// // iterate over all timezones available
+	// for _, v := range timezones {
 	//	for _, z := range v {
 	//		// load user timezone
 	//		timeLocation, err := time.LoadLocation(z)
@@ -386,14 +386,14 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 	//
 	//		}
 	//	}
-	//}
+	// }
 	//
-	//// exit if there is no work to do
-	//if len(beginningOFDayZone) == 0 {
+	// // exit if there is no work to do
+	// if len(beginningOFDayZone) == 0 {
 	//	return nil
-	//}
+	// }
 
-	//logger.Debugf("(premiumWeeklyFreeze) found %d timezones", len(beginningOFDayZone))
+	// logger.Debugf("(premiumWeeklyFreeze) found %d timezones", len(beginningOFDayZone))
 
 	query := "select _id, timezone from users where user_status = 1"
 
@@ -440,13 +440,13 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 				return fmt.Errorf("failed to execute query: %v", err)
 			}
 
-			//get the current time in that timezone
+			// get the current time in that timezone
 			currentTime := time.Now().In(location)
 
-			//get the start of the following week in that timezone
+			// get the start of the following week in that timezone
 			startTime := now.BeginningOfWeek().In(location).Add(time.Hour * 168)
 
-			//subtract the times to get the duration until the start of the following week
+			// subtract the times to get the duration until the start of the following week
 			finalTime := startTime.Sub(currentTime)
 
 			logger.Debugf("(premiumWeeklyFreeze) duration until key is updated: %v", finalTime)
@@ -464,17 +464,17 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 		}
 	}
 
-	//// create query to retrieve all users that are active and just had a day change in their timezone
-	//query := "UPDATE user_stats JOIN users ON user_stats.user_id = users._id SET user_stats.streak_freezes = user_stats.streak_freezes + 2 WHERE users.user_status = 1 and user_stats.date in (" + strings.Join(bParamSlots, ",") + ")"
+	// // create query to retrieve all users that are active and just had a day change in their timezone
+	// query := "UPDATE user_stats JOIN users ON user_stats.user_id = users._id SET user_stats.streak_freezes = user_stats.streak_freezes + 2 WHERE users.user_status = 1 and user_stats.date in (" + strings.Join(bParamSlots, ",") + ")"
 	//
-	//// query := "select us._id, us.user_id, us.challenge_complete us.streak_active, us.current_streak, us.longest_streak, us.longest_streak, us.total_time_spent, us.avg_time, us.days_on_platform, us.days_on_fire, us.date, us.streak_freezes, us.streak_freeze_used, us.xp_gained from user_stats us join users u on us.user_id = u._id where us.streak_active = false and u.timezone in (" + strings.Join(bParamSlots, ",") + ")"
+	// // query := "select us._id, us.user_id, us.challenge_complete us.streak_active, us.current_streak, us.longest_streak, us.longest_streak, us.total_time_spent, us.avg_time, us.days_on_platform, us.days_on_fire, us.date, us.streak_freezes, us.streak_freeze_used, us.xp_gained from user_stats us join users u on us.user_id = u._id where us.streak_active = false and u.timezone in (" + strings.Join(bParamSlots, ",") + ")"
 
-	//logger.Debugf("(premiumWeeklyFreeze) query: %v params: %v", query, beginningOFDayZone)
-	//// execute end of day query
-	//_, err := db.ExecContext(ctx, &span, &callerName, query, beginningOFDayZone...)
-	//if err != nil {
+	// logger.Debugf("(premiumWeeklyFreeze) query: %v params: %v", query, beginningOFDayZone)
+	// // execute end of day query
+	// _, err := db.ExecContext(ctx, &span, &callerName, query, beginningOFDayZone...)
+	// if err != nil {
 	//	return fmt.Errorf("failed to execute query: %v", err)
-	//}
+	// }
 
 	logger.Debugf("(premiumWeeklyFreeze) successfully inserted new rows")
 	return nil

@@ -1,12 +1,13 @@
 package utils
 
 import (
-	"github.com/gage-technologies/gigo-lib/utils"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/gage-technologies/gigo-lib/utils"
 )
 
 func TestPrepImageFile(t *testing.T) {
@@ -14,24 +15,40 @@ func TestPrepImageFile(t *testing.T) {
 	basepath := strings.Replace(filepath.Dir(b), "/src/gigo/utils", "", -1)
 
 	tests := []struct {
-		name string
-		path string
-		want string
+		name     string
+		path     string
+		vertical bool
+		want     string
 	}{
 		{
-			name: "test1",
-			path: filepath.Join(basepath, "test_data", "images", "jpeg", "0a5db4b2b984afdc.jpg"),
-			want: "b8b2cf4184b7139439b5f1b0de36819652a13ecf75888d150ac82f5823f7bc39",
+			name:     "test1",
+			path:     filepath.Join(basepath, "test_data", "images", "jpeg", "0a5db4b2b984afdc.jpg"),
+			vertical: false,
+			want:     "3b5052005a18d7ed3f216b05c695dd293ee963364650a2dd0bd777fce4c0e44a",
 		},
 		{
-			name: "test2",
-			path: filepath.Join(basepath, "test_data", "images", "png", "gage.png"),
-			want: "9b6bbe02f8227060b81987c40b013edc79ce5fa2ad7f08f54a054272f6c0fcc1",
+			name:     "test2",
+			path:     filepath.Join(basepath, "test_data", "images", "png", "gage.png"),
+			vertical: false,
+			want:     "e381059f8889f1e97a49ecad9bccf468fb849b29897dad82257ac1a03906d2b3",
 		},
 		{
-			name: "test3",
-			path: filepath.Join(basepath, "test_data", "api-key"),
-			want: "fail",
+			name:     "test3",
+			path:     filepath.Join(basepath, "test_data", "api-key"),
+			vertical: false,
+			want:     "fail",
+		},
+		{
+			name:     "test4",
+			path:     filepath.Join(basepath, "test_data", "images", "jpeg", "0a5db4b2b984afdc.jpg"),
+			vertical: true,
+			want:     "8fb918f5bbfecbadab8c0d69d3dd3895e6754eeb60f77a9a48e75edc0b212166",
+		},
+		{
+			name:     "test5",
+			path:     filepath.Join(basepath, "test_data", "images", "png", "gage.png"),
+			vertical: true,
+			want:     "c902745b5bbea6be727ab1bb596d06f79cf27248c359be5898fd00786545e28a",
 		},
 	}
 
@@ -49,7 +66,7 @@ func TestPrepImageFile(t *testing.T) {
 				t.Fatalf("\nPrepImageFile failed\n    Error: %v", err)
 			}
 
-			err = PrepImageFile(srcFile, dst)
+			err = PrepImageFile(srcFile, dst, tt.vertical)
 			if tt.want != "fail" && err != nil {
 				t.Fatalf("\nPrepImageFile failed\n    Error: %v", err)
 			}

@@ -1,17 +1,114 @@
 package external_api
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"gigo-core/gigo/api/external_api/core"
+	"net/http"
+	"path/filepath"
+	"reflect"
+	"strconv"
+
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/network"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"net/http"
-	"reflect"
-	"strconv"
 )
+
+type CreateByteRequest struct {
+	Name             string                     `json:"name" validate:"required,lte=35"`
+	Description      string                     `json:"description" validate:"required,lte=500"`
+	Outline          string                     `json:"outline" validate:"required"`
+	DevelopmentSteps string                     `json:"development_steps" validate:"required"`
+	Language         models.ProgrammingLanguage `json:"language" validate:"required"`
+	UploadID         string                     `json:"upload_id" validate:"required"`
+}
+
+func (s *HTTPServer) CreateByte(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-byte-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "CreateByte", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// require that the user is admin
+	if callingUser.(*models.User).AuthRole != models.Admin {
+		s.handleError(w, "only admins can perform this action", r.URL.Path, "CreateByte", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusForbidden, "forbidden", nil)
+		return
+	}
+
+	// receive upload part and handle file assemble
+	reqJson := s.receiveUpload(w, r, "CreateByte", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// marshall the reqJson then send through the validation system
+	buf, err := json.Marshal(reqJson)
+	if err != nil {
+		s.handleError(w, "failed to marshal reqjson", r.URL.Path, "CreateByte", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		return
+	}
+
+	var byteReq CreateByteRequest
+	if ok := s.validateRequest(w, r, callingUser.(*models.User), bytes.NewBuffer(buf), &byteReq); !ok {
+		return
+	}
+
+	// create thumbnail temp path
+	thumbnailTempPath := filepath.Join("temp", byteReq.UploadID)
+
+	// defer removal of thumbnail temp file
+	defer s.storageEngine.DeleteFile(thumbnailTempPath)
+
+	// call the core
+	res, err := core.CreateByte(core.CreateByteParams{
+		Ctx:              ctx,
+		Tidb:             s.tiDB,
+		Sf:               s.sf,
+		CallingUser:      callingUser.(*models.User),
+		StorageEngine:    s.storageEngine,
+		Meili:            s.meili,
+		Name:             byteReq.Name,
+		Description:      byteReq.Description,
+		Outline:          byteReq.Outline,
+		DevelopmentSteps: byteReq.DevelopmentSteps,
+		Language:         byteReq.Language,
+		Thumbnail:        thumbnailTempPath,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "core failed", r.URL.Path, "CreateByte", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		return
+	}
+
+	parentSpan.AddEvent(
+		"create-byte",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
 
 func (s *HTTPServer) StartByteAttempt(w http.ResponseWriter, r *http.Request) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "start-byte-attempt-http")
@@ -20,14 +117,14 @@ func (s *HTTPServer) StartByteAttempt(w http.ResponseWriter, r *http.Request) {
 	// retrieve calling user from context
 	callingUser := r.Context().Value(CtxKeyUser)
 
-	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
-
 	// return if calling user was not retrieved in authentication
 	if callingUser == nil {
 		s.handleError(w, "calling user missing from context", r.URL.Path, "StartByteAttempt", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", nil)
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
 		return
 	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
 
 	// attempt to load JSON from request body
 	reqJson := s.jsonRequest(w, r, "StartByteAttempt", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
