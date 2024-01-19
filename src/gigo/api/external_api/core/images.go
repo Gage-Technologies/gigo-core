@@ -107,7 +107,7 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 		}
 
 		// query for the post to validate its availability
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "select published from post where _id = ? limit 1", id)
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "select published from bytes where _id = ? limit 1", id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query post: %v", err)
 		}

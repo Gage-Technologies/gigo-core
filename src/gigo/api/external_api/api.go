@@ -121,6 +121,7 @@ var hybridRoutes = []*regexp.Regexp{
 	regexp.MustCompile("^/api/search/posts$"),
 	regexp.MustCompile("^/static/user/pfp.*$"),
 	regexp.MustCompile("^/static/posts/t.*$"),
+	regexp.MustCompile("^/static/bytes/t.*$"),
 	regexp.MustCompile("^/static/attempts/t.*$"),
 	regexp.MustCompile("^/api/project/attempts$"),
 	regexp.MustCompile("^/api/project/get$"),
@@ -1846,6 +1847,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/notification/clearAll", s.ClearUserNotifications).Methods("POST")
 	s.router.HandleFunc("/api/notification/get", s.GetUserNotifications).Methods("POST")
 	s.router.HandleFunc("/static/posts/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
+	s.router.HandleFunc("/static/bytes/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
 	s.router.HandleFunc("/static/attempts/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
 	s.router.HandleFunc("/static/user/pfp/{id:.+}", s.SiteImages).Methods("GET")
 	s.router.PathPrefix("/static/git/p/{id:[0-9]+}").HandlerFunc(s.GitImages).Methods("GET")
