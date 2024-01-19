@@ -233,7 +233,7 @@ func GetByteAttempt(ctx context.Context, tidb *ti.Database, callingUser *models.
 
 	for res.Next() {
 		attempt := &models.ByteAttemptsFrontend{}
-		err = res.Scan(&attempt.ID, &attempt.ByteID, &attempt.AuthorID, &attempt.Content)
+		err = res.Scan(&attempt.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan byte attempts: %v", err)
 		}
@@ -251,7 +251,7 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database) (map[string]int
 	callerName := "GetRecommendedBytes"
 
 	// query for 50 bytes
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select _id, name, description, lang from bytes limit 50")
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select _id, name, description, lang from bytes where published = true limit 50")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query recommended bytes: %v", err)
 	}
@@ -291,10 +291,9 @@ func GetByte(ctx context.Context, tidb *ti.Database, byteId int64) (map[string]i
 		return nil, fmt.Errorf("no byte found with id: %d", byteId)
 	}
 
-	byte := &models.BytesFrontend{}
-	err = res.Scan(&byte.ID, &byte.Name, &byte.Description, &byte.OutlineContent, &byte.DevSteps, &byte.Lang)
+	byte, err := models.BytesFromSQLNative(res)
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan byte: %v", err)
+		return nil, fmt.Errorf("failed to convert byte to SQL native type: %v", err)
 	}
 
 	// Check for more rows. If there are, it's an unexpected situation.
@@ -302,5 +301,5 @@ func GetByte(ctx context.Context, tidb *ti.Database, byteId int64) (map[string]i
 		return nil, fmt.Errorf("unexpected multiple rows for byte id: %d", byteId)
 	}
 
-	return map[string]interface{}{"rec_bytes": byte}, nil
+	return map[string]interface{}{"rec_bytes": byte.ToFrontend()}, nil
 }
