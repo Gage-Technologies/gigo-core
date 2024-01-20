@@ -71,7 +71,7 @@ func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 
 	// sanitize thumbnail image
 	thumbnailBuffer := bytes.NewBuffer([]byte{})
-	err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), false)
+	_, err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), false, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prep thumbnail file: %v", err)
 	}
@@ -526,7 +526,7 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 		// sanitize thumbnail image
 		thumbnailBuffer := bytes.NewBuffer([]byte{})
-		err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), false)
+		_, err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), false, false)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prep thumbnail file: %v", err)
 		}
@@ -683,7 +683,7 @@ func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 		// sanitize thumbnail image
 		thumbnailBuffer := bytes.NewBuffer([]byte{})
-		err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), false)
+		_, err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), false, false)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prep thumbnail file: %v", err)
 		}

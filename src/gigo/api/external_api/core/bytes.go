@@ -49,7 +49,7 @@ func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 
 	// sanitize thumbnail image
 	thumbnailBuffer := bytes.NewBuffer([]byte{})
-	err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), true)
+	color, err := utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer), true, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prep thumbnail file: %v", err)
 	}
@@ -75,6 +75,7 @@ func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 		params.Outline,
 		params.DevelopmentSteps,
 		params.Language,
+		color,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create byte: %v", err)

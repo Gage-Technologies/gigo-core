@@ -17,18 +17,21 @@ func TestPrepImageFile(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string
+		color    string
 		vertical bool
 		want     string
 	}{
 		{
 			name:     "test1",
 			path:     filepath.Join(basepath, "test_data", "images", "jpeg", "0a5db4b2b984afdc.jpg"),
+			color:    "#566841",
 			vertical: false,
 			want:     "3b5052005a18d7ed3f216b05c695dd293ee963364650a2dd0bd777fce4c0e44a",
 		},
 		{
 			name:     "test2",
 			path:     filepath.Join(basepath, "test_data", "images", "png", "gage.png"),
+			color:    "#1b1b1a",
 			vertical: false,
 			want:     "e381059f8889f1e97a49ecad9bccf468fb849b29897dad82257ac1a03906d2b3",
 		},
@@ -41,12 +44,14 @@ func TestPrepImageFile(t *testing.T) {
 		{
 			name:     "test4",
 			path:     filepath.Join(basepath, "test_data", "images", "jpeg", "0a5db4b2b984afdc.jpg"),
+			color:    "#54653f",
 			vertical: true,
 			want:     "8fb918f5bbfecbadab8c0d69d3dd3895e6754eeb60f77a9a48e75edc0b212166",
 		},
 		{
 			name:     "test5",
 			path:     filepath.Join(basepath, "test_data", "images", "png", "gage.png"),
+			color:    "#1b1b1a",
 			vertical: true,
 			want:     "c902745b5bbea6be727ab1bb596d06f79cf27248c359be5898fd00786545e28a",
 		},
@@ -66,7 +71,7 @@ func TestPrepImageFile(t *testing.T) {
 				t.Fatalf("\nPrepImageFile failed\n    Error: %v", err)
 			}
 
-			err = PrepImageFile(srcFile, dst, tt.vertical)
+			_, err = PrepImageFile(srcFile, dst, tt.vertical, true)
 			if tt.want != "fail" && err != nil {
 				t.Fatalf("\nPrepImageFile failed\n    Error: %v", err)
 			}
@@ -87,6 +92,10 @@ func TestPrepImageFile(t *testing.T) {
 			if h != tt.want {
 				t.Fatalf("\nPrepImageFile failed\n    want: %v\n    got: %v", tt.want, h)
 			}
+
+			// if color != tt.color {
+			// 	t.Fatalf("\nPrepImageFile failed\n    want: %v\n    got: %v", tt.color, color)
+			// }
 
 			t.Logf("\nPrepImageFile succeeded")
 		})

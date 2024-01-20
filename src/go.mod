@@ -23,7 +23,7 @@ require (
 
 require (
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20240119173420-b1b1f4f62f14
+	github.com/gage-technologies/gigo-lib v0.0.0-20240120113453-1bdc2ccd2177
 )
 
 require (
@@ -111,13 +111,16 @@ require (
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/kataras/go-events v0.0.3 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/michaelquigley/pfxlog v0.6.10 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
+	github.com/oliamb/cutter v0.2.2 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/openziti/channel/v2 v2.0.105 // indirect
 	github.com/openziti/edge-api v0.26.1 // indirect
@@ -166,6 +169,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/gage-technologies/prominentcolor v0.0.0-20240120120538-1e8c7b5d74b1
 	github.com/getsentry/sentry-go v0.13.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
