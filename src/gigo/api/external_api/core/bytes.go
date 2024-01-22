@@ -180,7 +180,7 @@ func StartByteAttempt(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	var outlineContentMedium string
 	var outlineContentHard string
 	err = tidb.QueryRowContext(ctx, &span, &callerName,
-		"select outline_content_easy, outline_content_medium, content_outline_hard from bytes where _id = ?", byteId,
+		"select outline_content_easy, outline_content_medium, outline_content_hard from bytes where _id = ?", byteId,
 	).Scan(&outlineContentEasy, &outlineContentMedium, &outlineContentHard)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get byte outline content: %v", err)
