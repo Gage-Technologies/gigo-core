@@ -18,12 +18,18 @@ import (
 )
 
 type CreateByteRequest struct {
-	Name             string                     `json:"name" validate:"required,lte=35"`
-	Description      string                     `json:"description" validate:"required,lte=500"`
-	Outline          string                     `json:"outline" validate:"required"`
-	DevelopmentSteps string                     `json:"development_steps" validate:"required"`
-	Language         models.ProgrammingLanguage `json:"language" validate:"required"`
-	UploadID         string                     `json:"upload_id" validate:"required"`
+	Name                   string                     `json:"name" validate:"required,lte=35"`
+	DescriptionEasy        string                     `json:"description_easy" validate:"required,lte=500"`
+	DescriptionMedium      string                     `json:"description_medium" validate:"required,lte=500"`
+	DescriptionHard        string                     `json:"description_hard" validate:"required,lte=500"`
+	OutlineEasy            string                     `json:"outline_easy" validate:"required"`
+	OutlineMedium          string                     `json:"outline_medium" validate:"required"`
+	OutlineHard            string                     `json:"outline_hard" validate:"required"`
+	DevelopmentStepsEasy   string                     `json:"development_steps_easy" validate:"required"`
+	DevelopmentStepsMedium string                     `json:"development_steps_medium" validate:"required"`
+	DevelopmentStepsHard   string                     `json:"development_steps_hard" validate:"required"`
+	Language               models.ProgrammingLanguage `json:"language" validate:"required"`
+	UploadID               string                     `json:"upload_id" validate:"required"`
 }
 
 func (s *HTTPServer) CreateByte(w http.ResponseWriter, r *http.Request) {
@@ -75,18 +81,24 @@ func (s *HTTPServer) CreateByte(w http.ResponseWriter, r *http.Request) {
 
 	// call the core
 	res, err := core.CreateByte(core.CreateByteParams{
-		Ctx:              ctx,
-		Tidb:             s.tiDB,
-		Sf:               s.sf,
-		CallingUser:      callingUser.(*models.User),
-		StorageEngine:    s.storageEngine,
-		Meili:            s.meili,
-		Name:             byteReq.Name,
-		Description:      byteReq.Description,
-		Outline:          byteReq.Outline,
-		DevelopmentSteps: byteReq.DevelopmentSteps,
-		Language:         byteReq.Language,
-		Thumbnail:        thumbnailTempPath,
+		Ctx:                    ctx,
+		Tidb:                   s.tiDB,
+		Sf:                     s.sf,
+		CallingUser:            callingUser.(*models.User),
+		StorageEngine:          s.storageEngine,
+		Meili:                  s.meili,
+		Name:                   byteReq.Name,
+		DescriptionEasy:        byteReq.DescriptionEasy,
+		DescriptionMedium:      byteReq.DescriptionMedium,
+		DescriptionHard:        byteReq.DescriptionHard,
+		OutlineEasy:            byteReq.OutlineEasy,
+		OutlineMedium:          byteReq.OutlineMedium,
+		OutlineHard:            byteReq.OutlineHard,
+		DevelopmentStepsEasy:   byteReq.DevelopmentStepsEasy,
+		DevelopmentStepsMedium: byteReq.DevelopmentStepsMedium,
+		DevelopmentStepsHard:   byteReq.DevelopmentStepsHard,
+		Language:               byteReq.Language,
+		Thumbnail:              thumbnailTempPath,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
