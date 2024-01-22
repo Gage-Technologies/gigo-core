@@ -20,10 +20,12 @@ func TestStartByteAttempt(t *testing.T) {
 	}
 
 	testByteAttempt := models.ByteAttempts{
-		ID:       1,
-		ByteID:   2,
-		AuthorID: 3,
-		Content:  "Test Byte Attempt",
+		ID:            1,
+		ByteID:        2,
+		AuthorID:      3,
+		ContentEasy:   "Test Byte Attempt Easy",
+		ContentMedium: "Test Byte Attempt Medium",
+		ContentHard:   "Test Byte Attempt Hard",
 	}
 
 	attemptStmt, err := testByteAttempt.ToSQLNative()
@@ -128,9 +130,11 @@ func TestGetRecommendedBytes(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		// Create a Byte instance for insertion
 		testByte := &models.Bytes{
-			ID:          int64(i + 1),
-			Name:        fmt.Sprintf("Byte %d", i+1),
-			Description: fmt.Sprintf("Description for Byte %d", i+1),
+			ID:                int64(i + 1),
+			Name:              fmt.Sprintf("Byte %d", i+1),
+			DescriptionEasy:   fmt.Sprintf("Description for Byte %d Easy", i+1),
+			DescriptionMedium: fmt.Sprintf("Description for Byte %d Medium", i+1),
+			DescriptionHard:   fmt.Sprintf("Description for Byte %d Hard", i+1),
 		}
 		// Assuming ToSQLNative is the method to prepare SQL insertion
 		byteStmt, err := testByte.ToSQLNative()
@@ -146,9 +150,11 @@ func TestGetRecommendedBytes(t *testing.T) {
 
 		// Add corresponding BytesFrontend instance to expected result
 		expectedByteFrontend := &models.BytesFrontend{
-			ID:          strconv.FormatInt(testByte.ID, 10),
-			Name:        testByte.Name,
-			Description: testByte.Description,
+			ID:                strconv.FormatInt(testByte.ID, 10),
+			Name:              testByte.Name,
+			DescriptionEasy:   testByte.DescriptionEasy,
+			DescriptionMedium: testByte.DescriptionMedium,
+			DescriptionHard:   testByte.DescriptionHard,
 		}
 		expectedBytesFrontend = append(expectedBytesFrontend, expectedByteFrontend)
 	}
@@ -202,11 +208,17 @@ func TestGetByte(t *testing.T) {
 
 	// Insert a test byte into the database
 	testByte := &models.Bytes{
-		ID:             1,
-		Name:           "Test Byte",
-		Description:    "Test Description",
-		OutlineContent: "Test Outline",
-		DevSteps:       "Test Steps",
+		ID:                   1,
+		Name:                 "Test Byte",
+		DescriptionEasy:      "Test Description Easy",
+		DescriptionMedium:    "Test Description Medium",
+		DescriptionHard:      "Test Description Hard",
+		OutlineContentEasy:   "Test Outline Easy",
+		OutlineContentMedium: "Test Outline Medium",
+		OutlineContentHard:   "Test Outline Hard",
+		DevStepsEasy:         "Test Steps Easy",
+		DevStepsMedium:       "Test Steps Medium",
+		DevStepsHard:         "Test Steps Hard",
 	}
 	byteStmt, err := testByte.ToSQLNative()
 	if err != nil {
@@ -241,11 +253,17 @@ func TestGetByte(t *testing.T) {
 			wantErr: false,
 			wantResult: map[string]interface{}{
 				"rec_bytes": &models.BytesFrontend{
-					ID:             strconv.FormatInt(testByte.ID, 10),
-					Name:           testByte.Name,
-					Description:    testByte.Description,
-					OutlineContent: testByte.OutlineContent,
-					DevSteps:       testByte.DevSteps,
+					ID:                   strconv.FormatInt(testByte.ID, 10),
+					Name:                 testByte.Name,
+					DescriptionEasy:      testByte.DescriptionEasy,
+					DescriptionMedium:    testByte.DescriptionMedium,
+					DescriptionHard:      testByte.DescriptionHard,
+					OutlineContentEasy:   testByte.OutlineContentEasy,
+					OutlineContentMedium: testByte.OutlineContentMedium,
+					OutlineContentHard:   testByte.OutlineContentHard,
+					DevStepsEasy:         testByte.DevStepsEasy,
+					DevStepsMedium:       testByte.DevStepsMedium,
+					DevStepsHard:         testByte.DevStepsHard,
 				},
 			},
 		},

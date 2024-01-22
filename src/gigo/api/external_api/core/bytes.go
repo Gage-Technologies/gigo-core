@@ -18,18 +18,24 @@ import (
 )
 
 type CreateByteParams struct {
-	Ctx              context.Context
-	Tidb             *ti.Database
-	Sf               *snowflake.Node
-	CallingUser      *models.User
-	StorageEngine    storage.Storage
-	Meili            *search.MeiliSearchEngine
-	Name             string
-	Description      string
-	Outline          string
-	DevelopmentSteps string
-	Language         models.ProgrammingLanguage
-	Thumbnail        string
+	Ctx                    context.Context
+	Tidb                   *ti.Database
+	Sf                     *snowflake.Node
+	CallingUser            *models.User
+	StorageEngine          storage.Storage
+	Meili                  *search.MeiliSearchEngine
+	Name                   string
+	DescriptionEasy        string
+	DescriptionMedium      string
+	DescriptionHard        string
+	OutlineEasy            string
+	OutlineMedium          string
+	OutlineHard            string
+	DevelopmentStepsEasy   string
+	DevelopmentStepsMedium string
+	DevelopmentStepsHard   string
+	Language               models.ProgrammingLanguage
+	Thumbnail              string
 }
 
 func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
@@ -71,9 +77,15 @@ func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 	bytes, err := models.CreateBytes(
 		id,
 		params.Name,
-		params.Description,
-		params.Outline,
-		params.DevelopmentSteps,
+		params.DescriptionEasy,
+		params.DescriptionMedium,
+		params.DescriptionHard,
+		params.OutlineEasy,
+		params.OutlineMedium,
+		params.OutlineHard,
+		params.DevelopmentStepsEasy,
+		params.DevelopmentStepsMedium,
+		params.DevelopmentStepsHard,
 		params.Language,
 		color,
 	)
@@ -149,8 +161,8 @@ func StartByteAttempt(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	// ensure this user doesn't have an attempt already
 	var existingByteAttempt models.ByteAttempts
 	err := tidb.QueryRowContext(ctx, &span, &callerName,
-		"select _id, byte_id, author_id, content, modified from byte_attempts where byte_id = ? and author_id = ? limit 1", byteId, callingUser.ID,
-	).Scan(&existingByteAttempt.ID, &existingByteAttempt.ByteID, &existingByteAttempt.AuthorID, &existingByteAttempt.Content, &existingByteAttempt.Modified)
+		"select _id, byte_id, author_id, content_easy, content_medium, content_hard, modified from byte_attempts where byte_id = ? and author_id = ? limit 1", byteId, callingUser.ID,
+	).Scan(&existingByteAttempt.ID, &existingByteAttempt.ByteID, &existingByteAttempt.AuthorID, &existingByteAttempt.ContentEasy, &existingByteAttempt.ContentMedium, &existingByteAttempt.ContentHard, &existingByteAttempt.Modified)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to get attempt count: %v", err)
 	}
@@ -164,15 +176,17 @@ func StartByteAttempt(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	}
 
 	// Fetch outline_content for the byte
-	var outlineContent string
+	var outlineContentEasy string
+	var outlineContentMedium string
+	var outlineContentHard string
 	err = tidb.QueryRowContext(ctx, &span, &callerName,
-		"select outline_content from bytes where _id = ?", byteId,
-	).Scan(&outlineContent)
+		"select outline_content_easy, outline_content_medium, content_outline_hard from bytes where _id = ?", byteId,
+	).Scan(&outlineContentEasy, &outlineContentMedium, &outlineContentHard)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get byte outline content: %v", err)
 	}
 
-	byteAttempt, err := models.CreateByteAttempts(sf.Generate().Int64(), byteId, callingUser.ID, outlineContent)
+	byteAttempt, err := models.CreateByteAttempts(sf.Generate().Int64(), byteId, callingUser.ID, outlineContentEasy, outlineContentMedium, outlineContentHard)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create byte attempt struct: %v", err)
 	}
@@ -252,7 +266,7 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database) (map[string]int
 	callerName := "GetRecommendedBytes"
 
 	// query for 50 bytes
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select _id, name, description, lang from bytes where published = true limit 50")
+	res, err := tidb.QueryContext(ctx, &span, &callerName, "select _id, name, description_easy, description_medium, description_easy, lang from bytes where published = true limit 50")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query recommended bytes: %v", err)
 	}
@@ -264,7 +278,7 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database) (map[string]int
 
 	for res.Next() {
 		byte := models.BytesFrontend{}
-		err = res.Scan(&byte.ID, &byte.Name, &byte.Description, &byte.Lang)
+		err = res.Scan(&byte.ID, &byte.Name, &byte.DescriptionEasy, &byte.DescriptionMedium, &byte.DescriptionHard, &byte.Lang)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan bytes: %v", err)
 		}
