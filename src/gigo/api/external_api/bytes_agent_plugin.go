@@ -64,9 +64,31 @@ type ByteLivePingRequest struct {
 	ByteAttemptID string `json:"byte_attempt_id" validate:"required,number"`
 }
 
+type Difficulty int
+
+const (
+	Easy Difficulty = iota
+	Medium
+	Hard
+)
+
+func (d Difficulty) ToString() string {
+	switch d {
+	case Easy:
+		return "easy"
+	case Medium:
+		return "medium"
+	case Hard:
+		return "hard"
+	default:
+		return "medium"
+	}
+}
+
 type ByteUpdateCodeRequest struct {
-	ByteAttemptID string `json:"byte_attempt_id" validate:"required,number"`
-	Content       string `json:"content" validate:"required"`
+	ByteAttemptID     string     `json:"byte_attempt_id" validate:"required,number"`
+	Content           string     `json:"content" validate:"required"`
+	ContentDifficulty Difficulty `json:"content_difficulty" validate:"required"`
 }
 
 type WebSocketPluginBytesAgent struct {
@@ -541,7 +563,7 @@ func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], 
 
 	_, err = p.s.tiDB.Exec(
 		ctx, &span, &callerName,
-		"update byte_attempts set content = ?, modified = true where _id = ?",
+		fmt.Sprintf("update byte_attempts set content_%s = ?, modified = true where _id = ?", updaetReq.ContentDifficulty.ToString()),
 		updaetReq.Content, byteAttemptID,
 	)
 	if err != nil {
