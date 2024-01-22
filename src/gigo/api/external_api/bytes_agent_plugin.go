@@ -346,11 +346,6 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 			workspaceID:     workspaceID,
 		}
 
-		// add the connection to the map
-		p.mu.Lock()
-		p.agentConns[byteAttemptID] = conn
-		p.mu.Unlock()
-
 		// fire off reader routine
 		p.wg.Go(func() {
 			p.relayConnHandler(agentConn)
