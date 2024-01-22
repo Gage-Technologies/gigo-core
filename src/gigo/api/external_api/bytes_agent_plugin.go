@@ -88,7 +88,7 @@ func (d Difficulty) ToString() string {
 type ByteUpdateCodeRequest struct {
 	ByteAttemptID     string     `json:"byte_attempt_id" validate:"required,number"`
 	Content           string     `json:"content" validate:"required"`
-	ContentDifficulty Difficulty `json:"content_difficulty" validate:"required"`
+	ContentDifficulty Difficulty `json:"content_difficulty"`
 }
 
 type WebSocketPluginBytesAgent struct {
@@ -537,8 +537,8 @@ func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], 
 	callerName := "updateByteAttemptCode"
 
 	// unmarshal the inner payload
-	var updaetReq ByteUpdateCodeRequest
-	err := json.Unmarshal(innerBuf, &updaetReq)
+	var updateReq ByteUpdateCodeRequest
+	err := json.Unmarshal(innerBuf, &updateReq)
 	if err != nil {
 		p.socket.logger.Errorf("(bytes-agent-ws) failed to unmarshal inner payload: %v", err)
 		// handle internal server error via websocket
@@ -554,17 +554,17 @@ func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], 
 	}
 
 	// validate the new message payload
-	if !p.s.validateWebSocketPayload(p.ctx, p.socket.ws, msg, updaetReq) {
+	if !p.s.validateWebSocketPayload(p.ctx, p.socket.ws, msg, updateReq) {
 		return
 	}
 
 	// parse byte attempt id to int64
-	byteAttemptID, _ := strconv.ParseInt(updaetReq.ByteAttemptID, 10, 64)
+	byteAttemptID, _ := strconv.ParseInt(updateReq.ByteAttemptID, 10, 64)
 
 	_, err = p.s.tiDB.Exec(
 		ctx, &span, &callerName,
-		fmt.Sprintf("update byte_attempts set content_%s = ?, modified = true where _id = ?", updaetReq.ContentDifficulty.ToString()),
-		updaetReq.Content, byteAttemptID,
+		fmt.Sprintf("update byte_attempts set content_%s = ?, modified = true where _id = ?", updateReq.ContentDifficulty.ToString()),
+		updateReq.Content, byteAttemptID,
 	)
 	if err != nil {
 		p.socket.logger.Errorf("(bytes-agent-ws) failed to update byte attempt code: %v", err)
