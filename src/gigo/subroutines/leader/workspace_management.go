@@ -40,7 +40,7 @@ select
 from workspaces 
 where
     -- require that the workspace is expired
-    expiration < now() and code_source_type < 3 and
+    expiration < now() and code_source_type < 2 and
     (
 		-- any workspace that is active or starting
 		(state = 0 or state = 1) or
@@ -66,7 +66,7 @@ where
 	) or
 	-- logic for destroying expired byte workspaces
 	(
-		code_source_type = 3 and expiration < now() and
+		code_source_type = 2 and expiration < now() and
 		(
 			-- any workspace state other than removing
 			state in (0, 1, 2, 3, 5) or 

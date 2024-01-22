@@ -4,21 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"gigo-core/gigo/api/external_api/ws"
+	"net"
+	"net/http"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/sourcegraph/conc"
 	"go.opentelemetry.io/otel"
-	"net"
-	"net/http"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
-	"strconv"
-	"sync"
-	"time"
 )
 
 type AgentWebSocketMessageType int
@@ -118,10 +118,12 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		return
 	}
 
+	p.socket.logger.Debugf("(bytes-agent-ws) received request in agent plugin: %+v", msg)
+
 	// marshal the inner payload
 	innerBuf, err := json.Marshal(msg.Payload)
 	if err != nil {
-		p.socket.logger.Errorf("failed to marshal inner payload: %v", err)
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to marshal inner payload: %v", err)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -152,7 +154,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 	var agentReqMsg AgentWsRequestMessage
 	err = json.Unmarshal(innerBuf, &agentReqMsg)
 	if err != nil {
-		p.socket.logger.Errorf("failed to unmarshal inner payload: %v", err)
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to unmarshal inner payload: %v", err)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -170,12 +172,14 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		return
 	}
 
+	p.socket.logger.Debugf("(bytes-agent-ws) handling agent request: %+v", agentReqMsg)
+
 	// parse byte attempt id to int64
 	byteAttemptID, _ := strconv.ParseInt(agentReqMsg.ByteAttemptID, 10, 64)
 
 	user := p.socket.user.Load()
 	if user == nil {
-		p.socket.logger.Debug("cannot find a user in the websocket")
+		p.socket.logger.Debug("(bytes-agent-ws) cannot find a user in the websocket")
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -196,10 +200,10 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 	).Scan(&userID)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			p.socket.logger.Errorf("init code-server conn for workspace %d: failed to query workspace agent: %v", byteAttemptID, err)
+			p.socket.logger.Errorf("(bytes-agent-ws) init code-server conn for workspace %d: failed to query workspace agent: %v", byteAttemptID, err)
 			return
 		}
-		p.socket.logger.Infof("cannot find byte attempt %s", byteAttemptID)
+		p.socket.logger.Infof("(bytes-agent-ws) cannot find byte attempt %s", byteAttemptID)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -213,7 +217,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 	}
 
 	if userID != user.ID {
-		p.socket.logger.Debugf("skipping init code-server conn for workspace %d because it is not for the current user", byteAttemptID)
+		p.socket.logger.Debugf("(bytes-agent-ws) skipping init code-server conn for workspace %d because it is not for the current user", byteAttemptID)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -233,21 +237,22 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 
 	// connect to the byte agent if it doesn't exist
 	if !ok {
+		p.socket.logger.Debugf("(bytes-agent-ws) beginning connection to agent websocket")
 		// check if the byte attempt has a valid workspace and get it's agent id & secret
 		var agentId int64
 		var secret string
 		var workspaceId int64
 		var workspaceState models.WorkspaceState
 		err = p.s.tiDB.DB.QueryRow(
-			"select wa._id as agent_id, bin_to_uuid(wa.secret) as secret, w._id as workspace_id, w.state as workspace_state from workspaces w join workspace_agent wa on w._id = wa.workspace_id where w.code_source_id = ?",
+			"select wa._id as agent_id, bin_to_uuid(wa.secret) as secret, w._id as workspace_id, w.state as workspace_state from workspaces w join workspace_agent wa on w._id = wa.workspace_id where w.code_source_id = ? order by w._id desc limit 1",
 			byteAttemptID,
 		).Scan(&agentId, &secret, &workspaceId, &workspaceState)
 		if err != nil {
 			if err != sql.ErrNoRows {
-				p.socket.logger.Errorf("init code-server conn for workspace %d: failed to query workspace agent: %v", byteAttemptID, err)
+				p.socket.logger.Errorf("(bytes-agent-ws) init code-server conn for workspace %d: failed to query workspace agent: %v", byteAttemptID, err)
 				return
 			}
-			p.socket.logger.Infof("no active agents found for workspace %s", byteAttemptID)
+			p.socket.logger.Infof("(bytes-agent-ws) no active agents found for workspace %s", byteAttemptID)
 			// handle internal server error via websocket
 			p.outputChan <- ws.PrepMessage[any](
 				msg.SequenceID,
@@ -262,7 +267,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 
 		// return a specific message to the caller if the workspace is not alive yet
 		if workspaceState != models.WorkspaceActive {
-			p.socket.logger.Debugf("skipping init code-server conn for workspace %d because it is not active", byteAttemptID)
+			p.socket.logger.Debugf("(bytes-agent-ws) skipping init code-server conn for workspace %d because it is not active", byteAttemptID)
 			// handle internal server error via websocket
 			p.outputChan <- ws.PrepMessage[any](
 				msg.SequenceID,
@@ -292,6 +297,8 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 			},
 		}
 
+		p.socket.logger.Debugf("(bytes-agent-ws) establishing connection to agent ws")
+
 		// establish a new connection to the byte agent
 		ac, acRes, err := websocket.Dial(p.ctx, fmt.Sprintf("ws://dummy/api/v1/ws"), &websocket.DialOptions{
 			HTTPClient: &client,
@@ -302,7 +309,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 			},
 		})
 		if err != nil {
-			p.socket.logger.Errorf("failed to dial byte agent: %v", err)
+			p.socket.logger.Errorf("(bytes-agent-ws) failed to dial byte agent: %v", err)
 			// handle internal server error via websocket
 			p.outputChan <- ws.PrepMessage[any](
 				msg.SequenceID,
@@ -317,7 +324,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 
 		// handle failed connection
 		if ac == nil {
-			p.socket.logger.Errorf("failed to connect to byte agent: %d", acRes.StatusCode)
+			p.socket.logger.Errorf("(bytes-agent-ws) failed to connect to byte agent: %d", acRes.StatusCode)
 			// handle internal server error via websocket
 			p.outputChan <- ws.PrepMessage[any](
 				msg.SequenceID,
@@ -358,10 +365,12 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		conn = agentConn
 	}
 
+	p.socket.logger.Debugf("(bytes-agent-ws) relaying request to agent ws")
+
 	// forward the message to the byte agent
 	agentMsg, err := formatPayloadForAgent(msg, agentReqMsg.Payload)
 	if err != nil {
-		p.socket.logger.Errorf("failed to format payload for agent: %v", err)
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to format payload for agent: %v", err)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -374,10 +383,10 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		return
 	}
 	buf, _ := json.Marshal(agentMsg)
-	p.socket.logger.Debugf("forwarding message to byte agent %d: %s", byteAttemptID, string(buf))
+	p.socket.logger.Debugf("(bytes-agent-ws) forwarding message to byte agent %d: %s", byteAttemptID, string(buf))
 	err = wsjson.Write(p.ctx, conn.Conn, agentMsg)
 	if err != nil {
-		p.socket.logger.Errorf("failed to write message to agent: %v", err)
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to write message to agent: %v", err)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -409,25 +418,24 @@ func (p *WebSocketPluginBytesAgent) Close() {
 }
 
 func (p *WebSocketPluginBytesAgent) relayConnHandler(conn agentWebSocketConn) {
+	p.socket.logger.Debugf("(bytes-agent-ws) launching relayConnHandler loop")
+
 	// loop until the connection is closed
 	for {
 		// read the next message from the client
 		var message AgentWebSocketPayload
 		err := wsjson.Read(p.ctx, conn.Conn, &message)
 		if err != nil {
-			// check if the connection was closed
-			if websocket.CloseStatus(err) != -1 || errors.Is(err, context.Canceled) {
-				// remove the connection from the map
-				p.mu.Lock()
-				delete(p.agentConns, conn.byteID)
-				p.mu.Unlock()
-				return
-			}
+			// remove the connection from the map
+			p.mu.Lock()
+			conn.Close(websocket.StatusAbnormalClosure, "failed to read")
+			delete(p.agentConns, conn.byteID)
+			p.mu.Unlock()
 			return
 		}
 
 		buf, _ := json.Marshal(message)
-		p.socket.logger.Debugf("received response from agent ws %d: %s", conn.byteID, string(buf))
+		p.socket.logger.Debugf("(bytes-agent-ws) received response from agent ws %d: %s", conn.byteID, string(buf))
 
 		// update the last interaction time
 		t := time.Now()
@@ -436,7 +444,7 @@ func (p *WebSocketPluginBytesAgent) relayConnHandler(conn agentWebSocketConn) {
 		// format message and send the message to the write loop
 		m, err := formatPayloadFromAgent(message)
 		if err != nil {
-			p.socket.logger.Errorf("failed to format payload from agent: %v", err)
+			p.socket.logger.Errorf("(bytes-agent-ws) failed to format payload from agent: %v", err)
 			// handle internal server error via websocket
 			p.outputChan <- ws.PrepMessage[any](
 				message.SequenceID,
@@ -464,7 +472,7 @@ func (p *WebSocketPluginBytesAgent) extendWorkspaceExpiration(msg *ws.Message[an
 	var pingReq ByteLivePingRequest
 	err := json.Unmarshal(innerBuf, &pingReq)
 	if err != nil {
-		p.socket.logger.Errorf("failed to unmarshal inner payload: %v", err)
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to unmarshal inner payload: %v", err)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -491,7 +499,7 @@ func (p *WebSocketPluginBytesAgent) extendWorkspaceExpiration(msg *ws.Message[an
 		time.Now().Add(time.Minute*10), byteAttemptID,
 	)
 	if err != nil {
-		p.socket.logger.Errorf("failed to update workspace expiration: %v", err)
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to update workspace expiration: %v", err)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -515,7 +523,7 @@ func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], 
 	var updaetReq ByteUpdateCodeRequest
 	err := json.Unmarshal(innerBuf, &updaetReq)
 	if err != nil {
-		p.socket.logger.Errorf("failed to unmarshal inner payload: %v", err)
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to unmarshal inner payload: %v", err)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
@@ -542,7 +550,7 @@ func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], 
 		updaetReq.Content, byteAttemptID,
 	)
 	if err != nil {
-		p.socket.logger.Errorf("failed to update byte attempt code: %v", err)
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to update byte attempt code: %v", err)
 		// handle internal server error via websocket
 		p.outputChan <- ws.PrepMessage[any](
 			msg.SequenceID,
