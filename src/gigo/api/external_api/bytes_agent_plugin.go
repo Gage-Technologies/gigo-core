@@ -512,8 +512,8 @@ func (p *WebSocketPluginBytesAgent) extendWorkspaceExpiration(msg *ws.Message[an
 
 	_, err = p.s.tiDB.Exec(
 		ctx, &span, &callerName,
-		"update workspaces set expiration = ? where code_source_id = ?",
-		time.Now().Add(time.Minute*10), byteAttemptID,
+		"update workspaces set expiration = ? where code_source_id = ? and owner_id = ? and state in (0, 1)",
+		time.Now().Add(time.Minute*10), byteAttemptID, p.socket.user.Load().ID,
 	)
 	if err != nil {
 		p.socket.logger.Errorf("(bytes-agent-ws) failed to update workspace expiration: %v", err)
