@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"gigo-core/gigo/config"
 	"gigo-core/gigo/utils"
+	"github.com/gage-technologies/gigo-lib/logging"
 
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
@@ -37,6 +40,27 @@ type CreateByteParams struct {
 	Language               models.ProgrammingLanguage
 	Thumbnail              string
 }
+
+//type Difficulty int
+//
+//const (
+//	Easy Difficulty = iota
+//	Medium
+//	Hard
+//)
+//
+//func (d Difficulty) ToString() string {
+//	switch d {
+//	case Easy:
+//		return "easy"
+//	case Medium:
+//		return "medium"
+//	case Hard:
+//		return "hard"
+//	default:
+//		return "medium"
+//	}
+//}
 
 func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-byte-core")
@@ -317,4 +341,33 @@ func GetByte(ctx context.Context, tidb *ti.Database, byteId int64) (map[string]i
 	}
 
 	return map[string]interface{}{"rec_bytes": byte.ToFrontend()}, nil
+}
+
+func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, callingUser *models.User, byteAttemptId int64, difficulty string, logger logging.Logger) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-bytes-core")
+	defer span.End()
+	callerName := "SetByteCompleted"
+
+	res, err := tidb.ExecContext(ctx, &span, &callerName, fmt.Sprintf("update byte_attempts set completed_%s = TRUE where byte_id = ? and author_id = ?", difficulty), byteAttemptId, callingUser.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+
+	if rows != 1 {
+		return nil, errors.New(fmt.Sprintf("failed to update byte attempt completed for difficulty: %v, err: no rows update", difficulty))
+	}
+
+	// add xp to user for logging in
+	xpRes, err := AddXP(ctx, tidb, nil, nil, sf, stripeSubConfig, callingUser.ID, "successful", nil, nil, logger, callingUser)
+	if err != nil {
+		return map[string]interface{}{"message": fmt.Sprintf("Byte Marked as a Success for difficulty: %s", difficulty)}, fmt.Errorf("failed to add xp to user: %v", err)
+	}
+
+	return map[string]interface{}{"success": true, "xp": xpRes}, nil
+
 }

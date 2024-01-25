@@ -192,6 +192,18 @@ func AddXP(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 	//case "login":
 	//	expGain = 100
 	//	break
+
+	// xp gain on bytes easy completion
+	case "easy_byte":
+		expGain = 400
+		break
+	case "medium_byte":
+		expGain = 600
+		break
+	case "hard_byte":
+		expGain = 800
+		break
+
 	// xp gain upon tutorial completion
 	case "tutorial":
 		expGain = 100

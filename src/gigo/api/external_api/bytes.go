@@ -369,3 +369,79 @@ func (s *HTTPServer) GetByte(w http.ResponseWriter, r *http.Request) {
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "GetByte", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
+
+func (s *HTTPServer) SetByteCompleted(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "set-byte-completed-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "SetByteCompleted", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "SetByteCompleted", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load code source id from body
+	byteIdI, ok := s.loadValue(w, r, reqJson, "SetByteCompleted", "byte_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if byteIdI == nil || !ok {
+		return
+	}
+
+	// parse post code source id to integer
+	byteId, err := strconv.ParseInt(byteIdI.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", byteIdI.(string)), r.URL.Path, "SetByteCompleted", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// attempt to load code source id from body
+	difficultyI, ok := s.loadValue(w, r, reqJson, "SetByteCompleted", "difficulty", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if difficultyI == nil || !ok {
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "SetByteCompleted", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.SetByteCompleted(ctx, s.tiDB, s.sf, s.stripeSubscriptions, callingUser.(*models.User), byteId, difficultyI.(string), s.logger)
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "SetByteCompleted core failed", r.URL.Path, "SetByteCompleted", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"set-byte-completed",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "SetByteCompleted", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
