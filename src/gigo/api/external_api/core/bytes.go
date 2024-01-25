@@ -37,6 +37,9 @@ type CreateByteParams struct {
 	DevelopmentStepsEasy   string
 	DevelopmentStepsMedium string
 	DevelopmentStepsHard   string
+	QuestionsEasy          []string
+	QuestionsMedium        []string
+	QuestionsHard          []string
 	Language               models.ProgrammingLanguage
 	Thumbnail              string
 }
@@ -111,6 +114,9 @@ func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 		params.DevelopmentStepsMedium,
 		params.DevelopmentStepsHard,
 		params.Language,
+		params.QuestionsEasy,
+		params.QuestionsMedium,
+		params.QuestionsHard,
 		color,
 	)
 	if err != nil {

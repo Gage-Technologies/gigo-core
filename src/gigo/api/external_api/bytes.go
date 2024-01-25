@@ -28,6 +28,9 @@ type CreateByteRequest struct {
 	DevelopmentStepsEasy   string                     `json:"development_steps_easy" validate:"required"`
 	DevelopmentStepsMedium string                     `json:"development_steps_medium" validate:"required"`
 	DevelopmentStepsHard   string                     `json:"development_steps_hard" validate:"required"`
+	QuestionsEasy          []string                   `json:"questions_easy" validate:"required"`
+	QuestionsMedium        []string                   `json:"questions_medium" validate:"required"`
+	QuestionsHard          []string                   `json:"questions_hard" validate:"required"`
 	Language               models.ProgrammingLanguage `json:"language" validate:"required"`
 	UploadID               string                     `json:"upload_id" validate:"required"`
 }
@@ -97,6 +100,9 @@ func (s *HTTPServer) CreateByte(w http.ResponseWriter, r *http.Request) {
 		DevelopmentStepsEasy:   byteReq.DevelopmentStepsEasy,
 		DevelopmentStepsMedium: byteReq.DevelopmentStepsMedium,
 		DevelopmentStepsHard:   byteReq.DevelopmentStepsHard,
+		QuestionsEasy:          byteReq.QuestionsEasy,
+		QuestionsMedium:        byteReq.QuestionsMedium,
+		QuestionsHard:          byteReq.QuestionsHard,
 		Language:               byteReq.Language,
 		Thumbnail:              thumbnailTempPath,
 	})
