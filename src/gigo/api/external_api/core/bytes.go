@@ -113,10 +113,10 @@ func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 		params.DevelopmentStepsEasy,
 		params.DevelopmentStepsMedium,
 		params.DevelopmentStepsHard,
-		params.Language,
 		params.QuestionsEasy,
 		params.QuestionsMedium,
 		params.QuestionsHard,
+		params.Language,
 		color,
 	)
 	if err != nil {
