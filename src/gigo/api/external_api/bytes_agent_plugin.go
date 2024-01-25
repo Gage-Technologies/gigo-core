@@ -31,6 +31,10 @@ const (
 	AgentWebSocketMessageTypeExecResponse
 	AgentWebSocketMessageTypeLintRequest
 	AgentWebSocketMessageTypeLintResponse
+	AgentWebSocketMessageTypeCancelExecRequest
+	AgentWebSocketMessageTypeCancelExecResponse
+	AgentWebSocketMessageTypeStdinExecRequest
+	AgentWebSocketMessageTypeStdinExecResponse
 )
 
 type AgentWebSocketMessageOrigin int
@@ -62,6 +66,14 @@ type agentWebSocketConn struct {
 
 type ByteLivePingRequest struct {
 	ByteAttemptID string `json:"byte_attempt_id" validate:"required,number"`
+}
+
+type CancelExecRequestPayload struct {
+	CommandID string `json:"command_id" validate:"number"`
+}
+
+type CancelExecResponsePayload struct {
+	CommandID string `json:"command_id" validate:"number"`
 }
 
 type Difficulty int
@@ -136,7 +148,9 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 	if msg.Type != ws.MessageTypeAgentExecRequest &&
 		msg.Type != ws.MessageTypeAgentLintRequest &&
 		msg.Type != ws.MessageTypeByteUpdateCode &&
-		msg.Type != ws.MessageTypeByteLivePing {
+		msg.Type != ws.MessageTypeByteLivePing &&
+		msg.Type != ws.MessageTypeCancelExecRequest &&
+		msg.Type != ws.MessageTypeStdinExecRequest {
 		return
 	}
 
@@ -593,6 +607,14 @@ func formatPayloadForAgent(msg *ws.Message[any], inner any) (AgentWebSocketPaylo
 		t = AgentWebSocketMessageTypeLintRequest
 	case ws.MessageTypeAgentLintResponse:
 		t = AgentWebSocketMessageTypeLintResponse
+	case ws.MessageTypeCancelExecRequest:
+		t = AgentWebSocketMessageTypeCancelExecRequest
+	case ws.MessageTypeCancelExecResponse:
+		t = AgentWebSocketMessageTypeCancelExecResponse
+	case ws.MessageTypeStdinExecRequest:
+		t = AgentWebSocketMessageTypeStdinExecRequest
+	case ws.MessageTypeStdinExecResponse:
+		t = AgentWebSocketMessageTypeStdinExecResponse
 	default:
 		return AgentWebSocketPayload{}, fmt.Errorf("unsupported message type: %v", msg.Type)
 	}
@@ -615,6 +637,14 @@ func formatPayloadFromAgent(msg AgentWebSocketPayload) (ws.Message[any], error) 
 		t = ws.MessageTypeAgentLintResponse
 	case AgentWebSocketMessageTypeValidationError:
 		t = ws.MessageTypeValidationError
+	case AgentWebSocketMessageTypeCancelExecRequest:
+		t = ws.MessageTypeCancelExecRequest
+	case AgentWebSocketMessageTypeCancelExecResponse:
+		t = ws.MessageTypeCancelExecResponse
+	case AgentWebSocketMessageTypeStdinExecRequest:
+		t = ws.MessageTypeStdinExecRequest
+	case AgentWebSocketMessageTypeStdinExecResponse:
+		t = ws.MessageTypeStdinExecResponse
 	case AgentWebSocketMessageTypeGenericError:
 		t = ws.MessageTypeGenericError
 	case AgentWebSocketMessageTypeInit:

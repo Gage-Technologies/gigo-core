@@ -52,6 +52,10 @@ const (
 	MessageTypeAgentLintResponse
 	MessageTypeByteLivePing
 	MessageTypeByteUpdateCode
+	MessageTypeCancelExecRequest
+	MessageTypeCancelExecResponse
+	MessageTypeStdinExecRequest
+	MessageTypeStdinExecResponse
 )
 
 func (t MessageType) String() string {
@@ -82,5 +86,9 @@ func (t MessageType) String() string {
 		"MessageTypeAgentLintResponse",
 		"MessageTypeByteLivePing",
 		"MessageTypeByteUpdateCode",
+		"MessageTypeCancelExecRequest",
+		"MessageTypeCancelExecResponse",
+		"MessageTypeStdinExecRequest",
+		"MessageTypeStdinExecResponse",
 	}[t]
 }
