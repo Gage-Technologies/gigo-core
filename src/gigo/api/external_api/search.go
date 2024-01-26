@@ -1128,15 +1128,23 @@ func (s *HTTPServer) SearchBytes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Attempt to load chat id from body
-	langI, ok := s.loadValue(w, r, reqJson, "SearchBytes", "language", reflect.Float64, nil, true, userName, userId)
-	var lang *models.ProgrammingLanguage
+	// attempt to load parameter from body
+	langsType := reflect.Float64
+	languagesI, ok := s.loadValue(w, r, reqJson, "SearchWorkspaceConfigs", "languages", reflect.Slice, &langsType, true, userName, userId)
 	if !ok {
 		return
 	}
-	if langI != nil {
-		l := models.ProgrammingLanguage(langI.(float64))
-		lang = &l
+
+	var languages []models.ProgrammingLanguage = nil
+	if languagesI != nil {
+		// create a slice to hold languages loaded from the http parameter
+		tempLanguages := make([]models.ProgrammingLanguage, 0)
+
+		// attempt to load parameter from body
+		for _, lang := range languagesI.([]interface{}) {
+			tempLanguages = append(tempLanguages, models.ProgrammingLanguage(lang.(float64)))
+		}
+		languages = tempLanguages
 	}
 
 	// Check if this is a test
@@ -1147,7 +1155,7 @@ func (s *HTTPServer) SearchBytes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute core function logic
-	res, err := core.SearchBytes(s.meili, query.(string), lang)
+	res, err := core.SearchBytes(s.meili, query.(string), languages)
 	if err != nil {
 		// Handle error internally
 		s.handleError(w, "SearchBytes core failed", r.URL.Path, "SearchBytes", r.Method, r.Context().Value(CtxKeyRequestID),

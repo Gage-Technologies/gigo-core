@@ -1097,7 +1097,7 @@ func SimpleSearchPosts(meili *search.MeiliSearchEngine, query string) (map[strin
 	return map[string]interface{}{"posts": posts}, nil
 }
 
-func SearchBytes(meili *search.MeiliSearchEngine, query string, lang *models.ProgrammingLanguage) (map[string]interface{}, error) {
+func SearchBytes(meili *search.MeiliSearchEngine, query string, languages []models.ProgrammingLanguage) (map[string]interface{}, error) {
 
 	const MAX_SEARCH_SIZE = 100   // Replace this with the actual value
 	const MAX_SEARCH_DEPTH = 1000 // Replace this with the actual value
@@ -1138,14 +1138,23 @@ func SearchBytes(meili *search.MeiliSearchEngine, query string, lang *models.Pro
 		},
 	})
 
-	if lang != nil {
+	// conditionally add language filter
+	if len(languages) > 0 {
+		// create interface slice to hold languages
+		languagesInterface := make([]interface{}, len(languages))
+
+		// add languages to interface slice
+		for i, language := range languages {
+			languagesInterface[i] = language
+		}
+
 		// append languages filter condition to
 		searchRequest.Filter.Filters = append(searchRequest.Filter.Filters, search.FilterCondition{
 			Filters: []search.Filter{
 				{
 					Attribute: "lang",
-					Operator:  search.OperatorEquals,
-					Value:     *lang,
+					Operator:  search.OperatorIn,
+					Values:    languagesInterface,
 				},
 			},
 		})
