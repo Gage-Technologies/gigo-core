@@ -1710,6 +1710,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/project/delete", s.DeleteProject).Methods("POST")
 	s.router.HandleFunc("/api/project/publish", s.PublishProject).Methods("POST")
 	s.router.HandleFunc("/api/bytes/publish", s.PublishByte).Methods("POST")
+	s.router.HandleFunc("/api/bytes/unpublish", s.UnPublishByte).Methods("POST")
 	s.router.HandleFunc("/api/recommendation/top", s.TopRecommendation).Methods("POST")
 	s.router.HandleFunc("/api/attempt/get", s.AttemptInformation).Methods("POST")
 	s.router.HandleFunc("/api/attempt/getProject", s.ProjectAttemptInformation).Methods("POST")
