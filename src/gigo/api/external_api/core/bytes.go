@@ -46,9 +46,9 @@ type CreateByteParams struct {
 
 type BytesRecFrontend struct {
 	Byte            models.BytesFrontend `json:"byte" sql:"byte"`
-	CompletedEasy   bool                 `json:"completed_easy" sql:"completed_easy"`
-	CompletedMedium bool                 `json:"completed_medium" sql:"completed_medium"`
-	CompletedHard   bool                 `json:"completed_hard" sql:"completed_hard"`
+	CompletedEasy   *bool                `json:"completed_easy" sql:"completed_easy"`
+	CompletedMedium *bool                `json:"completed_medium" sql:"completed_medium"`
+	CompletedHard   *bool                `json:"completed_hard" sql:"completed_hard"`
 	Modified        bool                 `json:"modified" sql:"modified"`
 }
 
@@ -307,7 +307,7 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database, authorID *int64
 
 	if authorID != nil {
 		// query for 50 bytes
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT b._id, b.name, b.description_easy, b.description_medium, b.description_hard, b.lang, ba.completed_easy, ba.completed_medium, ba.completed_hard, ba.modified FROM bytes b LEFT JOIN byte_attempts ba ON b._id = ba.byte_id AND ba.author_id = ? WHERE b.published = true LIMIT 50;", authorID)
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT b._id, b.name, b.description_easy, b.description_medium, b.description_hard, b.lang, IFNULL(ba.completed_easy, false) as completed_easy,  IFNULL(ba.completed_medium, false) as completed_medium, IFNULL(ba.completed_hard, false) as completed_hard, IFNULL(ba.modified, false) as modified FROM bytes b LEFT JOIN byte_attempts ba ON b._id = ba.byte_id AND ba.author_id = ? WHERE b.published = true LIMIT 50;", *authorID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query recommended bytes: %v", err)
 		}
@@ -317,7 +317,7 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database, authorID *int64
 
 		for res.Next() {
 			b := BytesRecFrontend{}
-			err := res.Scan(&b.Byte.ID, &b.Byte.Name, &b.Byte.DescriptionEasy, &b.Byte.DescriptionMedium, &b.Byte.DescriptionHard, &b.Byte.Lang, b.CompletedEasy, b.CompletedMedium, b.CompletedHard, b.Modified)
+			err := res.Scan(&b.Byte.ID, &b.Byte.Name, &b.Byte.DescriptionEasy, &b.Byte.DescriptionMedium, &b.Byte.DescriptionHard, &b.Byte.Lang, &b.CompletedEasy, &b.CompletedMedium, &b.CompletedHard, &b.Modified)
 			if err != nil {
 				return nil, fmt.Errorf("failed to scan bytes: %v", err)
 			}
