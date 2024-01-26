@@ -143,6 +143,7 @@ var hybridRoutes = []*regexp.Regexp{
 	regexp.MustCompile("^/api/project/verifyLink$"),
 	regexp.MustCompile("^/api/verifyRecaptcha$"),
 	regexp.MustCompile("^/api/recordUsage$"),
+	regexp.MustCompile("^/api/search/bytes$"),
 
 	// // permit popular
 	// regexp.MustCompile("^/api/popular$"),
@@ -1782,6 +1783,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/search/workspaceConfigs", s.SearchWorkspaceConfigs).Methods("POST")
 	s.router.HandleFunc("/api/search/friends", s.SearchFriends).Methods("POST")
 	s.router.HandleFunc("/api/search/chatUsers", s.SearchChatUsers).Methods("POST")
+	s.router.HandleFunc("/api/search/bytes", s.SearchBytes).Methods("POST")
 	s.router.HandleFunc("/api/popular", s.PopularPageFeed).Methods("POST")
 	s.router.HandleFunc("/api/workspace/config/create", s.CreateWorkspaceConfig).Methods("POST")
 	s.router.HandleFunc("/api/workspace/config/update", s.UpdateWorkspaceConfig).Methods("POST")

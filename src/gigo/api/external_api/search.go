@@ -996,9 +996,9 @@ func (s *HTTPServer) SearchFriends(w http.ResponseWriter, r *http.Request) {
 
 	// Create variables to hold user data
 	userName := callingUser.(*models.User).UserName
-	userId := fmt.Sprintf("%d", callingUser.(*models.User).ID)
-	userIdInt := callingUser.(*models.User).ID
-
+		userId := fmt.Sprintf("%d", callingUser.(*models.User).ID)
+		userIdInt := callingUser.(*models.User).ID
+	
 	// Attempt to load JSON from request body
 	reqJson := s.jsonRequest(w, r, "SearchFriends", false, userName, userIdInt)
 	if reqJson == nil {
@@ -1092,3 +1092,71 @@ func (s *HTTPServer) SearchChatUsers(w http.ResponseWriter, r *http.Request) {
 	// Return response
 	s.jsonResponse(r, w, res, r.URL.Path, "SearchChatUsers", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, http.StatusOK)
 }
+
+func (s *HTTPServer) SearchBytes(w http.ResponseWriter, r *http.Request) {
+	_, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "search-bytes-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUserI := r.Context().Value(CtxKeyUser)
+
+	userName := ""
+	userId := ""
+	var userIdInt int64
+	var callingUser *models.User
+
+	// return if calling user was not retrieved in authentication
+	if callingUserI == nil {
+		userName = network.GetRequestIP(r)
+		userId = network.GetRequestIP(r)
+	} else {
+		callingUser = callingUserI.(*models.User)
+		userName = callingUser.UserName
+		userId = fmt.Sprintf("%d", callingUser.ID)
+		userIdInt = callingUser.ID
+	}
+
+	// Attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "SearchBytes", false, userName, userIdInt)
+	if reqJson == nil {
+		return
+	}
+
+	// Attempt to load query from body
+	query, ok := s.loadValue(w, r, reqJson, "SearchBytes", "query", reflect.String, nil, false, userName, userId)
+	if query == nil || !ok {
+		return
+	}
+
+	// Attempt to load chat id from body
+	langI, ok := s.loadValue(w, r, reqJson, "SearchBytes", "language", reflect.Float64, nil, true, userName, userId)
+	var lang *models.ProgrammingLanguage
+	if !ok {
+		return
+	}
+	if langI != nil {
+		l := models.ProgrammingLanguage(langI.(float64))
+		lang = &l
+	}
+
+	// Check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// Return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "SearchBytes", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, http.StatusOK)
+		return
+	}
+
+	// Execute core function logic
+	res, err := core.SearchBytes(s.meili, query.(string), lang)
+	if err != nil {
+		// Handle error internally
+		s.handleError(w, "SearchBytes core failed", r.URL.Path, "SearchBytes", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), userName, userId, http.StatusInternalServerError, "internal server error occurred", err)
+		// Exit
+		return
+	}
+
+	// Return response
+	s.jsonResponse(r, w, res, r.URL.Path, "SearchBytes", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, http.StatusOK)
+}
+

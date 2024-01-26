@@ -1097,6 +1097,103 @@ func SimpleSearchPosts(meili *search.MeiliSearchEngine, query string) (map[strin
 	return map[string]interface{}{"posts": posts}, nil
 }
 
+func SearchBytes(meili *search.MeiliSearchEngine, query string, lang *models.ProgrammingLanguage) (map[string]interface{}, error) {
+
+	const MAX_SEARCH_SIZE = 100   // Replace this with the actual value
+	const MAX_SEARCH_DEPTH = 1000 // Replace this with the actual value
+
+	// restrict skip and limit to max size
+	limit := MAX_SEARCH_SIZE
+	skip := 0 // Set to zero or whatever your default skip value is
+
+	// create request for post search operation
+	searchRequest := &search.Request{
+		Query: query,
+		// initialize filter with an AND logical merge
+		Filter: &search.FilterGroup{
+			And: true,
+		},
+		// default sorting by _id in descending order
+		Sort: &search.SortGroup{
+			Sorts: []search.Sort{
+				{
+					Attribute: "_id",
+					Desc:      true,
+				},
+			},
+		},
+		// set skip and limit
+		Offset: skip,
+		Limit:  limit,
+	}
+
+	// default to only published content
+	searchRequest.Filter.Filters = append(searchRequest.Filter.Filters, search.FilterCondition{
+		Filters: []search.Filter{
+			{
+				Attribute: "published",
+				Operator:  search.OperatorEquals,
+				Value:     true,
+			},
+		},
+	})
+
+	if lang != nil {
+		// append languages filter condition to
+		searchRequest.Filter.Filters = append(searchRequest.Filter.Filters, search.FilterCondition{
+			Filters: []search.Filter{
+				{
+					Attribute: "lang",
+					Operator:  search.OperatorEquals,
+					Value:     *lang,
+				},
+			},
+		})
+	}
+
+	// execute search
+	searchResult, err := meili.Search("bytes", searchRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute posts search: %v", err)
+	}
+
+	// create slice to hold bytes
+	bytes := make([]*models.BytesFrontend, 0)
+
+	// iterate results cursor, scanning results into byte structs and appending them to the posts slice
+	for {
+		// attempt to load next value into the first position of the cursor
+		ok, err := searchResult.Next()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load post into cursor buffer: %v", err)
+		}
+
+		// exit if we are done
+		if !ok {
+			break
+		}
+
+		// create byte to scan into
+		var b models.BytesSearch
+
+		// attempt to scan the post from the cursor
+		err = searchResult.Scan(&b)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan byte: %v", err)
+		}
+
+		// format the post to its frontend value
+		fb := b.ToFrontend()
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert byte to frontend object: %v", err)
+		}
+
+		bytes = append(bytes, fb)
+	}
+
+	return map[string]interface{}{"posts": bytes}, nil
+}
+
 const SearchFriendsQuery = `
 select 
     u._id, 
