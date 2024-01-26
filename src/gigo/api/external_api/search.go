@@ -1130,7 +1130,7 @@ func (s *HTTPServer) SearchBytes(w http.ResponseWriter, r *http.Request) {
 
 	// attempt to load parameter from body
 	langsType := reflect.Float64
-	languagesI, ok := s.loadValue(w, r, reqJson, "SearchWorkspaceConfigs", "languages", reflect.Slice, &langsType, true, userName, userId)
+	languagesI, ok := s.loadValue(w, r, reqJson, "SearchBytes", "languages", reflect.Slice, &langsType, true, userName, userId)
 	if !ok {
 		return
 	}
@@ -1147,6 +1147,18 @@ func (s *HTTPServer) SearchBytes(w http.ResponseWriter, r *http.Request) {
 		languages = tempLanguages
 	}
 
+	// attempt to load video id from body
+	skip, ok := s.loadValue(w, r, reqJson, "SearchBytes", "skip", reflect.Float64, nil, false, userName, userId)
+	if skip == nil || !ok {
+		return
+	}
+
+	// attempt to load video id from body
+	limit, ok := s.loadValue(w, r, reqJson, "SearchBytes", "limit", reflect.Float64, nil, false, userName, userId)
+	if limit == nil || !ok {
+		return
+	}
+
 	// Check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// Return success for test
@@ -1155,7 +1167,7 @@ func (s *HTTPServer) SearchBytes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute core function logic
-	res, err := core.SearchBytes(s.meili, query.(string), languages)
+	res, err := core.SearchBytes(s.meili, query.(string), languages, skip, limit)
 	if err != nil {
 		// Handle error internally
 		s.handleError(w, "SearchBytes core failed", r.URL.Path, "SearchBytes", r.Method, r.Context().Value(CtxKeyRequestID),

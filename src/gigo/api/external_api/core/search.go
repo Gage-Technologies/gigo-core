@@ -1097,14 +1097,18 @@ func SimpleSearchPosts(meili *search.MeiliSearchEngine, query string) (map[strin
 	return map[string]interface{}{"posts": posts}, nil
 }
 
-func SearchBytes(meili *search.MeiliSearchEngine, query string, languages []models.ProgrammingLanguage) (map[string]interface{}, error) {
+func SearchBytes(meili *search.MeiliSearchEngine, query string, languages []models.ProgrammingLanguage, skip, limit int) (map[string]interface{}, error) {
 
 	const MAX_SEARCH_SIZE = 100   // Replace this with the actual value
 	const MAX_SEARCH_DEPTH = 1000 // Replace this with the actual value
 
 	// restrict skip and limit to max size
-	limit := MAX_SEARCH_SIZE
-	skip := 0 // Set to zero or whatever your default skip value is
+	if limit > MAX_SEARCH_SIZE {
+		limit = MAX_SEARCH_SIZE
+	}
+	if skip > MAX_SEARCH_DEPTH-limit {
+		skip = MAX_SEARCH_DEPTH - limit
+	}
 
 	// create request for post search operation
 	searchRequest := &search.Request{
