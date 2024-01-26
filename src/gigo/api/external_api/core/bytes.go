@@ -45,11 +45,27 @@ type CreateByteParams struct {
 }
 
 type BytesRecFrontend struct {
-	Byte            models.BytesFrontend `json:"byte" sql:"byte"`
-	CompletedEasy   *bool                `json:"completed_easy" sql:"completed_easy"`
-	CompletedMedium *bool                `json:"completed_medium" sql:"completed_medium"`
-	CompletedHard   *bool                `json:"completed_hard" sql:"completed_hard"`
-	Modified        bool                 `json:"modified" sql:"modified"`
+	ID                   string                     `json:"_id" sql:"_id"`
+	Name                 string                     `json:"name" sql:"name"`
+	DescriptionEasy      string                     `json:"description_easy" sql:"description_easy"`
+	DescriptionMedium    string                     `json:"description_medium" sql:"description_medium"`
+	DescriptionHard      string                     `json:"description_hard" sql:"description_hard"`
+	OutlineContentEasy   string                     `json:"outline_content_easy" sql:"outline_content_easy"`
+	OutlineContentMedium string                     `json:"outline_content_medium" sql:"outline_content_medium"`
+	OutlineContentHard   string                     `json:"outline_content_hard" sql:"outline_content_hard"`
+	DevStepsEasy         string                     `json:"dev_steps_easy" sql:"dev_steps_easy"`
+	DevStepsMedium       string                     `json:"dev_steps_medium" sql:"dev_steps_medium"`
+	DevStepsHard         string                     `json:"dev_steps_hard" sql:"dev_steps_hard"`
+	QuestionsEasy        []string                   `json:"questions_easy" sql:"questions_easy"`
+	QuestionsMedium      []string                   `json:"questions_medium" sql:"questions_medium"`
+	QuestionsHard        []string                   `json:"questions_hard" sql:"questions_hard"`
+	Lang                 models.ProgrammingLanguage `json:"lang" sql:"lang"`
+	Published            bool                       `json:"published" sql:"published"`
+	Color                string                     `json:"color" sql:"color"`
+	CompletedEasy        bool                       `json:"completed_easy" sql:"completed_easy"`
+	CompletedMedium      bool                       `json:"completed_medium" sql:"completed_medium"`
+	CompletedHard        bool                       `json:"completed_hard" sql:"completed_hard"`
+	Modified             bool                       `json:"modified" sql:"modified"`
 }
 
 //type Difficulty int
@@ -317,7 +333,7 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database, authorID *int64
 
 		for res.Next() {
 			b := BytesRecFrontend{}
-			err := res.Scan(&b.Byte.ID, &b.Byte.Name, &b.Byte.DescriptionEasy, &b.Byte.DescriptionMedium, &b.Byte.DescriptionHard, &b.Byte.Lang, &b.CompletedEasy, &b.CompletedMedium, &b.CompletedHard, &b.Modified)
+			err := res.Scan(&b.ID, &b.Name, &b.DescriptionEasy, &b.DescriptionMedium, &b.DescriptionHard, &b.Lang, &b.CompletedEasy, &b.CompletedMedium, &b.CompletedHard, &b.Modified)
 			if err != nil {
 				return nil, fmt.Errorf("failed to scan bytes: %v", err)
 			}
@@ -336,7 +352,7 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database, authorID *int64
 
 		for res.Next() {
 			b := BytesRecFrontend{}
-			err := res.Scan(&b.Byte.ID, &b.Byte.Name, &b.Byte.DescriptionEasy, &b.Byte.DescriptionMedium, &b.Byte.DescriptionHard, &b.Byte.Lang)
+			err := res.Scan(&b.ID, &b.Name, &b.DescriptionEasy, &b.DescriptionMedium, &b.DescriptionHard, &b.Lang)
 			if err != nil {
 				return nil, fmt.Errorf("failed to scan bytes: %v", err)
 			}
@@ -440,7 +456,6 @@ func PublishByte(ctx context.Context, tidb *ti.Database, meili *search.MeiliSear
 	return map[string]interface{}{"success": true}, nil
 
 }
-
 
 func UnPublishByte(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, byteId int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "unpublish-byte-core")
