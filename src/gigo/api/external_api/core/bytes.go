@@ -44,6 +44,14 @@ type CreateByteParams struct {
 	Thumbnail              string
 }
 
+type BytesRecFrontend struct {
+	Byte            models.BytesFrontend `json:"byte" sql:"byte"`
+	CompletedEasy   bool                 `json:"completed_easy" sql:"completed_easy"`
+	CompletedMedium bool                 `json:"completed_medium" sql:"completed_medium"`
+	CompletedHard   bool                 `json:"completed_hard" sql:"completed_hard"`
+	Modified        bool                 `json:"modified" sql:"modified"`
+}
+
 //type Difficulty int
 //
 //const (
@@ -290,30 +298,51 @@ func GetByteAttempt(ctx context.Context, tidb *ti.Database, callingUser *models.
 }
 
 // GetRecommendedBytes for now return the top 50 bytes but do not include the content or plan content
-func GetRecommendedBytes(ctx context.Context, tidb *ti.Database) (map[string]interface{}, error) {
+func GetRecommendedBytes(ctx context.Context, tidb *ti.Database, authorID *int64) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-recommended-bytes-core")
 	defer span.End()
 	callerName := "GetRecommendedBytes"
 
-	// query for 50 bytes
-	res, err := tidb.QueryContext(ctx, &span, &callerName, "select _id, name, description_easy, description_medium, description_easy, lang from bytes where published = true limit 50")
-	if err != nil {
-		return nil, fmt.Errorf("failed to query recommended bytes: %v", err)
-	}
+	bytes := make([]*BytesRecFrontend, 0)
 
-	// ensure the closure of the rows
-	defer res.Close()
-
-	bytes := make([]*models.BytesFrontend, 0)
-
-	for res.Next() {
-		byte := models.BytesFrontend{}
-		err = res.Scan(&byte.ID, &byte.Name, &byte.DescriptionEasy, &byte.DescriptionMedium, &byte.DescriptionHard, &byte.Lang)
+	if authorID != nil {
+		// query for 50 bytes
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT b._id, b.name, b.description_easy, b.description_medium, b.description_hard, b.lang, ba.completed_easy, ba.completed_medium, ba.completed_hard, ba.modified FROM bytes b LEFT JOIN byte_attempts ba ON b._id = ba.byte_id AND ba.author_id = ? WHERE b.published = true LIMIT 50;")
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan bytes: %v", err)
+			return nil, fmt.Errorf("failed to query recommended bytes: %v", err)
 		}
 
-		bytes = append(bytes, &byte)
+		// ensure the closure of the rows
+		defer res.Close()
+
+		for res.Next() {
+			b := BytesRecFrontend{}
+			err := res.Scan(&b.Byte.ID, &b.Byte.Name, &b.Byte.DescriptionEasy, &b.Byte.DescriptionMedium, &b.Byte.DescriptionHard, &b.Byte.Lang, b.CompletedEasy, b.CompletedMedium, b.CompletedHard, b.Modified)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scan bytes: %v", err)
+			}
+
+			bytes = append(bytes, &b)
+		}
+	} else {
+		// query for 50 bytes
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT _id, name, description_easy, description_medium, description_hard, lang FROM bytes WHERE published = true LIMIT 50;")
+		if err != nil {
+			return nil, fmt.Errorf("failed to query recommended bytes: %v", err)
+		}
+
+		// ensure the closure of the rows
+		defer res.Close()
+
+		for res.Next() {
+			b := BytesRecFrontend{}
+			err := res.Scan(&b.Byte.ID, &b.Byte.Name, &b.Byte.DescriptionEasy, &b.Byte.DescriptionMedium, &b.Byte.DescriptionHard, &b.Byte.Lang)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scan bytes: %v", err)
+			}
+
+			bytes = append(bytes, &b)
+		}
 	}
 
 	return map[string]interface{}{"rec_bytes": bytes}, nil
