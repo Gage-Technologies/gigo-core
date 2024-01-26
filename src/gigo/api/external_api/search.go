@@ -1167,7 +1167,7 @@ func (s *HTTPServer) SearchBytes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute core function logic
-	res, err := core.SearchBytes(s.meili, query.(string), languages, skip, limit)
+	res, err := core.SearchBytes(s.meili, query.(string), languages, int(skip.(float64)), int(limit.(float64)))
 	if err != nil {
 		// Handle error internally
 		s.handleError(w, "SearchBytes core failed", r.URL.Path, "SearchBytes", r.Method, r.Context().Value(CtxKeyRequestID),
