@@ -281,8 +281,15 @@ func (s *HTTPServer) GetRecommendedBytes(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	var userId *int64
+
+	if callingUser != nil {
+		id := callingUser.(*models.User).ID
+		userId = &id
+	}
+
 	// execute core function logic
-	res, err := core.GetRecommendedBytes(ctx, s.tiDB)
+	res, err := core.GetRecommendedBytes(ctx, s.tiDB, userId)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
