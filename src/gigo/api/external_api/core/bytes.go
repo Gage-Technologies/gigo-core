@@ -399,7 +399,7 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	defer span.End()
 	callerName := "SetByteCompleted"
 
-	res, err := tidb.ExecContext(ctx, &span, &callerName, fmt.Sprintf("update byte_attempts set completed_%s = TRUE where byte_id = ? and author_id = ?", difficulty), byteAttemptId, callingUser.ID)
+	res, err := tidb.ExecContext(ctx, &span, &callerName, fmt.Sprintf("update byte_attempts set completed_%s = TRUE where _id = ? and author_id = ?", difficulty), byteAttemptId, callingUser.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +410,7 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	}
 
 	if rows != 1 {
-		return nil, errors.New(fmt.Sprintf("failed to update byte attempt completed for difficulty: %v, err: no rows update", difficulty))
+		return nil, errors.New(fmt.Sprintf("failed to update byte attempt completed for difficulty: %v, err: no rows update number: %v", difficulty, rows))
 	}
 
 	// add xp to user for logging in
