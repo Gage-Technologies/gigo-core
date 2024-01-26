@@ -1357,9 +1357,7 @@ func (s *HTTPServer) authenticateAgent(next http.Handler) http.Handler {
 		).Scan(&agentId, &ownerId, &workspaceID)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				s.handleError(w, "agent not found", r.URL.Path, "authenticateAgent",
-					r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-					"anon", "-1", http.StatusUnauthorized, "agent not found", nil)
+				s.jsonResponse(r, w, map[string]interface{}{"message": "not found"}, r.URL.Path, "authenticateAgent", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "anon", "-1", http.StatusNotFound)
 				return
 			}
 			s.handleError(w, "failed to authenticate agent", r.URL.Path,

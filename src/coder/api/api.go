@@ -16,6 +16,7 @@ import (
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/gage-technologies/gigo-lib/cluster"
+	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/git"
 	"github.com/gage-technologies/gigo-lib/logging"
@@ -211,9 +212,7 @@ func (api *WorkspaceAPI) authenticateAgent(next http.Handler) http.Handler {
 		).Scan(&agentId, &ownerId, &workspaceID)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				api.HandleError(w, "agent not found", r.URL.Path, "authenticateAgent",
-					r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
-					"anon", "-1", http.StatusUnauthorized, "agent not found", nil)
+				agentsdk.Write(ctx, w, http.StatusNotFound, nil)
 				return
 			}
 			api.HandleError(w, "failed to authenticate agent", r.URL.Path,
