@@ -307,7 +307,7 @@ func GetRecommendedBytes(ctx context.Context, tidb *ti.Database, authorID *int64
 
 	if authorID != nil {
 		// query for 50 bytes
-		res, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT b._id, b.name, b.description_easy, b.description_medium, b.description_hard, b.lang, ba.completed_easy, ba.completed_medium, ba.completed_hard, ba.modified FROM bytes b LEFT JOIN byte_attempts ba ON b._id = ba.byte_id AND ba.author_id = ? WHERE b.published = true LIMIT 50;")
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT b._id, b.name, b.description_easy, b.description_medium, b.description_hard, b.lang, ba.completed_easy, ba.completed_medium, ba.completed_hard, ba.modified FROM bytes b LEFT JOIN byte_attempts ba ON b._id = ba.byte_id AND ba.author_id = ? WHERE b.published = true LIMIT 50;", authorID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query recommended bytes: %v", err)
 		}
