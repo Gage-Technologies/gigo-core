@@ -406,3 +406,37 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	return map[string]interface{}{"success": true, "xp": xpRes}, nil
 
 }
+
+func PublishByte(ctx context.Context, tidb *ti.Database, meili *search.MeiliSearchEngine, byteId int64) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "publish-byte-core")
+	defer span.End()
+	callerName := "PublishByte"
+
+	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+
+	defer tx.Rollback()
+
+	// update post in sql
+	_, err = tx.ExecContext(ctx, &callerName, "update bytes set published = true where _id =?", byteId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update post: %v", err)
+	}
+
+	// update post in meilisearch
+	err = meili.UpdateDocuments("bytes", map[string]interface{}{"_id": byteId, "published": true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update post in meilisearch: %v", err)
+	}
+
+	// commit tx
+	err = tx.Commit(&callerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit publishing: %v", err)
+	}
+
+	return map[string]interface{}{"success": true}, nil
+
+}
