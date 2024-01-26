@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"gigo-core/gigo/config"
 	"gigo-core/gigo/utils"
@@ -410,11 +409,11 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	}
 
 	if rows != 1 {
-		return nil, errors.New(fmt.Sprintf("failed to update byte attempt completed for difficulty: %v, err: no rows update number: %v", difficulty, rows))
+		return map[string]interface{}{"success": true}, nil
 	}
 
 	// add xp to user for logging in
-	xpRes, err := AddXP(ctx, tidb, nil, nil, sf, stripeSubConfig, callingUser.ID, "successful", nil, nil, logger, callingUser)
+	xpRes, err := AddXP(ctx, tidb, nil, nil, sf, stripeSubConfig, callingUser.ID, fmt.Sprintf("%v_byte", difficulty), nil, nil, logger, callingUser)
 	if err != nil {
 		return map[string]interface{}{"message": fmt.Sprintf("Byte Marked as a Success for difficulty: %s", difficulty)}, fmt.Errorf("failed to add xp to user: %v", err)
 	}
