@@ -144,6 +144,8 @@ var hybridRoutes = []*regexp.Regexp{
 	regexp.MustCompile("^/api/verifyRecaptcha$"),
 	regexp.MustCompile("^/api/recordUsage$"),
 	regexp.MustCompile("^/api/search/bytes$"),
+	regexp.MustCompile("^/api/bytes/getRecommendedBytes$"),
+	regexp.MustCompile("^/api/bytes/getByte$"),
 
 	// // permit popular
 	// regexp.MustCompile("^/api/popular$"),

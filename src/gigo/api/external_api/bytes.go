@@ -257,19 +257,26 @@ func (s *HTTPServer) GetRecommendedBytes(w http.ResponseWriter, r *http.Request)
 	defer parentSpan.End()
 
 	// retrieve calling user from context
-	callingUser := r.Context().Value(CtxKeyUser)
+	callingUserI := r.Context().Value(CtxKeyUser)
 
-	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+	userName := ""
+	userId := ""
+	var userIdInt int64
+	var callingUser *models.User
 
 	// return if calling user was not retrieved in authentication
-	if callingUser == nil {
-		s.handleError(w, "calling user missing from context", r.URL.Path, "GetRecommendedBytes", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", nil)
-		return
+	if callingUserI == nil {
+		userName = network.GetRequestIP(r)
+		userId = network.GetRequestIP(r)
+	} else {
+		callingUser = callingUserI.(*models.User)
+		userName = callingUser.UserName
+		userId = fmt.Sprintf("%d", callingUser.ID)
+		userIdInt = callingUser.ID
 	}
 
 	// attempt to load JSON from request body
-	reqJson := s.jsonRequest(w, r, "GetRecommendedBytes", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	reqJson := s.jsonRequest(w, r, "GetRecommendedBytes", false, userName, userIdInt)
 	if reqJson == nil {
 		return
 	}
@@ -277,25 +284,24 @@ func (s *HTTPServer) GetRecommendedBytes(w http.ResponseWriter, r *http.Request)
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
-		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetRecommendedBytes", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetRecommendedBytes", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, http.StatusOK)
 		return
 	}
 
-	var userId *int64
+	var userIdPointer *int64
 
 	if callingUser != nil {
-		id := callingUser.(*models.User).ID
-		userId = &id
+		userIdPointer = &userIdInt
 	}
 
 	// execute core function logic
-	res, err := core.GetRecommendedBytes(ctx, s.tiDB, userId)
+	res, err := core.GetRecommendedBytes(ctx, s.tiDB, userIdPointer)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
 		// handle error internally
 		s.handleError(w, "GetRecommendedBytes core failed", r.URL.Path, "GetRecommendedBytes", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+			network.GetRequestIP(r), userName, userId, http.StatusInternalServerError, responseMessage, err)
 		// exit
 		return
 	}
@@ -305,12 +311,12 @@ func (s *HTTPServer) GetRecommendedBytes(w http.ResponseWriter, r *http.Request)
 		trace.WithAttributes(
 			attribute.Bool("success", true),
 			attribute.String("ip", network.GetRequestIP(r)),
-			attribute.String("username", callingUser.(*models.User).UserName),
+			attribute.String("username", userName),
 		),
 	)
 
 	// return response
-	s.jsonResponse(r, w, res, r.URL.Path, "GetRecommendedBytes", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+	s.jsonResponse(r, w, res, r.URL.Path, "GetRecommendedBytes", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, http.StatusOK)
 }
 
 func (s *HTTPServer) GetByte(w http.ResponseWriter, r *http.Request) {
@@ -318,25 +324,32 @@ func (s *HTTPServer) GetByte(w http.ResponseWriter, r *http.Request) {
 	defer parentSpan.End()
 
 	// retrieve calling user from context
-	callingUser := r.Context().Value(CtxKeyUser)
+	callingUserI := r.Context().Value(CtxKeyUser)
 
-	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+	userName := ""
+	userId := ""
+	var userIdInt int64
+	var callingUser *models.User
 
 	// return if calling user was not retrieved in authentication
-	if callingUser == nil {
-		s.handleError(w, "calling user missing from context", r.URL.Path, "GetByte", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", nil)
-		return
+	if callingUserI == nil {
+		userName = network.GetRequestIP(r)
+		userId = network.GetRequestIP(r)
+	} else {
+		callingUser = callingUserI.(*models.User)
+		userName = callingUser.UserName
+		userId = fmt.Sprintf("%d", callingUser.ID)
+		userIdInt = callingUser.ID
 	}
 
 	// attempt to load JSON from request body
-	reqJson := s.jsonRequest(w, r, "GetByte", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	reqJson := s.jsonRequest(w, r, "GetByte", false, userName, userIdInt)
 	if reqJson == nil {
 		return
 	}
 
 	// attempt to load code source id from body
-	byteIdI, ok := s.loadValue(w, r, reqJson, "GetByte", "byte_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	byteIdI, ok := s.loadValue(w, r, reqJson, "GetByte", "byte_id", reflect.String, nil, false, userName, userId)
 	if byteIdI == nil || !ok {
 		return
 	}
@@ -346,7 +359,7 @@ func (s *HTTPServer) GetByte(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// handle error internally
 		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", byteIdI.(string)), r.URL.Path, "GetByte", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+			network.GetRequestIP(r), userName, userId, http.StatusInternalServerError, "internal server error occurred", err)
 		// exit
 		return
 	}
@@ -354,7 +367,7 @@ func (s *HTTPServer) GetByte(w http.ResponseWriter, r *http.Request) {
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
-		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetByte", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetByte", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, http.StatusOK)
 		return
 	}
 
@@ -365,7 +378,7 @@ func (s *HTTPServer) GetByte(w http.ResponseWriter, r *http.Request) {
 		responseMessage := selectErrorResponse("internal server error occurred", res)
 		// handle error internally
 		s.handleError(w, "GetByte core failed", r.URL.Path, "GetByte", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+			network.GetRequestIP(r), userName, userId, http.StatusInternalServerError, responseMessage, err)
 		// exit
 		return
 	}
@@ -375,12 +388,12 @@ func (s *HTTPServer) GetByte(w http.ResponseWriter, r *http.Request) {
 		trace.WithAttributes(
 			attribute.Bool("success", true),
 			attribute.String("ip", network.GetRequestIP(r)),
-			attribute.String("username", callingUser.(*models.User).UserName),
+			attribute.String("username", userName),
 		),
 	)
 
 	// return response
-	s.jsonResponse(r, w, res, r.URL.Path, "GetByte", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+	s.jsonResponse(r, w, res, r.URL.Path, "GetByte", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, http.StatusOK)
 }
 
 func (s *HTTPServer) SetByteCompleted(w http.ResponseWriter, r *http.Request) {
