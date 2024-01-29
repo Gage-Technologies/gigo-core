@@ -8,6 +8,7 @@ import (
 
 	"context"
 
+	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"
@@ -98,6 +99,17 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 	}
 
 	err = sm.Add(&smg.SitemapLoc{
+		Loc:        "/aboutBytes",
+		LastMod:    &n,
+		ChangeFreq: smg.Weekly,
+		Priority:   0.4,
+	})
+	if err != nil {
+		logger.Errorf("(sitemap_gen: %d) unable to add about bytes to the sitemap: %v", nodeId, err)
+		return
+	}
+
+	err = sm.Add(&smg.SitemapLoc{
 		Loc:        "/documentation",
 		LastMod:    &n,
 		ChangeFreq: smg.Weekly,
@@ -176,7 +188,48 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 		postCount++
 	}
 
-	logger.Infof("(sitemap_gen: %d) added %d posts to sitema", nodeId, postCount)
+	logger.Infof("(sitemap_gen: %d) added %d posts to sitemap", nodeId, postCount)
+
+	_ = res.Close()
+
+	// query for all bytes that are published
+	res, err = db.Query(
+		ctx, &parentSpan, &callerName,
+		"select _id from bytes where published=true;",
+	)
+	if err != nil {
+		logger.Errorf("(sitemap_gen: %d) unable to query for bytes: %v", nodeId, err)
+	}
+	defer res.Close()
+
+	byteCount := 0
+	for res.Next() {
+		var loc smg.SitemapLoc
+		var id int64
+
+		err = res.Scan(&id)
+		if err != nil {
+			logger.Errorf("(sitemap_gen: %d) unable to parse byte id: %v", nodeId, err)
+			return
+		}
+
+		sfId := snowflake.ParseInt64(id)
+		updatedAt := time.UnixMilli(sfId.Time())
+
+		loc.Loc = fmt.Sprintf("/byte/%d", id)
+		loc.LastMod = &updatedAt
+		loc.ChangeFreq = smg.Weekly
+		loc.Priority = 0.4
+
+		err = sm.Add(&loc)
+		if err != nil {
+			logger.Errorf("(sitemap_gen: %d) unable to add byte to the sitemap: %v", nodeId, err)
+			return
+		}
+		byteCount++
+	}
+
+	logger.Infof("(sitemap_gen: %d) added %d posts to sitemap", nodeId, byteCount)
 
 	_ = res.Close()
 
