@@ -229,7 +229,7 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 		byteCount++
 	}
 
-	logger.Infof("(sitemap_gen: %d) added %d posts to sitemap", nodeId, byteCount)
+	logger.Infof("(sitemap_gen: %d) added %d bytes to sitemap", nodeId, byteCount)
 
 	_ = res.Close()
 
