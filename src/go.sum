@@ -557,6 +557,8 @@ github.com/gage-technologies/gigo-lib v0.0.0-20240125173857-c9b35200baa0 h1:Vhes
 github.com/gage-technologies/gigo-lib v0.0.0-20240125173857-c9b35200baa0/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
 github.com/gage-technologies/gigo-lib v0.0.0-20240126181416-3377b37f7880 h1:jqqwBw4SEqfRmuaoSWxH4M1a1qgqL6w1wMrHTBMbbTg=
 github.com/gage-technologies/gigo-lib v0.0.0-20240126181416-3377b37f7880/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20240130231246-e1ba1afa1fa4 h1:6bjOwRtXDV5N75rDJyQ2O+2xJNktRemc4qq199I/0ik=
+github.com/gage-technologies/gigo-lib v0.0.0-20240130231246-e1ba1afa1fa4/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
 github.com/gage-technologies/gitea-go/gitea v0.16.0 h1:w0eOZn9HMR7acXzaJlvZ4BoPZfH76OOibm+U1cTB28I=
 github.com/gage-technologies/gitea-go/gitea v0.16.0/go.mod h1:nMhiMA2jCA/JHqGWtn6zsc1A34LILhMaJWpG8orDdzo=
 github.com/gage-technologies/go-logrus-elasticsearch v0.0.0-20210908162149-c64f8e07bb9e h1:ui469cZfaOayIzw7jhRD+eoTHxwIk0JupCpjUiVmAao=

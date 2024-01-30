@@ -1319,6 +1319,12 @@ func (s *HTTPServer) rateLimit(next http.Handler) http.Handler {
 //	Middleware to authenticate a workspace agent
 func (s *HTTPServer) authenticateAgent(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// agent download get a special auth that permits no for only the ws-pool to be filled
+		if r.URL.Path == "/internal/v1/ws/agent" {
+			s.authenticateAgentDownload(next, w, r)
+			return
+		}
+
 		// attempt to retrieve token
 		token := r.Header.Get("Gigo-Agent-Token")
 		if len(token) == 0 {
@@ -1377,6 +1383,78 @@ func (s *HTTPServer) authenticateAgent(next http.Handler) http.Handler {
 		// execute end function with new context containing workspace and agent ids
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// authenticateAgentDownload
+//
+//	Middleware to authenticate a workspace agent for downloads - this is special because the agent could only exist in the workspace pool
+func (s *HTTPServer) authenticateAgentDownload(next http.Handler, w http.ResponseWriter, r *http.Request) {
+	// attempt to retrieve token
+	token := r.Header.Get("Gigo-Agent-Token")
+	if len(token) == 0 {
+		s.handleError(w, "agent token missing", r.URL.Path, "authenticateAgentDownload",
+			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "anon",
+			"-1", http.StatusUnauthorized, "agent token required", nil)
+		return
+	}
+
+	// attempt to retrieve workspace id
+	workspaceIDString := r.Header.Get("Gigo-Workspace-Id")
+	if len(workspaceIDString) == 0 {
+		s.handleError(w, "workspace id missing", r.URL.Path, "authenticateAgentDownload",
+			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			"anon", "-1", http.StatusUnauthorized, "workspace id required", nil)
+		return
+	}
+
+	// format workspace id to integer
+	workspaceID, err := strconv.ParseInt(workspaceIDString, 10, 64)
+	if err != nil {
+		s.handleError(w, "invalid workspace id", r.URL.Path, "authenticateAgentDownload",
+			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			"anon", "-1", http.StatusUnauthorized, "invalid workspace id", nil)
+		return
+	}
+
+	// authenticate this call by using the workspace id and agent token
+	// to query the database for the agent id and owner id
+	var agentId int64
+	var ownerId int64
+
+	sctx, span := otel.Tracer("gigo-core").Start(r.Context(), "authenticate-agent-http")
+	defer span.End()
+	callerName := "authenticateAgent"
+	err = s.tiDB.QueryRow(sctx, &span, &callerName,
+		"select a._id, w.owner_id, w._id from workspaces w join workspace_agent a on a.workspace_id = w._id left join workspace_pool wsp on w._id = wsp.workspace_table_id where (w._id = ? or wsp._id = ?) and a.secret = uuid_to_bin(?) order by a.created_at desc limit 1",
+		workspaceID, workspaceID, token,
+	).Scan(&agentId, &ownerId, &workspaceID)
+	if err != nil && err != sql.ErrNoRows {
+		s.handleError(w, "failed to authenticate agent", r.URL.Path,
+			"authenticateAgentDownload", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+			"anon", "-1", http.StatusUnauthorized, "failed to authenticate agent", err)
+		return
+	}
+
+	if err == sql.ErrNoRows {
+		err = s.tiDB.QueryRow(sctx, &span, &callerName,
+			"select agent_id from workspace_pool where _id = ? and secret = uuid_to_bin(?) limit 1;",
+			workspaceID, token,
+		).Scan(&agentId)
+		if err != nil && err == sql.ErrNoRows {
+			s.handleError(w, "failed to authenticate agent", r.URL.Path,
+				"authenticateAgentDownload", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r),
+				"anon", "-1", http.StatusUnauthorized, "failed to authenticate agent", err)
+			return
+		}
+	}
+
+	// add workspace id, agent id and owner id to the context
+	ctx := context.WithValue(r.Context(), "workspace", workspaceID)
+	ctx = context.WithValue(ctx, "agent", agentId)
+	ctx = context.WithValue(ctx, "owner", ownerId)
+
+	// execute end function with new context containing workspace and agent ids
+	next.ServeHTTP(w, r.WithContext(ctx))
 }
 
 // Middleware function to handle validating the size of request bodies and initializing
