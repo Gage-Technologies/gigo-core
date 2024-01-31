@@ -214,7 +214,8 @@ func (s *HTTPServer) GetUserNotifications(w http.ResponseWriter, r *http.Request
 
 	// return if calling user was not retrieved in authentication
 	if callingUser == nil {
-		s.jsonResponse(r, w, map[string]interface{}{"response": "not logged in"}, r.URL.Path, "GetUserNotifications", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "no-login", network.GetRequestIP(r), http.StatusOK)
+		s.handleError(w, "calling user missing from context", r.URL.Path, "ActiveProjectsHome", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
 		return
 	}
 

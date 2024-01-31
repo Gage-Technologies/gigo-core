@@ -113,7 +113,7 @@ var publicRoutes = []*regexp.Regexp{
 
 var hybridRoutes = []*regexp.Regexp{
 	regexp.MustCompile("^/api/ws$"),
-	regexp.MustCompile("^/api/home/.*$"),
+	regexp.MustCompile("^/api/home/recommended$"),
 	regexp.MustCompile("^/api/user/userProjects$"),
 	regexp.MustCompile("^/api/notification/get$"),
 	regexp.MustCompile("^/api/broadcast/get$"),

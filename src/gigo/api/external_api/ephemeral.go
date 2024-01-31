@@ -141,7 +141,8 @@ func (s *HTTPServer) CreateAccountFromEphemeral(w http.ResponseWriter, r *http.R
 
 	// return if calling user was not retrieved in authentication
 	if callingUser == nil {
-		s.jsonResponse(r, w, map[string]interface{}{"response": "not logged in"}, r.URL.Path, "CreateAccountFromEphemeral", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "no-login", network.GetRequestIP(r), http.StatusOK)
+		s.handleError(w, "calling user missing from context", r.URL.Path, "ActiveProjectsHome", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
 		return
 	}
 
@@ -338,7 +339,8 @@ func (s *HTTPServer) CreateAccountFromEphemeralGoogle(w http.ResponseWriter, r *
 
 	// return if calling user was not retrieved in authentication
 	if callingUser == nil {
-		s.jsonResponse(r, w, map[string]interface{}{"response": "not logged in"}, r.URL.Path, "CreateAccountFromEphemeralGoogle", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "no-login", network.GetRequestIP(r), http.StatusOK)
+		s.handleError(w, "calling user missing from context", r.URL.Path, "ActiveProjectsHome", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
 		return
 	}
 
@@ -463,7 +465,7 @@ func (s *HTTPServer) CreateAccountFromEphemeralGoogle(w http.ResponseWriter, r *
 	}
 
 	// execute core function logic
-	res, err := core.CreateAccountFromEphemeralGoogle(ctx, s.tiDB, s.meili, s.sf,  s.stripeSubscriptions, s.streakEngine, s.domain, externalAuth.(string),
+	res, err := core.CreateAccountFromEphemeralGoogle(ctx, s.tiDB, s.meili, s.sf, s.stripeSubscriptions, s.streakEngine, s.domain, externalAuth.(string),
 		password.(string), s.vscClient, *workspaceSettings, timeZoneI.(string), avatarSetting, thumbnailTempPath,
 		s.storageEngine, s.mailGunKey, s.mailGunDomain, s.initialRecUrl, referral, callingUser.(*models.User), s.logger)
 	if err != nil {
@@ -497,7 +499,8 @@ func (s *HTTPServer) CreateAccountFromEphemeralGithub(w http.ResponseWriter, r *
 
 	// return if calling user was not retrieved in authentication
 	if callingUser == nil {
-		s.jsonResponse(r, w, map[string]interface{}{"response": "not logged in"}, r.URL.Path, "CreateAccountFromEphemeralGithub", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "no-login", network.GetRequestIP(r), http.StatusOK)
+		s.handleError(w, "calling user missing from context", r.URL.Path, "ActiveProjectsHome", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
 		return
 	}
 
@@ -625,7 +628,7 @@ func (s *HTTPServer) CreateAccountFromEphemeralGithub(w http.ResponseWriter, r *
 	}
 
 	// execute core function logic
-	res, err := core.CreateAccountFromEphemeralGithub(ctx, s.tiDB, s.meili, s.sf, s.streakEngine,  s.stripeSubscriptions, s.domain, externalAuth.(string),
+	res, err := core.CreateAccountFromEphemeralGithub(ctx, s.tiDB, s.meili, s.sf, s.streakEngine, s.stripeSubscriptions, s.domain, externalAuth.(string),
 		password.(string), s.vscClient, *workspaceSettings, timeZoneI.(string), avatarSetting, s.githubSecret,
 		thumbnailTempPath, s.storageEngine, s.mailGunKey, s.mailGunDomain, s.initialRecUrl, referral, callingUser.(*models.User), s.logger)
 	if err != nil {
