@@ -11,7 +11,7 @@ const (
 
 type Message[T any] struct {
 	SequenceID string      `json:"sequence_id" validate:"required"`
-	Type       MessageType `json:"type" validate:"required,lte=29"`
+	Type       MessageType `json:"type" validate:"required,lte=31"`
 	Payload    T           `json:"payload" validate:"required"`
 }
 
@@ -56,6 +56,8 @@ const (
 	MessageTypeCancelExecResponse
 	MessageTypeStdinExecRequest
 	MessageTypeStdinExecResponse
+	MessageTypeLaunchLspRequest
+	MessageTypeLaunchLspResponse
 )
 
 func (t MessageType) String() string {
@@ -90,5 +92,7 @@ func (t MessageType) String() string {
 		"MessageTypeCancelExecResponse",
 		"MessageTypeStdinExecRequest",
 		"MessageTypeStdinExecResponse",
+		"MessageTypeLaunchLspRequest",
+		"MessageTypeLaunchLspResponse",
 	}[t]
 }

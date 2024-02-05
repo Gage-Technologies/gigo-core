@@ -35,6 +35,8 @@ const (
 	AgentWebSocketMessageTypeCancelExecResponse
 	AgentWebSocketMessageTypeStdinExecRequest
 	AgentWebSocketMessageTypeStdinExecResponse
+	AgentWebSocketMessageTypeLaunchLspRequest
+	AgentWebSocketMessageTypeLaunchLspResponse
 )
 
 type AgentWebSocketMessageOrigin int
@@ -615,6 +617,8 @@ func formatPayloadForAgent(msg *ws.Message[any], inner any) (AgentWebSocketPaylo
 		t = AgentWebSocketMessageTypeStdinExecRequest
 	case ws.MessageTypeStdinExecResponse:
 		t = AgentWebSocketMessageTypeStdinExecResponse
+	case ws.MessageTypeLaunchLspRequest:
+		t = AgentWebSocketMessageTypeLaunchLspRequest
 	default:
 		return AgentWebSocketPayload{}, fmt.Errorf("unsupported message type: %v", msg.Type)
 	}
@@ -647,6 +651,8 @@ func formatPayloadFromAgent(msg AgentWebSocketPayload) (ws.Message[any], error) 
 		t = ws.MessageTypeStdinExecResponse
 	case AgentWebSocketMessageTypeGenericError:
 		t = ws.MessageTypeGenericError
+	case AgentWebSocketMessageTypeLaunchLspResponse:
+		t = ws.MessageTypeLaunchLspResponse
 	case AgentWebSocketMessageTypeInit:
 		return ws.Message[any]{}, nil
 	default:
