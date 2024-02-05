@@ -334,10 +334,10 @@ func (api *WorkspaceAPI) WorkspaceDesktopProxy(rw http.ResponseWriter, r *http.R
 	)
 }
 
-// WorkspaceAgentProxy
+// ByteLspProxy
 //
 //	Proxies a web call to the workspace editor
-func (api *WorkspaceAPI) WorkspaceAgentProxy(rw http.ResponseWriter, r *http.Request) {
+func (api *WorkspaceAPI) ByteLspProxy(rw http.ResponseWriter, r *http.Request) {
 	// retrieve calling user from context
 	callingUser := r.Context().Value(CtxKeyUser)
 
@@ -346,7 +346,7 @@ func (api *WorkspaceAPI) WorkspaceAgentProxy(rw http.ResponseWriter, r *http.Req
 
 	// this should never happen but let's handle it just incase
 	if callingUser == nil {
-		api.HandleError(rw, fmt.Sprintf("calling user is nil"), r.URL.Path, "WorkspaceAgentProxy",
+		api.HandleError(rw, fmt.Sprintf("calling user is nil"), r.URL.Path, "ByteLspProxy",
 			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "n/a", "-1",
 			http.StatusBadRequest, "logout", nil)
 		return
@@ -364,7 +364,7 @@ func (api *WorkspaceAPI) WorkspaceAgentProxy(rw http.ResponseWriter, r *http.Req
 	userID, ok := vars["user"]
 	if !ok {
 		// handle error internally
-		api.HandleError(rw, "no user id found in path", r.URL.Path, "WorkspaceAgentProxy", r.Method, r.Context().Value(CtxKeyRequestID),
+		api.HandleError(rw, "no user id found in path", r.URL.Path, "ByteLspProxy", r.Method, r.Context().Value(CtxKeyRequestID),
 			network.GetRequestIP(r), callingUserName, callingId, http.StatusBadRequest,
 			"invalid path", nil)
 		return
@@ -372,46 +372,28 @@ func (api *WorkspaceAPI) WorkspaceAgentProxy(rw http.ResponseWriter, r *http.Req
 
 	// ensure that calling user and user id are the same
 	if callingId != userID {
-		api.HandleError(rw, fmt.Sprintf("userID mismatch: %s != %s", callingId, userID), r.URL.Path, "WorkspaceAgentProxy",
+		api.HandleError(rw, fmt.Sprintf("userID mismatch: %s != %s", callingId, userID), r.URL.Path, "ByteLspProxy",
 			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUserName,
 			callingId, http.StatusForbidden, "forbidden", nil)
 		return
 	}
 
-	// load workspace id from url
-	workspaceIDString, ok := vars["workspace"]
+	// load byte id from url
+	byteIDString, ok := vars["byte"]
 	if !ok {
 		// handle error internally
-		api.HandleError(rw, "no workspace id found in path", r.URL.Path, "WorkspaceAgentProxy", r.Method, r.Context().Value(CtxKeyRequestID),
+		api.HandleError(rw, "no byte id found in path", r.URL.Path, "ByteLspProxy", r.Method, r.Context().Value(CtxKeyRequestID),
 			network.GetRequestIP(r), callingUserName, callingId, http.StatusBadRequest,
 			"invalid path", nil)
 		return
 	}
 
-	// parse workspaceIDString into an int as a workspace id
-	workspaceID, err := strconv.ParseInt(workspaceIDString, 10, 64)
+	// parse byteIDString into an int as a byte id
+	byteID, err := strconv.ParseInt(byteIDString, 10, 64)
 	if err != nil {
-		api.HandleError(rw, fmt.Sprintf("invalid workspace id: %s", workspaceIDString), r.URL.Path, "WorkspaceAgentProxy",
+		api.HandleError(rw, fmt.Sprintf("invalid byte id: %s", byteIDString), r.URL.Path, "ByteLspProxy",
 			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUserName,
 			callingId, http.StatusBadRequest, "invalid url", nil)
-		return
-	}
-
-	// ensure that if we have an empty path we redirect to ws
-	if AgentPathCleaner.ReplaceAllString(r.URL.Path, "") != "/ws" {
-		api.Logger.LogDebugExternalAPI(
-			"function execution successful - redirecting to websocket",
-			r.URL.Path,
-			"WorkspaceAgentProxy",
-			r.Method,
-			r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r),
-			callingUserName,
-			callingId,
-			http.StatusOK,
-			nil,
-		)
-		http.Redirect(rw, r, r.URL.Path+"/ws", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -428,15 +410,15 @@ func (api *WorkspaceAPI) WorkspaceAgentProxy(rw http.ResponseWriter, r *http.Req
 	// retrieve workspace and agent
 	// only load working directory if this is the internal root path of the app
 	// because it is a costly application and no other path is necessary
-	agent, err := core.AgentProxy(ctx, api.DB, workspaceID, callingUser.(*models.User).ID)
+	agent, err := core.ByteLspProxy(ctx, api.DB, byteID, callingUser.(*models.User).ID)
 	if err != nil {
 		if err.Error() == "agent not found" {
-			api.HandleError(rw, "agent not found", r.URL.Path, "WorkspaceAgentProxy",
+			api.HandleError(rw, "agent not found", r.URL.Path, "ByteLspProxy",
 				r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUserName,
 				callingId, http.StatusNotFound, "not found", err)
 			return
 		}
-		api.HandleError(rw, "failed retrieve agent", r.URL.Path, "WorkspaceAgentProxy",
+		api.HandleError(rw, "failed retrieve agent", r.URL.Path, "ByteLspProxy",
 			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUserName,
 			callingId, http.StatusInternalServerError, "internal server error", err)
 		return
@@ -448,11 +430,11 @@ func (api *WorkspaceAPI) WorkspaceAgentProxy(rw http.ResponseWriter, r *http.Req
 	api.proxyWorkspacePort(proxyWorkspacePortOptions{
 		CallingUser: callingUser.(*models.User),
 		AgentID:     agent,
-		Port:        agentsdk.ZitiInitConnPort,
+		Port:        agentsdk.ZitiAgentLspWsPort,
 	}, rw, r)
 
 	parentSpan.AddEvent(
-		"workspace-agent-proxy",
+		"byte-lsp-proxy",
 		trace.WithAttributes(
 			attribute.Bool("success", true),
 			attribute.String("username", callingUser.(*models.User).UserName),

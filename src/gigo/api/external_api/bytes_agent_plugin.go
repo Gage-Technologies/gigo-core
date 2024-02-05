@@ -330,7 +330,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 					// we dial the agent here using the zitimesh server which will
 					// establish a connection to the end target on the agent over
 					// the ziti net mesh ovelay
-					return p.s.zitiServer.DialAgent(agentID, zitimesh.NetworkTypeTCP, int(agentsdk.ZitiInitConnPort))
+					return p.s.zitiServer.DialAgent(agentID, zitimesh.NetworkTypeTCP, int(agentsdk.ZitiAgentServerPort))
 				},
 			},
 		}

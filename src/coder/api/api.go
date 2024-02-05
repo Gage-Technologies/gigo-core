@@ -135,9 +135,9 @@ func (api *WorkspaceAPI) LinkAPI(r *mux.Router) {
 	// extensions in a proxy-like way for relaying the path to the end destination
 	r.PathPrefix("/editor/{user:[0-9]+}/{workspace:[0-9]+}-{commit:.{1,64}}").HandlerFunc(api.WorkspaceEditorProxy)
 	r.PathPrefix("/desktop/{user:[0-9]+}/{workspace:[0-9]+}-{commit:.{1,64}}").HandlerFunc(api.WorkspaceDesktopProxy)
-	r.PathPrefix("/agent/{user:[0-9]+}/{workspace:[0-9]+}").HandlerFunc(api.WorkspaceAgentProxy)
 	// r.PathPrefix("/port/{user:[0-9]+}/{workspace:[0-9]+}/{port:[0-9]+}").HandlerFunc(api.WorkspacePortProxy)
 	r.Host(fmt.Sprintf("{user:[0-9]+}-{workspace:[0-9]+}-{port:[0-9]+}.%s", api.AppHostname)).HandlerFunc(api.WorkspacePortProxy)
+	r.Host(fmt.Sprintf("{byte:[0-9]+}-lsp.%s", api.AppHostname)).HandlerFunc(api.ByteLspProxy)
 
 	// This is used when UDP is blocked, and latency must be checked via HTTP(s).
 	r.HandleFunc("/derp/latency-check", func(w http.ResponseWriter, r *http.Request) {
