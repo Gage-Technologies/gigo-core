@@ -152,7 +152,8 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		msg.Type != ws.MessageTypeByteUpdateCode &&
 		msg.Type != ws.MessageTypeByteLivePing &&
 		msg.Type != ws.MessageTypeCancelExecRequest &&
-		msg.Type != ws.MessageTypeStdinExecRequest {
+		msg.Type != ws.MessageTypeStdinExecRequest &&
+		msg.Type != ws.MessageTypeLaunchLspRequest {
 		return
 	}
 

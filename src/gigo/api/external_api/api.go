@@ -100,7 +100,7 @@ var publicRoutes = []*regexp.Regexp{
 	// permit access to static files
 	regexp.MustCompile("^/static/ext/.*$"),
 	regexp.MustCompile("^/static/ui/.*$"),
-	//permit access to the sitemap
+	// permit access to the sitemap
 	regexp.MustCompile("^/sitemap/sitemap.xml$"),
 	// permit access to unsubscribe check and modify for non-logged-in users
 	regexp.MustCompile("^/api/unsubscribe/check$"),
@@ -1094,6 +1094,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 	// validate authentication token - we don't validate the IP for now
 	valid, userID, payload, err := utils.ValidateExternalJWT(s.storageEngine, token, utils.SkipIpValidation, nil)
 	if err != nil {
+		s.revokeCookie(w, network.GetRequestIP(r))
 		// handle validation error
 		s.handleError(w, "failed to validate authentication token", r.URL.Path, "authenticateUserSession",
 			r.Method, int64(-1), network.GetRequestIP(r), "n/a", "n/a",
@@ -1105,6 +1106,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 
 	// return if token is invalid
 	if !valid {
+		s.revokeCookie(w, network.GetRequestIP(r))
 		// handle validation error
 		s.handleError(w, "authentication token invalid", r.URL.Path, "authenticateUserSession",
 			r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,
@@ -1114,6 +1116,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 
 	// return if userID is missing
 	if userID == 0 {
+		s.revokeCookie(w, network.GetRequestIP(r))
 		// handle validation error
 		s.handleError(w, "user id missing after successful token authentication", r.URL.Path, "authenticateUserSession",
 			r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,
@@ -1127,6 +1130,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 	// query for user in database
 	res, err := s.tiDB.QueryContext(ctx, &span, &callerName, "select * from users where _id = ? limit 1", userID)
 	if err != nil {
+		s.revokeCookie(w, network.GetRequestIP(r))
 		// handle validation error
 		s.handleError(w, "failed to query for user", r.URL.Path, "authenticateUserSession",
 			r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,
@@ -1140,10 +1144,11 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 	// attempt to load the user into the first position of the cursor
 	ok := res.Next()
 	if !ok {
+		s.revokeCookie(w, network.GetRequestIP(r))
 		// handle validation error
 		s.handleError(w, "failed to find user in database", r.URL.Path, "authenticateUserSession",
 			r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,
-			http.StatusInternalServerError, "logout", nil)
+			http.StatusForbidden, "logout", nil)
 		return nil
 	}
 
@@ -1166,6 +1171,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 		if callingUser.OtpValidated != nil && *callingUser.OtpValidated && r.URL.Path != "/api/otp/validate" {
 			// ensure that otp has been validated for this session
 			if otpValid, ok := payload["otp_valid"]; !ok || !otpValid.(bool) {
+				s.revokeCookie(w, network.GetRequestIP(r))
 				// handle validation error
 				s.handleError(w, "otp has not been validated for this session", r.URL.Path, "authenticateUserSession",
 					r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,
@@ -1175,7 +1181,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 		} else {
 			// handle a partial setup user by only permitting validate session and validate otp endpoints
 			if r.URL.Path != "/api/auth/validate" && r.URL.Path != "/api/otp/validate" && r.URL.Path != "/api/otp/generateUserOtpUri" {
-
+				s.revokeCookie(w, network.GetRequestIP(r))
 				// handle validation error
 				s.handleError(w, "partial setup otp user attempted to access quarantined endpoint", r.URL.Path, "authenticateUserSession",
 					r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,
@@ -1213,6 +1219,7 @@ func (s *HTTPServer) authenticateUserSession(ctx context.Context, w http.Respons
 				s.revokeCookie(w, network.GetRequestIP(r))
 			}
 
+			s.revokeCookie(w, network.GetRequestIP(r))
 			// handle validation error
 			s.handleError(w, "user not logged in", r.URL.Path, "authenticateUserSession",
 				r.Method, int64(-1), network.GetRequestIP(r), "n/a", callingId,

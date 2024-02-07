@@ -360,24 +360,6 @@ func (api *WorkspaceAPI) ByteLspProxy(rw http.ResponseWriter, r *http.Request) {
 	// retrieve params from url
 	vars := mux.Vars(r)
 
-	// attempt to retrieve user from params map
-	userID, ok := vars["user"]
-	if !ok {
-		// handle error internally
-		api.HandleError(rw, "no user id found in path", r.URL.Path, "ByteLspProxy", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUserName, callingId, http.StatusBadRequest,
-			"invalid path", nil)
-		return
-	}
-
-	// ensure that calling user and user id are the same
-	if callingId != userID {
-		api.HandleError(rw, fmt.Sprintf("userID mismatch: %s != %s", callingId, userID), r.URL.Path, "ByteLspProxy",
-			r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUserName,
-			callingId, http.StatusForbidden, "forbidden", nil)
-		return
-	}
-
 	// load byte id from url
 	byteIDString, ok := vars["byte"]
 	if !ok {

@@ -269,7 +269,7 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 	// create id for new workspace
 	wsId := snowflakeNode.Generate().Int64()
 
-	///////
+	// /////
 
 	var workspaceConfigId int64
 
@@ -359,7 +359,7 @@ func CreateWorkspace(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 		}
 	}
 
-	/////
+	// ///
 
 	// create expiration for workspace
 	expiration := time.Now().Add(time.Minute * 15)
@@ -1143,29 +1143,35 @@ func GetWorkspaceStatus(ctx context.Context, db *ti.Database, vcsClient *git.VCS
 	// close cursor
 	_ = res.Close()
 
-	// get repository name from repo id
-	repository, _, err := vcsClient.GiteaClient.GetRepoByID(workspace.RepoID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to locate repo %d: %v", workspace.RepoID, err)
-	}
+	// conditionally assemble the workspace url
+	workspaceUrl := ""
+	if workspace.CodeSourceType != models.CodeSourceByte {
+		// get repository name from repo id
+		repository, _, err := vcsClient.GiteaClient.GetRepoByID(workspace.RepoID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to locate repo %d: %v", workspace.RepoID, err)
+		}
 
-	// retrieve the gigo workspace config for this repo and commit
-	configBytes, gitRes, err := vcsClient.GiteaClient.GetFile(
-		fmt.Sprintf("%d", callingUser.ID),
-		repository.Name,
-		workspace.Commit,
-		".gigo/workspace.yaml",
-	)
-	if err != nil {
-		buf, _ := io.ReadAll(gitRes.Body)
-		return nil, fmt.Errorf("failed to retrieve gigoconfig: %v\n    response: %d - %q", err, gitRes.StatusCode, string(buf))
-	}
+		// retrieve the gigo workspace config for this repo and commit
+		configBytes, gitRes, err := vcsClient.GiteaClient.GetFile(
+			fmt.Sprintf("%d", callingUser.ID),
+			repository.Name,
+			workspace.Commit,
+			".gigo/workspace.yaml",
+		)
+		if err != nil {
+			buf, _ := io.ReadAll(gitRes.Body)
+			return nil, fmt.Errorf("failed to retrieve gigoconfig: %v\n    response: %d - %q", err, gitRes.StatusCode, string(buf))
+		}
 
-	// parse config bytes into workspace config
-	var gigoConfig workspace_config.GigoWorkspaceConfig
-	err = yaml.Unmarshal(configBytes, &gigoConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse new config: %v", err)
+		// parse config bytes into workspace config
+		var gigoConfig workspace_config.GigoWorkspaceConfig
+		err = yaml.Unmarshal(configBytes, &gigoConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse new config: %v", err)
+		}
+
+		workspaceUrl = fmt.Sprintf("/editor/%d/%d-%s?folder=%s", callingUser.ID, workspace.ID, workspace.Commit, url.QueryEscape(gigoConfig.WorkingDirectory))
 	}
 
 	// create variable to hold code source name
@@ -1177,10 +1183,15 @@ func GetWorkspaceStatus(ctx context.Context, db *ti.Database, vcsClient *git.VCS
 		if err != nil {
 			return nil, fmt.Errorf("failed to query posts for name: %v", err)
 		}
-	} else {
+	} else if workspace.CodeSourceType == models.CodeSourceAttempt {
 		err := db.QueryRowContext(ctx, &span, &callerName, "select p.title from attempt a join post p on a.post_id = p._id where a._id = ? limit 1", workspace.CodeSourceID).Scan(&csName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query attempts for name: %v", err)
+		}
+	} else {
+		err := db.QueryRowContext(ctx, &span, &callerName, "select b.name from byte_attempts ba join bytes b on ba.byte_id = b._id where ba._id = ? limit 1", workspace.CodeSourceID).Scan(&csName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query bytes for name: %v", err)
 		}
 	}
 
@@ -1192,7 +1203,7 @@ func GetWorkspaceStatus(ctx context.Context, db *ti.Database, vcsClient *git.VCS
 
 	return map[string]interface{}{
 		"workspace":     workspace.ToFrontend(hostname, tls),
-		"workspace_url": fmt.Sprintf("/editor/%d/%d-%s?folder=%s", callingUser.ID, workspace.ID, workspace.Commit, url.QueryEscape(gigoConfig.WorkingDirectory)),
+		"workspace_url": workspaceUrl,
 		"code_source": map[string]interface{}{
 			"_id":         fmt.Sprintf("%d", workspace.CodeSourceID),
 			"type":        workspace.CodeSourceType,
