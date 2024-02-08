@@ -23,7 +23,7 @@ require (
 
 require (
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20240205170106-92e2b9f9bfa3
+	github.com/gage-technologies/gigo-lib v0.0.0-20240208165005-f9d653833f45
 )
 
 require (
@@ -63,6 +63,7 @@ require (
 	github.com/bits-and-blooms/bloom/v3 v3.3.1
 	github.com/gage-technologies/drpc-lib v0.0.0-20230222154330-0a639616debe
 	github.com/gage-technologies/gitea-go/gitea v0.16.0
+	github.com/go-cmd/cmd v1.4.2
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-redis/redis_rate/v9 v9.1.2
 	github.com/go-redsync/redsync/v4 v4.8.1

@@ -56,6 +56,14 @@ type StripeSubscriptionConfig struct {
 	YearlyPriceID  string `yaml:"yearly_price_id"`
 }
 
+type BackupConfig struct {
+	Enabled            bool                     `yaml:"enabled"`
+	PD                 string                   `yaml:"pd"`
+	Stores             []config.StorageS3Config `yaml:"stores"`
+	MaxBackupAgeHours  int                      `yaml:"max_backup_age_hours"`
+	MinRetainedBackups int                      `yaml:"min_retained_backups"`
+}
+
 type Config struct {
 	Cluster            bool                         `yaml:"cluster"`
 	StorageConfig      config.StorageConfig         `yaml:"storage_config"`
@@ -80,6 +88,7 @@ type Config struct {
 	RegistryCaches     []RegistryCacheConfig        `yaml:"registry_caches"`
 	ZitiConfig         config.ZitiConfig            `yaml:"ziti_config"`
 	StripeSubscription StripeSubscriptionConfig     `yaml:"stripe_subscription_config"`
+	BackupConfig       BackupConfig                 `yaml:"backup_config"`
 }
 
 func LoadConfig(path string) (*Config, error) {

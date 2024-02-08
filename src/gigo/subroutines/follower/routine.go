@@ -52,7 +52,8 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, wsClient *ws.W
 		// execute once every ~2s
 		if execCount%2 == 0 {
 			RemoveExpiredSessionKeys(ctx, nodeId, tiDB, js, logger)
-			GenerateSiteMap(ctx, tiDB, js, storageEngine, nodeId, cfg.HTTPServerConfig.Hostname, logger)
+			DatabaseBackupRoutine(ctx, cfg.BackupConfig, js, tiDB, workerPool, logger, nodeId)
+			GenerateSiteMap(ctx, tiDB, js, storageEngine, nodeId, cfg.HTTPServerConfig.Hostname, workerPool, logger)
 		}
 
 		// execute once every minute

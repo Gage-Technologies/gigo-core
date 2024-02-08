@@ -27,6 +27,19 @@ RUN /usr/local/go/bin/go generate && /usr/local/go/bin/go build -o /tmp/gigo-cor
 
 FROM golang:1.20
 
+################### INSTALL TIDB-TOOLKIT #####################
+
+WORKDIR /
+
+RUN cd /tmp && wget https://download.pingcap.org/tidb-community-toolkit-v6.1.2-linux-amd64.tar.gz \
+    && tar -xvf tidb-community-toolkit-v6.1.2-linux-amd64.tar.gz \
+    && rm tidb-community-toolkit-v6.1.2-linux-amd64.tar.gz \
+    && cd tidb-community-toolkit-v6.1.2-linux-amd64  \
+    && tar -xvf br-v6.1.2-linux-amd64.tar.gz \
+    && mv br /usr/local/bin/ \
+    && cd .. \
+    && rm -rf tidb-community-toolkit-v6.1.2-linux-amd64
+
 COPY --from=builder /tmp/gigo-core /bin
 
 RUN mkdir -p /logs \

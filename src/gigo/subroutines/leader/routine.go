@@ -45,6 +45,20 @@ func publishSitemapGeneration(nodeId int64, js *mq.JetstreamClient, logger loggi
 	}
 }
 
+func publishDatabaseBackup(nodeId int64, js *mq.JetstreamClient, logger logging.Logger) {
+	_, err := js.PublishAsync(
+		streams.SubjectDbBackupExec,
+		// the message content isn't used so this is more of
+		// a way to debug the pipeline. we include the leader
+		// id that issued the message and the unix ts from when
+		// the message was issued
+		[]byte(fmt.Sprintf("%d-%d", nodeId, time.Now().Unix())),
+	)
+	if err != nil {
+		logger.Errorf("(leader: %d) failed to publish database backup message: %v", nodeId, err)
+	}
+}
+
 func publishStreakExpirationCleanup(nodeId int64, js *mq.JetstreamClient, logger logging.Logger) {
 	_, err := js.PublishAsync(
 		streams.SubjectStreakExpiration,
@@ -105,6 +119,7 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, js *mq.Jetstre
 	// create time variable to track the last execution of the user stats routine
 	lastUserStatsExec := time.Unix(0, 0)
 	lastSiteMapGenExec := time.Unix(0, 0)
+	lastDbBackupExec := time.Unix(0, 0)
 	// lastNemesisExec := time.Unix(0, 0)
 
 	// this function will be executed approximately once every second.
@@ -155,10 +170,10 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, js *mq.Jetstre
 		// publishUserFreePremium(nodeId, js, logger)
 
 		// execute on every 30m interval
-		timeNow := time.Now()
+		timeNow := time.Now().Local()
 		timeNowTrimmedSec := time.Date(timeNow.Year(), timeNow.Month(), timeNow.Day(), timeNow.Hour(), timeNow.Minute(), 0, 0, timeNow.Location())
 		if timeNow.Minute()%30 == 0 && timeNow.Second() < 10 &&
-			timeNowTrimmedSec.Unix() != lastUserStatsExec.Unix() {
+			timeNowTrimmedSec.Unix()-lastUserStatsExec.Unix() > 10 {
 			// update last execution time
 			lastUserStatsExec = timeNowTrimmedSec
 			logger.Infof("(leader: %d) executing user state management operations", nodeId)
@@ -169,12 +184,22 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, js *mq.Jetstre
 
 		// execute at midnight
 		if timeNow.Hour() == 0 && timeNow.Minute() == 0 && timeNow.Second() < 10 &&
-			timeNowTrimmedSec.Unix() != lastSiteMapGenExec.Unix() {
+			timeNowTrimmedSec.Unix()-lastSiteMapGenExec.Unix() > 10 {
 			// update last execution time
 			lastSiteMapGenExec = timeNowTrimmedSec
 			logger.Infof("(leader: %d) executing site map generation operations", nodeId)
 
 			publishSitemapGeneration(nodeId, js, logger)
+		}
+
+		// execute at 11pm
+		if timeNow.Hour() == 23 && timeNow.Minute() == 0 && timeNow.Second() < 10 &&
+			timeNowTrimmedSec.Unix()-lastDbBackupExec.Unix() > 10 {
+			// update last execution time
+			lastDbBackupExec = timeNowTrimmedSec
+			logger.Infof("(leader: %d) executing db backup operations", nodeId)
+
+			publishDatabaseBackup(nodeId, js, logger)
 		}
 
 		// timeNow = time.Now()
