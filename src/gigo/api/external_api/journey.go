@@ -44,6 +44,17 @@ type CreateJourneyDetourRequest struct {
 	TaskID       int64 `json:"task_id" validate:"required"`
 }
 
+type CreateJourneyDetourRecommendationRequest struct {
+	RecUnitID  int64 `json:"rec_unit_id" validate:"required"`
+	UserID     int64 `json:"user_id" validate:"required"`
+	FromTaskID int64 `json:"from_task_id" validate:"required"`
+}
+
+type CreateJourneyUserMapRequest struct {
+	UserID int64                `json:"user_id" validate:"required"`
+	Units  []models.JourneyUnit `json:"units" validate:"required"`
+}
+
 func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-journey-unit-http")
 	defer parentSpan.End()
@@ -812,7 +823,7 @@ func (s *HTTPServer) CreateJourneyDetour(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *HTTPServer) DeleteJourneyDetour(w http.ResponseWriter, r *http.Request) {
-	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "delete-journey-task-http")
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "delete-journey-detour-http")
 	defer parentSpan.End()
 
 	// retrieve calling user from context
@@ -820,7 +831,7 @@ func (s *HTTPServer) DeleteJourneyDetour(w http.ResponseWriter, r *http.Request)
 
 	// return if calling user was not retrieved in authentication
 	if callingUser == nil {
-		s.handleError(w, "calling user missing from context", r.URL.Path, "DeleteJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID),
+		s.handleError(w, "calling user missing from context", r.URL.Path, "DeleteJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID),
 			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
 		return
 	}
@@ -828,22 +839,22 @@ func (s *HTTPServer) DeleteJourneyDetour(w http.ResponseWriter, r *http.Request)
 	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
 
 	// attempt to load JSON from request body
-	reqJson := s.jsonRequest(w, r, "DeleteJourneyTask", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	reqJson := s.jsonRequest(w, r, "DeleteJourneyDetour", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
 	if reqJson == nil {
 		return
 	}
 
 	// attempt to load code source id from body
-	taskIdI, ok := s.loadValue(w, r, reqJson, "DeleteJourneyTask", "task_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
-	if taskIdI == nil || !ok {
+	detourUnitIdI, ok := s.loadValue(w, r, reqJson, "DeleteJourneyDetour", "task_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if detourUnitIdI == nil || !ok {
 		return
 	}
 
 	// parse post code source id to integer
-	journeyTaskId, err := strconv.ParseInt(taskIdI.(string), 10, 64)
+	journeyDetourUnitId, err := strconv.ParseInt(detourUnitIdI.(string), 10, 64)
 	if err != nil {
 		// handle error internally
-		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", taskIdI.(string)), r.URL.Path, "DeleteJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID),
+		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", detourUnitIdI.(string)), r.URL.Path, "DeleteJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID),
 			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
 		// exit
 		return
@@ -852,28 +863,29 @@ func (s *HTTPServer) DeleteJourneyDetour(w http.ResponseWriter, r *http.Request)
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
-		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "DeleteJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "DeleteJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 		return
 	}
 
 	// execute core function logic
-	res, err := core.DeleteJourneyTask(core.DeleteJourneyTaskParams{
-		Ctx:    ctx,
-		TiDB:   s.tiDB,
-		TaskID: journeyTaskId,
+	res, err := core.DeleteJourneyDetour(core.DeleteJourneyDetourParams{
+		Ctx:          ctx,
+		TiDB:         s.tiDB,
+		DetourUnitID: journeyDetourUnitId,
+		UserID:       callingUser.(*models.User).ID,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
 		// handle error internally
-		s.handleError(w, "DeleteJourneyTask core failed", r.URL.Path, "DeleteJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID),
+		s.handleError(w, "DeleteJourneyTask core failed", r.URL.Path, "DeleteJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID),
 			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
 		// exit
 		return
 	}
 
 	parentSpan.AddEvent(
-		"delete-journey-task",
+		"delete-journey-detour",
 		trace.WithAttributes(
 			attribute.Bool("success", true),
 			attribute.String("ip", network.GetRequestIP(r)),
@@ -882,5 +894,330 @@ func (s *HTTPServer) DeleteJourneyDetour(w http.ResponseWriter, r *http.Request)
 	)
 
 	// return response
-	s.jsonResponse(r, w, res, r.URL.Path, "DeleteJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+	s.jsonResponse(r, w, res, r.URL.Path, "DeleteJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) CreateJourneyDetourRecommendation(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-journey-detour-rec-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "CreateJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// require that the user is admin
+	if callingUser.(*models.User).AuthRole != models.Admin {
+		s.handleError(w, "only admins can perform this action", r.URL.Path, "CreateJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusForbidden, "forbidden", nil)
+		return
+	}
+
+	// receive upload part and handle file assemble
+	reqJson := s.receiveUpload(w, r, "CreateJourneyDetourRecommendation", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// marshall the reqJson then send through the validation system
+	buf, err := json.Marshal(reqJson)
+	if err != nil {
+		s.handleError(w, "failed to marshal reqjson", r.URL.Path, "CreateJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		return
+	}
+
+	var journeyDetourReq CreateJourneyDetourRecommendationRequest
+	if ok := s.validateRequest(w, r, callingUser.(*models.User), bytes.NewBuffer(buf), &journeyDetourReq); !ok {
+		return
+	}
+
+	// call the core
+	res, err := core.CreateJourneyDetourRecommendation(core.CreateDetourRecommendationParams{
+		Ctx:        ctx,
+		TiDB:       s.tiDB,
+		Sf:         s.sf,
+		RecUnitID:  journeyDetourReq.RecUnitID,
+		UserID:     journeyDetourReq.UserID,
+		FromTaskID: journeyDetourReq.FromTaskID,
+		CreatedAt:  time.Now(),
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "core failed", r.URL.Path, "CreateJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		return
+	}
+
+	parentSpan.AddEvent(
+		"create-journey-detour-rec",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "CreateJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) DeleteJourneyDetourRecommendation(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "delete-journey-detour-rec-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "DeleteJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "DeleteJourneyDetourRecommendation", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load code source id from body
+	recUnitIdI, ok := s.loadValue(w, r, reqJson, "DeleteJourneyDetourRecommendation", "rec_unit_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if recUnitIdI == nil || !ok {
+		return
+	}
+
+	// parse post code source id to integer
+	recUnitId, err := strconv.ParseInt(recUnitIdI.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", recUnitIdI.(string)), r.URL.Path, "DeleteJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// attempt to load code source id from body
+	userIdI, ok := s.loadValue(w, r, reqJson, "DeleteJourneyDetourRecommendation", "rec_unit_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if userIdI == nil || !ok {
+		return
+	}
+
+	// parse post code source id to integer
+	userId, err := strconv.ParseInt(recUnitIdI.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", recUnitIdI.(string)), r.URL.Path, "DeleteJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "DeleteJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.DeleteJourneyDetourRecommendation(core.DeleteDetourRecommendationParams{
+		Ctx:     ctx,
+		TiDB:    s.tiDB,
+		RecUnit: recUnitId,
+		UserID:  userId,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "DeleteJourneyTask core failed", r.URL.Path, "DeleteJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"delete-journey-detour-rec",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "DeleteJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) CreateJourneyUserMap(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "create-journey-user-map-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "CreateJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// require that the user is admin
+	if callingUser.(*models.User).AuthRole != models.Admin {
+		s.handleError(w, "only admins can perform this action", r.URL.Path, "CreateJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusForbidden, "forbidden", nil)
+		return
+	}
+
+	// receive upload part and handle file assemble
+	reqJson := s.receiveUpload(w, r, "CreateJourneyUserMap", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// marshall the reqJson then send through the validation system
+	buf, err := json.Marshal(reqJson)
+	if err != nil {
+		s.handleError(w, "failed to marshal reqjson", r.URL.Path, "CreateJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		return
+	}
+
+	var journeyMapReq CreateJourneyUserMapRequest
+	if ok := s.validateRequest(w, r, callingUser.(*models.User), bytes.NewBuffer(buf), &journeyMapReq); !ok {
+		return
+	}
+
+	// call the core
+	res, err := core.CreateJourneyUserMap(core.CreateJourneyUserMapParams{
+		Ctx:    ctx,
+		TiDB:   s.tiDB,
+		UserID: journeyMapReq.UserID,
+		Units:  journeyMapReq.Units,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		// handle error internally
+		s.handleError(w, "core failed", r.URL.Path, "CreateJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		return
+	}
+
+	parentSpan.AddEvent(
+		"create-journey-user-map",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "CreateJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) GetAllTasksInUnit(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "get-all-tasks-in-unit-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "GetAllTasksInUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "GetAllTasksInUnit", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load code source id from body
+	unitIdI, ok := s.loadValue(w, r, reqJson, "GetAllTasksInUnit", "unit_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if unitIdI == nil || !ok {
+		return
+	}
+
+	// parse post code source id to integer
+	journeyUnitId, err := strconv.ParseInt(unitIdI.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", unitIdI.(string)), r.URL.Path, "GetAllTasksInUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// attempt to load code source id from body
+	userIdI, ok := s.loadValue(w, r, reqJson, "GetAllTasksInUnit", "user_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if userIdI == nil || !ok {
+		return
+	}
+
+	// parse post code source id to integer
+	journeyUserId, err := strconv.ParseInt(userIdI.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", userIdI.(string)), r.URL.Path, "GetAllTasksInUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetAllTasksInUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.GetAllTasksInUnit(core.GetAllTasksInUnitParams{
+		Ctx:    ctx,
+		TiDB:   s.tiDB,
+		UnitID: journeyUnitId,
+		UserID: journeyUserId,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "StartByteAttempt core failed", r.URL.Path, "GetAllTasksInUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"get-all-tasks-in-unit",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "GetAllTasksInUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
