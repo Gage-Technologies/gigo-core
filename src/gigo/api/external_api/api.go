@@ -1972,6 +1972,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/journey/deleteDetourRec", s.DeleteJourneyDetourRecommendation).Methods("POST")
 	s.router.HandleFunc("/api/journey/createMap", s.CreateJourneyUserMap).Methods("POST")
 	s.router.HandleFunc("/api/journey/getTasksInUnit", s.GetAllTasksInUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/getUserMap", s.GetJourneyUserMap).Methods("POST")
 
 	// ////////////////////////////////////Bytes
 	s.router.HandleFunc("/api/bytes/startByteAttempt", s.StartByteAttempt).Methods("POST")

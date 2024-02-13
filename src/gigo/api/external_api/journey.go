@@ -1221,3 +1221,77 @@ func (s *HTTPServer) GetAllTasksInUnit(w http.ResponseWriter, r *http.Request) {
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "GetAllTasksInUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
+
+func (s *HTTPServer) GetJourneyUserMap(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "get-journey-user-map-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "GetJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "GetJourneyUserMap", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load code source id from body
+	userIdI, ok := s.loadValue(w, r, reqJson, "GetJourneyUserMap", "user_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if userIdI == nil || !ok {
+		return
+	}
+
+	// parse post code source id to integer
+	journeyUserId, err := strconv.ParseInt(userIdI.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", userIdI.(string)), r.URL.Path, "GetJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.GetJourneyUserMap(core.GetJourneyUserMapParams{
+		Ctx:    ctx,
+		TiDB:   s.tiDB,
+		UserID: journeyUserId,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "GetJourneyUserMap core failed", r.URL.Path, "GetJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"get-journey-user-map",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "GetJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}

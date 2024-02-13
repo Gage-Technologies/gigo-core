@@ -144,6 +144,12 @@ type CreateJourneyUserMapParams struct {
 	Units  []models.JourneyUnit
 }
 
+type GetJourneyUserMapParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	UserID int64
+}
+
 type CreateDetourRecommendationParams struct {
 	Ctx        context.Context
 	TiDB       *ti.Database
@@ -894,6 +900,28 @@ func CreateJourneyUserMap(params CreateJourneyUserMapParams) (map[string]interfa
 
 	failed = false
 	return map[string]interface{}{"success": true}, err
+}
+
+func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-journey-user-map-core")
+	defer span.End()
+	callerName := "CreateJourneyUserMap"
+
+	res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * journey_user_map where user_id = ?`, params.UserID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to query for journey user map, err: %v", err))
+	}
+
+	final, err := models.JourneyUserMapFromSQLNative(ctx, &span, params.TiDB, res)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to call user map from sql native, err: %v", err))
+	}
+
+	if final == nil || len(final.Units) < 1 {
+		return nil, errors.New(fmt.Sprintf("no units returned from user map"))
+	}
+
+	return map[string]interface{}{"success": true, "user_map": final}, err
 }
 
 func CreateJourneyDetourRecommendation(params CreateDetourRecommendationParams) (map[string]interface{}, error) {
