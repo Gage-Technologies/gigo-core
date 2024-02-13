@@ -907,7 +907,7 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 	defer span.End()
 	callerName := "CreateJourneyUserMap"
 
-	res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * journey_user_map where user_id = ?`, params.UserID)
+	res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_user_map where user_id = ?`, params.UserID)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("failed to query for journey user map, err: %v", err))
 	}
