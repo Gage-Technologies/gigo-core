@@ -23,7 +23,7 @@ require (
 
 require (
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20240213194729-a1a7ecc686cc
+	github.com/gage-technologies/gigo-lib v0.0.0-20240213215443-edd0d0972016
 )
 
 require (

@@ -15,6 +15,7 @@ import (
 	"github.com/go-git/go-git/v5/utils/ioutil"
 	"github.com/kisielk/sqlstruct"
 	"go.opentelemetry.io/otel"
+	"strings"
 	"time"
 )
 
@@ -189,6 +190,22 @@ type UserTask struct {
 	NodeAbove     *int64 `json:"node_above" sql:"jt.node_above"`
 	NodeBelow     *int64 `json:"node_below" sql:"jt.node_below"`
 	Completed     *bool  `json:"completed" sql:"completed"`
+}
+
+type UpdateJourneyUnitTreeParams struct {
+	Ctx       context.Context
+	TiDB      *ti.Database
+	UnitID    int64
+	UnitAbove *int64
+	UnitBelow *int64
+}
+
+type UpdateJourneyTaskUnitTreeParams struct {
+	Ctx       context.Context
+	TiDB      *ti.Database
+	TaskID    int64
+	TaskAbove *int64
+	TaskBelow *int64
 }
 
 func CreateJourneyUnit(params CreateJourneyUnitParams) (map[string]interface{}, error) {
@@ -1125,6 +1142,80 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 
 	return map[string]interface{}{"success": true, "data": finalReturn}, nil
 
+}
+
+func UpdateJourneyUnitTree(params UpdateJourneyUnitTreeParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "get-all-tasks-core")
+	defer span.End()
+	callerName := "UpdateJourneyUnitTree"
+
+	paramsQ := make([]string, 0)
+	val := make([]interface{}, 0)
+
+	if params.UnitAbove != nil {
+		paramsQ = append(paramsQ, " unit_above = ?")
+		val = append(val, *params.UnitAbove)
+	}
+
+	if params.UnitBelow != nil {
+		paramsQ = append(paramsQ, " unit_below = ?")
+		val = append(val, *params.UnitBelow)
+	}
+
+	val = append(val, params.UnitID)
+
+	res, err := params.TiDB.ExecContext(ctx, &span, &callerName, "update journey_units set"+strings.Join(paramsQ, ",")+" where _id = ?", val...)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to execute journey unit update for above/below: %v, err: %v", "update journey_units set"+strings.Join(paramsQ, ",")+" where _id = ?", err))
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to retrieve number of rows affected by unit update, err: %v", err))
+	}
+
+	if rows != 1 {
+		return nil, errors.New(fmt.Sprintf("incorrect number of rows updated for journey_units, rows: %v", rows))
+	}
+
+	return map[string]interface{}{"success": true}, nil
+}
+
+func UpdateJourneyTaskTree(params UpdateJourneyTaskUnitTreeParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "get-all-tasks-core")
+	defer span.End()
+	callerName := "UpdateJourneyTaskTree"
+
+	paramsQ := make([]string, 0)
+	val := make([]interface{}, 0)
+
+	if params.TaskAbove != nil {
+		paramsQ = append(paramsQ, " node_above = ?")
+		val = append(val, *params.TaskAbove)
+	}
+
+	if params.TaskBelow != nil {
+		paramsQ = append(paramsQ, " node_below = ?")
+		val = append(val, *params.TaskBelow)
+	}
+
+	val = append(val, params.TaskID)
+
+	res, err := params.TiDB.ExecContext(ctx, &span, &callerName, "update journey_units set"+strings.Join(paramsQ, ",")+" where _id = ?", val...)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to execute journey unit update for above/below: %v, err: %v", "update journey_tasks set"+strings.Join(paramsQ, ",")+" where _id = ?", err))
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to retrieve number of rows affected by unit update, err: %v", err))
+	}
+
+	if rows != 1 {
+		return nil, errors.New(fmt.Sprintf("incorrect number of rows updated for journey_tasks, rows: %v", rows))
+	}
+
+	return map[string]interface{}{"success": true}, nil
 }
 
 //func GetUserJourneyStats(params GetUserJourneyStatsParams) (map[string]interface{}, error) {

@@ -1973,6 +1973,8 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/journey/createMap", s.CreateJourneyUserMap).Methods("POST")
 	s.router.HandleFunc("/api/journey/getTasksInUnit", s.GetAllTasksInUnit).Methods("POST")
 	s.router.HandleFunc("/api/journey/getUserMap", s.GetJourneyUserMap).Methods("POST")
+	s.router.HandleFunc("/api/journey/updateUnitTree", s.UpdateJourneyUnitTree).Methods("POST")
+	s.router.HandleFunc("/api/journey/updateTaskTree", s.UpdateJourneyTaskTree).Methods("POST")
 
 	// ////////////////////////////////////Bytes
 	s.router.HandleFunc("/api/bytes/startByteAttempt", s.StartByteAttempt).Methods("POST")
