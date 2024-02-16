@@ -123,6 +123,17 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 		}
 
 		err = sm.Add(&smg.SitemapLoc{
+			Loc:        "/articles",
+			LastMod:    &n,
+			ChangeFreq: smg.Weekly,
+			Priority:   0.4,
+		})
+		if err != nil {
+			logger.Errorf("(sitemap_gen: %d) unable to add articles to the sitemap: %v", nodeId, err)
+			return
+		}
+
+		err = sm.Add(&smg.SitemapLoc{
 			Loc:        "/premium",
 			LastMod:    &n,
 			ChangeFreq: smg.Weekly,
