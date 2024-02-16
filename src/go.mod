@@ -23,7 +23,7 @@ require (
 
 require (
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20240213215443-edd0d0972016
+	github.com/gage-technologies/gigo-lib v0.0.0-20240216174616-a0e00c709d39
 )
 
 require (
@@ -172,7 +172,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gage-technologies/prominentcolor v0.0.0-20240120120538-1e8c7b5d74b1
 	github.com/getsentry/sentry-go v0.13.0 // indirect
-	github.com/go-errors/errors v1.4.2 // indirect
+	github.com/go-errors/errors v1.4.2
 	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
