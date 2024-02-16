@@ -89,9 +89,9 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 			return nil, fmt.Errorf("failed to scan values from cursor: %v", err)
 		}
 
-		//if closed != true && (callingUser == nil || authorID != callingUser.ID) {
+		// if closed != true && (callingUser == nil || authorID != callingUser.ID) {
 		//	return nil, fmt.Errorf("not found")
-		//}
+		// }
 
 		// write thumbnail to final location
 		idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", id)))
@@ -161,7 +161,7 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 	}
 
 	// get temp thumbnail file from storage
-	thumbnailTempFile, err := storageEngine.GetFile(path)
+	thumbnailTempFile, _, err := storageEngine.GetFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
 	}
@@ -251,7 +251,7 @@ func GetGeneratedImage(callingUser *models.User, imageId int64, storageEngine st
 	path := fmt.Sprintf("temp_proj_images/%v/%v.jpg", callingUser.ID, imageId)
 
 	// get generated image from storage
-	generatedTempFile, err := storageEngine.GetFile(path)
+	generatedTempFile, _, err := storageEngine.GetFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get temp file for generated project image: %v", err)
 	}

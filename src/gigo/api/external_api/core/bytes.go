@@ -67,15 +67,15 @@ type BytesRecFrontend struct {
 	Modified             bool                       `json:"modified" sql:"modified"`
 }
 
-//type Difficulty int
+// type Difficulty int
 //
-//const (
+// const (
 //	Easy Difficulty = iota
 //	Medium
 //	Hard
-//)
+// )
 //
-//func (d Difficulty) ToString() string {
+// func (d Difficulty) ToString() string {
 //	switch d {
 //	case Easy:
 //		return "easy"
@@ -86,7 +86,7 @@ type BytesRecFrontend struct {
 //	default:
 //		return "medium"
 //	}
-//}
+// }
 
 func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-byte-core")
@@ -97,7 +97,7 @@ func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 	id := params.Sf.Generate().Int64()
 
 	// get temp thumbnail file from storage
-	thumbnailTempFile, err := params.StorageEngine.GetFile(params.Thumbnail)
+	thumbnailTempFile, _, err := params.StorageEngine.GetFile(params.Thumbnail)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
 	}

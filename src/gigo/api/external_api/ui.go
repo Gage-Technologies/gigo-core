@@ -39,7 +39,7 @@ func (s *HTTPServer) UiFiles(w http.ResponseWriter, r *http.Request) {
 	// conditionally infer the mime type
 	if fileMime == "" {
 		// get file to determine the mime type
-		mimeReader, err := s.storageEngine.GetFile(path)
+		mimeReader, _, err := s.storageEngine.GetFileByteRange(path, 0, 8196)
 		if err != nil {
 			// handle error internally
 			s.handleError(w, "failed to retrieve file", r.URL.Path, "UiFiles", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -94,14 +94,40 @@ func (s *HTTPServer) UiFiles(w http.ResponseWriter, r *http.Request) {
 	// Cache the image for up to 10 minutes
 	w.Header().Set("Cache-Control", "public, max-age=600")
 
-	// get file to return
-	fileBuf, err := s.storageEngine.GetFile(path)
-	if err != nil {
-		// handle error internally
-		s.handleError(w, "failed to retrieve file", r.URL.Path, "UiFiles", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), userName, userId, http.StatusInternalServerError, "internal server error", err)
-		// exit
-		return
+	var start, end int64 = 0, -1
+
+	rangeHeader := r.Header.Get("Range")
+	if rangeHeader != "" {
+		// Parse the Range header
+		_, err := fmt.Sscanf(rangeHeader, "bytes=%d-%d", &start, &end)
+		if err != nil {
+			_, err = fmt.Sscanf(rangeHeader, "bytes=%d-", &start)
+			if err != nil {
+				s.handleError(w, "invalid range header", r.URL.Path, "UiFiles", r.Method, r.Context().Value(CtxKeyRequestID),
+					network.GetRequestIP(r), userName, userId, http.StatusBadRequest, "invalid range header", fmt.Errorf("invalid range header: "+rangeHeader))
+				return
+			}
+		}
+	}
+
+	// Adjust the call to GetFile to include the range parameters
+	var fileBuf io.ReadCloser
+	var fileSize int64
+	var err error
+	if start != 0 && end != -1 {
+		fileBuf, fileSize, err = s.storageEngine.GetFileByteRange(path, start, end-start+1)
+		if err != nil {
+			s.handleError(w, "failed to retrieve file content", r.URL.Path, "UiFiles", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), userName, userId, http.StatusInternalServerError, "internal server error", err)
+			return
+		}
+	} else {
+		fileBuf, fileSize, err = s.storageEngine.GetFile(path)
+		if err != nil {
+			s.handleError(w, "failed to retrieve file content", r.URL.Path, "UiFiles", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), userName, userId, http.StatusInternalServerError, "internal server error", err)
+			return
+		}
 	}
 
 	// handle file not found
@@ -112,6 +138,17 @@ func (s *HTTPServer) UiFiles(w http.ResponseWriter, r *http.Request) {
 		// exit
 		return
 	}
+
+	status := http.StatusOK
+
+	// Before writing the file to the response, check if a range was requested and handle accordingly
+	if start != 0 && end != -1 {
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+		status = http.StatusPartialContent
+	}
+
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))
+	w.WriteHeader(status)
 
 	defer fileBuf.Close()
 
@@ -139,5 +176,5 @@ func (s *HTTPServer) UiFiles(w http.ResponseWriter, r *http.Request) {
 
 	// log successful function execution
 	s.logger.LogDebugExternalAPI("function execution successful", r.URL.Path, "UiFiles", r.Method,
-		r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, http.StatusOK, nil)
+		r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), userName, userId, status, nil)
 }

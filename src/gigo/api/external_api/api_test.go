@@ -1030,7 +1030,7 @@ func TestReceiveUpload(t *testing.T) {
 			}
 
 			if part == 1 {
-				expFile, err := testHttpServer.storageEngine.GetFile("chunks/test-upload/exp")
+				expFile, _, err := testHttpServer.storageEngine.GetFile("chunks/test-upload/exp")
 				if err != nil {
 					t.Errorf("\nReceive upload failed\n    Error: %v", err)
 					return
@@ -1099,7 +1099,7 @@ func TestReceiveUpload(t *testing.T) {
 			return
 		}
 
-		outFile, err := testHttpServer.storageEngine.GetFile("temp/test-upload")
+		outFile, _, err := testHttpServer.storageEngine.GetFile("temp/test-upload")
 		if err != nil {
 			t.Errorf("\nReceive upload failed\n    Error: %v", err)
 			return

@@ -63,7 +63,7 @@ func CreateProject(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	id := sf.Generate().Int64()
 
 	// get temp thumbnail file from storage
-	thumbnailTempFile, err := storageEngine.GetFile(thumbnailPath)
+	thumbnailTempFile, _, err := storageEngine.GetFile(thumbnailPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
 	}
@@ -518,7 +518,7 @@ func EditProject(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 	if thumbnailPath != nil {
 		// get temp thumbnail file from storage
-		thumbnailTempFile, err := storageEngine.GetFile(*thumbnailPath)
+		thumbnailTempFile, _, err := storageEngine.GetFile(*thumbnailPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
 		}
@@ -675,7 +675,7 @@ func EditAttempt(ctx context.Context, tidb *ti.Database, id int64, storageEngine
 
 	if thumbnailPath != nil {
 		// get temp thumbnail file from storage
-		thumbnailTempFile, err := storageEngine.GetFile(*thumbnailPath)
+		thumbnailTempFile, _, err := storageEngine.GetFile(*thumbnailPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
 		}
@@ -865,25 +865,25 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 		return map[string]interface{}{"message": "You have already started an attempt. Keep working on that one!", "attempt": fmt.Sprintf("%d", existingAttemptId)}, nil
 	}
 
-	//// write thumbnail to final location
-	//idHashOriginal, err := utils2.HashData([]byte(fmt.Sprintf("%d", postId)))
-	//if err != nil {
+	// // write thumbnail to final location
+	// idHashOriginal, err := utils2.HashData([]byte(fmt.Sprintf("%d", postId)))
+	// if err != nil {
 	//	return nil, fmt.Errorf("failed to hash post id: %v", err)
-	//}
+	// }
 	//
-	//// get temp thumbnail file from storage
-	//thumbnailTempFile, err := storageEngine.GetFile(fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHashOriginal[:3], idHashOriginal[3:6], idHashOriginal))
-	//if err != nil {
+	// // get temp thumbnail file from storage
+	// thumbnailTempFile, _, err := storageEngine.GetFile(fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHashOriginal[:3], idHashOriginal[3:6], idHashOriginal))
+	// if err != nil {
 	//	return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
-	//}
-	//defer thumbnailTempFile.Close()
+	// }
+	// defer thumbnailTempFile.Close()
 	//
-	//// sanitize thumbnail image
-	//thumbnailBuffer := bytes.NewBuffer([]byte{})
-	//err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer))
-	//if err != nil {
+	// // sanitize thumbnail image
+	// thumbnailBuffer := bytes.NewBuffer([]byte{})
+	// err = utils.PrepImageFile(thumbnailTempFile, ioutil.WriteNopCloser(thumbnailBuffer))
+	// if err != nil {
 	//	return nil, fmt.Errorf("failed to prep thumbnail file: %v", err)
-	//}
+	// }
 
 	// create variables to hold post data
 	var postTitle string
@@ -1046,9 +1046,9 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 		return nil, fmt.Errorf("failed to update recommendations: %v", err)
 	}
 
-	/////////////////
+	// ///////////////
 
-	//update workspace config for the new use
+	// update workspace config for the new use
 	if workspaceConfig > 0 {
 		_, err = tidb.ExecContext(ctx, &span, &callerName, "Update workspace_config SET uses = uses + 1 Where _id = ? and revision = ?", workspaceConfig, workspaceConfigRevision)
 		if err != nil {
@@ -1056,7 +1056,7 @@ func StartAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSClie
 		}
 	}
 
-	////////////////////
+	// //////////////////
 
 	// commit tx
 	err = tx.Commit(&callerName)
@@ -1225,23 +1225,23 @@ func StartEAttempt(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSCli
 		}
 	}
 
-	//// write thumbnail to final location
-	//idHashOriginal, err := utils2.HashData([]byte(fmt.Sprintf("%d", postId)))
-	//if err != nil {
+	// // write thumbnail to final location
+	// idHashOriginal, err := utils2.HashData([]byte(fmt.Sprintf("%d", postId)))
+	// if err != nil {
 	//	return nil, fmt.Errorf("failed to hash post id: %v", err)
-	//}
+	// }
 	//
-	//// write thumbnail to final location
-	//idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", attempt.ID)))
-	//if err != nil {
+	// // write thumbnail to final location
+	// idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", attempt.ID)))
+	// if err != nil {
 	//	return nil, fmt.Errorf("failed to hash post id: %v", err)
-	//}
+	// }
 	//
-	//// get temp thumbnail file from storage
-	//err = storageEngine.CopyFile(fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHashOriginal[:3], idHashOriginal[3:6], idHashOriginal), fmt.Sprintf("attempt/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash))
-	//if err != nil {
+	// // get temp thumbnail file from storage
+	// err = storageEngine.CopyFile(fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHashOriginal[:3], idHashOriginal[3:6], idHashOriginal), fmt.Sprintf("attempt/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash))
+	// if err != nil {
 	//	return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
-	//}
+	// }
 
 	// increment tag column usage_count in database
 	_, err = tx.ExecContext(ctx, &callerName, "update post set attempts = attempts + 1 where _id = ?", postId)
@@ -1777,13 +1777,13 @@ func ConfirmEditConfig(ctx context.Context, tidb *ti.Database, js *mq.JetstreamC
 		_, err := tidb.ExecContext(ctx, &span, &callerName, "update attempt set updated_at = ? where _id = ?", time.Now(), projectID)
 		if err != nil {
 			return map[string]interface{}{"message": "failed to update attempt in edit config"}, fmt.Errorf("failed to update attempt in edit config: %v", err)
-			//logger.Errorf("failed to update attempt in edit config: %v, err: %v", wsId, zap.Error(err))
+			// logger.Errorf("failed to update attempt in edit config: %v, err: %v", wsId, zap.Error(err))
 		}
 	} else {
 		_, err := tidb.ExecContext(ctx, &span, &callerName, "update post set updated_at = ? where _id = ?", time.Now(), projectID)
 		if err != nil {
 			return map[string]interface{}{"message": "failed to update post in edit config"}, fmt.Errorf("failed to update attempt in edit config: %v", err)
-			//logger.Errorf("failed to update post in edit config: %v, err: %v", wsId, zap.Error(err))
+			// logger.Errorf("failed to update post in edit config: %v, err: %v", wsId, zap.Error(err))
 		}
 	}
 

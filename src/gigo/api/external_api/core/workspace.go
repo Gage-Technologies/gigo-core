@@ -1773,7 +1773,7 @@ func OpenVsxPullThroughCache(ctx context.Context, storageEngine storage.Storage,
 	}
 
 	// check if we have the extension in the cache
-	buf, err := storageEngine.GetFile(fmt.Sprintf("ext/open-vsx-cache/%s/%s.%s.vsix", publisher, name, version))
+	buf, _, err := storageEngine.GetFile(fmt.Sprintf("ext/open-vsx-cache/%s/%s.%s.vsix", publisher, name, version))
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get extension from cache: %v", err)
 	}

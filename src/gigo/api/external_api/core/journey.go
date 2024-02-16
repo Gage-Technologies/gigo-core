@@ -218,7 +218,7 @@ func CreateJourneyUnit(params CreateJourneyUnitParams) (map[string]interface{}, 
 	id := params.Sf.Generate().Int64()
 
 	// get temp thumbnail file from storage
-	thumbnailTempFile, err := params.StorageEngine.GetFile(params.Thumbnail)
+	thumbnailTempFile, _, err := params.StorageEngine.GetFile(params.Thumbnail)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get thumbnail file from temp path: %v", err)
 	}
@@ -1218,7 +1218,7 @@ func UpdateJourneyTaskTree(params UpdateJourneyTaskUnitTreeParams) (map[string]i
 	return map[string]interface{}{"success": true}, nil
 }
 
-//func GetUserJourneyStats(params GetUserJourneyStatsParams) (map[string]interface{}, error) {
+// func GetUserJourneyStats(params GetUserJourneyStatsParams) (map[string]interface{}, error) {
 //	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "get-user-journey-stats-core")
 //	defer span.End()
 //	callerName := "GetUserJourneyStats"
@@ -1334,4 +1334,4 @@ func UpdateJourneyTaskTree(params UpdateJourneyTaskUnitTreeParams) (map[string]i
 //
 //	}
 //
-//}
+// }

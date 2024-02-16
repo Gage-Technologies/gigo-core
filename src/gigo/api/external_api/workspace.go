@@ -559,7 +559,7 @@ func (s *HTTPServer) WorkspaceGetExtension(w http.ResponseWriter, r *http.Reques
 	}
 
 	// retrieve extension file from storage
-	extension, err := s.storageEngine.GetFile("ext/gigo-developer.vsix")
+	extension, _, err := s.storageEngine.GetFile("ext/gigo-developer.vsix")
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to retrieve extension file", r.URL.Path, "WorkspaceGetExtension", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -616,7 +616,7 @@ func (s *HTTPServer) WorkspaceGetCtExtension(w http.ResponseWriter, r *http.Requ
 	}
 
 	// retrieve extension file from storage
-	extension, err := s.storageEngine.GetFile("ext/code-teacher.vsix")
+	extension, _, err := s.storageEngine.GetFile("ext/code-teacher.vsix")
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to retrieve extension file", r.URL.Path, "WorkspaceGetCtExtension", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -673,7 +673,7 @@ func (s *HTTPServer) WorkspaceGetThemeExtension(w http.ResponseWriter, r *http.R
 	}
 
 	// retrieve extension file from storage
-	extension, err := s.storageEngine.GetFile("ext/gigo-theme.vsix")
+	extension, _, err := s.storageEngine.GetFile("ext/gigo-theme.vsix")
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to retrieve extension file", r.URL.Path, "WorkspaceGetThemeExtension", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -758,7 +758,7 @@ func (s *HTTPServer) WorkspaceGetHolidayThemeExtension(w http.ResponseWriter, r 
 	}
 
 	// retrieve extension file from storage
-	extension, err := s.storageEngine.GetFile(fmt.Sprintf("ext/%v.vsix", agentsdk.Holiday(holiday).String()))
+	extension, _, err := s.storageEngine.GetFile(fmt.Sprintf("ext/%v.vsix", agentsdk.Holiday(holiday).String()))
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to retrieve extension file", r.URL.Path, "WorkspaceGetHolidayThemeExtension", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -804,7 +804,7 @@ func (s *HTTPServer) WorkspaceGetAgent(w http.ResponseWriter, r *http.Request) {
 	defer parentSpan.End()
 
 	// retrieve extension file from storage
-	extension, err := s.storageEngine.GetFile("bin/agent")
+	extension, _, err := s.storageEngine.GetFile("bin/agent")
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to retrieve agent binary", r.URL.Path, "WorkspaceGetAgent", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -1147,7 +1147,7 @@ func (s *HTTPServer) CodeServerPullThroughCache(w http.ResponseWriter, r *http.R
 	}
 
 	// attempt to retrieve file from storage
-	buf, err := s.storageEngine.GetFile(fmt.Sprintf("ext/gigo-code-server-cache/%s-%s-%s-%s", version, arch, os, installType))
+	buf, _, err := s.storageEngine.GetFile(fmt.Sprintf("ext/gigo-code-server-cache/%s-%s-%s-%s", version, arch, os, installType))
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to retrieve extension file", r.URL.Path, "CodeServerPullThroughCache", r.Method, r.Context().Value(CtxKeyRequestID),

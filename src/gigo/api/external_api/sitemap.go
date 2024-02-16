@@ -9,7 +9,7 @@ import (
 
 func (s *HTTPServer) GetSitemap(w http.ResponseWriter, r *http.Request) {
 	// retrieve the sitemap from the storage engine
-	file, err := s.storageEngine.GetFile("sitemap/sitemap.xml")
+	file, _, err := s.storageEngine.GetFile("sitemap/sitemap.xml")
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to copy image file", r.URL.Path, "GetSitemap", r.Method, r.Context().Value(CtxKeyRequestID),

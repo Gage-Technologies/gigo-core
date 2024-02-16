@@ -334,7 +334,7 @@ func TestCodeServerPullThroughCache(t *testing.T) {
 	// time.Sleep(5 * time.Second)
 
 	// retrieve the cached file
-	buf, err = storageEngine.GetFile("ext/gigo-code-server-cache/0.1.0-amd64-linux-tar")
+	buf, _, err = storageEngine.GetFile("ext/gigo-code-server-cache/0.1.0-amd64-linux-tar")
 	if err != nil {
 		t.Fatalf("failed to retrieve cached file: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestOpenVsxPullThroughCache(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// retrieve the cached file
-	buf, err = storageEngine.GetFile("ext/open-vsx-cache/ms-python/python.2023.14.0.vsix")
+	buf, _, err = storageEngine.GetFile("ext/open-vsx-cache/ms-python/python.2023.14.0.vsix")
 	if err != nil {
 		t.Fatalf("failed to retrieve cached file: %v", err)
 	}

@@ -38,7 +38,7 @@ func (s *HTTPServer) ExtensionFiles(w http.ResponseWriter, r *http.Request) {
 	// conditionally infer the mime type
 	if fileMime == "" {
 		// get file to determine the mime type
-		mimeReader, err := s.storageEngine.GetFile(path)
+		mimeReader, _, err := s.storageEngine.GetFile(path)
 		if err != nil {
 			// handle error internally
 			s.handleError(w, "failed to retrieve file", r.URL.Path, "ExtensionFiles", r.Method, r.Context().Value(CtxKeyRequestID),
@@ -91,7 +91,7 @@ func (s *HTTPServer) ExtensionFiles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", fileMime)
 
 	// get file to return
-	fileBuf, err := s.storageEngine.GetFile(path)
+	fileBuf, _, err := s.storageEngine.GetFile(path)
 	if err != nil {
 		// handle error internally
 		s.handleError(w, "failed to retrieve file", r.URL.Path, "ExtensionFiles", r.Method, r.Context().Value(CtxKeyRequestID),

@@ -15,7 +15,7 @@ type PasswordFilter struct {
 
 func NewPasswordFilter(storageEngine storage.Storage) (*PasswordFilter, error) {
 	// get bloom filter from storage
-	f, err := storageEngine.GetFile("pass/filter.db")
+	f, _, err := storageEngine.GetFile("pass/filter.db")
 	if err != nil {
 		return nil, fmt.Errorf("unable to get password filter file: %s", err)
 	}
