@@ -1963,6 +1963,26 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/stripe/stripeCheckoutSession", s.StripeCheckoutSession).Methods("POST")
 	s.router.HandleFunc("/api/stripe/premiumMembershipSession", s.StripePremiumMembershipSession).Methods("POST")
 
+	///////////////////////////////////////Journey
+	s.router.HandleFunc("/api/journey/createUnit", s.CreateJourneyUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/publishUnit", s.PublishJourneyUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/unPublishUnit", s.UnPublishJourneyUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/deleteUnit", s.DeleteJourneyUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/createTask", s.CreateJourneyTask).Methods("POST")
+	s.router.HandleFunc("/api/journey/getTask", s.GetUserJourneyTask).Methods("POST")
+	s.router.HandleFunc("/api/journey/publishRTask", s.PublishJourneyUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/publishTask", s.UnPublishJourneyTask).Methods("POST")
+	s.router.HandleFunc("/api/journey/deleteTask", s.DeleteJourneyTask).Methods("POST")
+	s.router.HandleFunc("/api/journey/createDetour", s.CreateJourneyDetour).Methods("POST")
+	s.router.HandleFunc("/api/journey/deleteDetour", s.DeleteJourneyDetour).Methods("POST")
+	s.router.HandleFunc("/api/journey/createDetourRec", s.CreateJourneyDetourRecommendation).Methods("POST")
+	s.router.HandleFunc("/api/journey/deleteDetourRec", s.DeleteJourneyDetourRecommendation).Methods("POST")
+	s.router.HandleFunc("/api/journey/createMap", s.CreateJourneyUserMap).Methods("POST")
+	s.router.HandleFunc("/api/journey/getTasksInUnit", s.GetAllTasksInUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/getUserMap", s.GetJourneyUserMap).Methods("POST")
+	s.router.HandleFunc("/api/journey/updateUnitTree", s.UpdateJourneyUnitTree).Methods("POST")
+	s.router.HandleFunc("/api/journey/updateTaskTree", s.UpdateJourneyTaskTree).Methods("POST")
+
 	// ////////////////////////////////////Bytes
 	s.router.HandleFunc("/api/bytes/startByteAttempt", s.StartByteAttempt).Methods("POST")
 	s.router.HandleFunc("/api/bytes/getByteAttempt", s.GetByteAttempt).Methods("POST")
