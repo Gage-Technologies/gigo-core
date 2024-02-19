@@ -19,8 +19,8 @@ import (
 
 type CreateJourneyUnitRequest struct {
 	Name        string                       `json:"name" validate:"required,lte=35"`
-	UnitAbove   *int64                       `json:"unit_above"`
-	UnitBelow   *int64                       `json:"unit_below"`
+	UnitAbove   *string                      `json:"unit_above"`
+	UnitBelow   *string                      `json:"unit_below"`
 	Description string                       `json:"description" validate:"required"`
 	Langs       []models.ProgrammingLanguage `json:"langs" validate:"required"`
 	Tags        []string                     `json:"tags" validate:"required"`
@@ -28,30 +28,30 @@ type CreateJourneyUnitRequest struct {
 }
 
 type CreateJourneyTaskRequest struct {
-	JourneyUnitID  int64                      `json:"journey_unit_id" validate:"required"`
+	JourneyUnitID  string                     `json:"journey_unit_id" validate:"required,number"`
 	Name           string                     `json:"name" validate:"required"`
-	NodeAbove      *int64                     `json:"node_above" validate:"required"`
-	NodeBelow      *int64                     `json:"node_below" validate:"required"`
+	NodeAbove      *string                    `json:"node_above" validate:"required,number"`
+	NodeBelow      *string                    `json:"node_below" validate:"required,number"`
 	Description    string                     `json:"description" validate:"required"`
 	CodeSourceType models.CodeSource          `json:"code_source_type" validate:"required"`
-	CodeSourceID   int64                      `json:"code_source_id" validate:"required"`
+	CodeSourceID   string                     `json:"code_source_id" validate:"required,number"`
 	Lang           models.ProgrammingLanguage `json:"lang" validate:"required"`
 }
 
 type CreateJourneyDetourRequest struct {
-	DetourUnitID int64 `json:"detour_unit_id" validate:"required"`
-	UserID       int64 `json:"user_id" validate:"required"`
-	TaskID       int64 `json:"task_id" validate:"required"`
+	DetourUnitID string `json:"detour_unit_id" validate:"required,number"`
+	UserID       string `json:"user_id" validate:"required,number"`
+	TaskID       string `json:"task_id" validate:"required,number"`
 }
 
 type CreateJourneyDetourRecommendationRequest struct {
-	RecUnitID  int64 `json:"rec_unit_id" validate:"required"`
-	UserID     int64 `json:"user_id" validate:"required"`
-	FromTaskID int64 `json:"from_task_id" validate:"required"`
+	RecUnitID  string `json:"rec_unit_id" validate:"required,number"`
+	UserID     string `json:"user_id" validate:"required,number"`
+	FromTaskID string `json:"from_task_id" validate:"required,number"`
 }
 
 type CreateJourneyUserMapRequest struct {
-	UserID int64                `json:"user_id" validate:"required"`
+	UserID string               `json:"user_id" validate:"required,number"`
 	Units  []models.JourneyUnit `json:"units" validate:"required"`
 }
 
@@ -102,6 +102,28 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	// defer removal of thumbnail temp file
 	defer s.storageEngine.DeleteFile(thumbnailTempPath)
 
+	var unitAbove int64
+
+	if JourneyUnitReq.UnitAbove != nil {
+		unitAbove, err = strconv.ParseInt(*JourneyUnitReq.UnitAbove, 10, 64)
+		if err != nil {
+			s.handleError(w, "failed to marshal unitABove to int", r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+			return
+		}
+	}
+
+	var unitBelow int64
+
+	if JourneyUnitReq.UnitBelow != nil {
+		unitBelow, err = strconv.ParseInt(*JourneyUnitReq.UnitBelow, 10, 64)
+		if err != nil {
+			s.handleError(w, "failed to marshal unitBelow to int", r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+			return
+		}
+	}
+
 	// call the core
 	res, err := core.CreateJourneyUnit(core.CreateJourneyUnitParams{
 		Ctx:           ctx,
@@ -110,8 +132,8 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 		StorageEngine: s.storageEngine,
 		Meili:         s.meili,
 		Name:          JourneyUnitReq.Name,
-		UnitAbove:     JourneyUnitReq.UnitAbove,
-		UnitBelow:     JourneyUnitReq.UnitBelow,
+		UnitAbove:     &unitAbove,
+		UnitBelow:     &unitBelow,
 		Thumbnail:     thumbnailTempPath,
 		Langs:         JourneyUnitReq.Langs,
 		Description:   JourneyUnitReq.Description,
@@ -391,18 +413,44 @@ func (s *HTTPServer) CreateJourneyTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var nodeAbove int64
+
+	var err error = nil
+	if journeyTaskReq.NodeAbove != nil {
+		nodeAbove, err = strconv.ParseInt(*journeyTaskReq.NodeAbove, 10, 64)
+		if err != nil {
+			s.handleError(w, "failed to marshal nodeAbove to int", r.URL.Path, "CreateJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+			return
+		}
+	}
+
+	var nodeBelow int64
+
+	if journeyTaskReq.NodeBelow != nil {
+		nodeBelow, err = strconv.ParseInt(*journeyTaskReq.NodeBelow, 10, 64)
+		if err != nil {
+			s.handleError(w, "failed to marshal unitBelow to int", r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+			return
+		}
+	}
+
+	unitId, _ := strconv.ParseInt(journeyTaskReq.JourneyUnitID, 10, 64)
+	codeSrcID, _ := strconv.ParseInt(journeyTaskReq.CodeSourceID, 10, 64)
+
 	// call the core
 	res, err := core.CreateJourneyTask(core.CreateJourneyTaskParams{
 		Ctx:            ctx,
 		TiDB:           s.tiDB,
 		Sf:             s.sf,
-		JourneyUnitID:  journeyTaskReq.JourneyUnitID,
+		JourneyUnitID:  unitId,
 		Name:           journeyTaskReq.Name,
-		NodeBelow:      journeyTaskReq.NodeBelow,
-		NodeAbove:      journeyTaskReq.NodeAbove,
+		NodeBelow:      &nodeBelow,
+		NodeAbove:      &nodeAbove,
 		Description:    journeyTaskReq.Description,
 		CodeSourceType: journeyTaskReq.CodeSourceType,
-		CodeSourceID:   journeyTaskReq.CodeSourceID,
+		CodeSourceID:   codeSrcID,
 		Lang:           journeyTaskReq.Lang,
 	})
 	if err != nil {
@@ -767,14 +815,17 @@ func (s *HTTPServer) CreateJourneyDetour(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	detourUnitId, _ := strconv.ParseInt(journeyDetourReq.DetourUnitID, 10, 64)
+	userID, _ := strconv.ParseInt(journeyDetourReq.UserID, 10, 64)
+	taskID, _ := strconv.ParseInt(journeyDetourReq.TaskID, 10, 64)
 	// call the core
 	res, err := core.CreateJourneyDetour(core.CreateJourneyDetourParams{
 		Ctx:          ctx,
 		TiDB:         s.tiDB,
 		Sf:           s.sf,
-		DetourUnitID: journeyDetourReq.DetourUnitID,
-		UserID:       journeyDetourReq.UserID,
-		TaskID:       journeyDetourReq.TaskID,
+		DetourUnitID: detourUnitId,
+		UserID:       userID,
+		TaskID:       taskID,
 		StartedAt:    time.Now(),
 	})
 	if err != nil {
@@ -901,14 +952,18 @@ func (s *HTTPServer) CreateJourneyDetourRecommendation(w http.ResponseWriter, r 
 		return
 	}
 
+	recUnitId, _ := strconv.ParseInt(journeyDetourReq.RecUnitID, 10, 64)
+	userID, _ := strconv.ParseInt(journeyDetourReq.UserID, 10, 64)
+	fromTaskID, _ := strconv.ParseInt(journeyDetourReq.FromTaskID, 10, 64)
+
 	// call the core
 	res, err := core.CreateJourneyDetourRecommendation(core.CreateDetourRecommendationParams{
 		Ctx:        ctx,
 		TiDB:       s.tiDB,
 		Sf:         s.sf,
-		RecUnitID:  journeyDetourReq.RecUnitID,
-		UserID:     journeyDetourReq.UserID,
-		FromTaskID: journeyDetourReq.FromTaskID,
+		RecUnitID:  recUnitId,
+		UserID:     userID,
+		FromTaskID: fromTaskID,
 		CreatedAt:  time.Now(),
 	})
 	if err != nil {
@@ -1051,11 +1106,13 @@ func (s *HTTPServer) CreateJourneyUserMap(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	userID, _ := strconv.ParseInt(journeyMapReq.UserID, 10, 64)
+
 	// call the core
 	res, err := core.CreateJourneyUserMap(core.CreateJourneyUserMapParams{
 		Ctx:    ctx,
 		TiDB:   s.tiDB,
-		UserID: journeyMapReq.UserID,
+		UserID: userID,
 		Units:  journeyMapReq.Units,
 	})
 	if err != nil {
