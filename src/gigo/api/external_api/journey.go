@@ -102,26 +102,30 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	// defer removal of thumbnail temp file
 	defer s.storageEngine.DeleteFile(thumbnailTempPath)
 
-	var unitAbove int64
+	var unitAbove *int64
 
 	if JourneyUnitReq.UnitAbove != nil {
-		unitAbove, err = strconv.ParseInt(*JourneyUnitReq.UnitAbove, 10, 64)
+		res, err := strconv.ParseInt(*JourneyUnitReq.UnitAbove, 10, 64)
 		if err != nil {
 			s.handleError(w, "failed to marshal unitABove to int", r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
 				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
 			return
 		}
+		unitAbove = &res
 	}
 
-	var unitBelow int64
+	var unitBelow *int64
 
 	if JourneyUnitReq.UnitBelow != nil {
-		unitBelow, err = strconv.ParseInt(*JourneyUnitReq.UnitBelow, 10, 64)
+
+		res, err := strconv.ParseInt(*JourneyUnitReq.UnitBelow, 10, 64)
 		if err != nil {
 			s.handleError(w, "failed to marshal unitBelow to int", r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
 				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
 			return
 		}
+
+		unitBelow = &res
 	}
 
 	// call the core
@@ -132,8 +136,8 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 		StorageEngine: s.storageEngine,
 		Meili:         s.meili,
 		Name:          JourneyUnitReq.Name,
-		UnitAbove:     &unitAbove,
-		UnitBelow:     &unitBelow,
+		UnitAbove:     unitAbove,
+		UnitBelow:     unitBelow,
 		Thumbnail:     thumbnailTempPath,
 		Langs:         JourneyUnitReq.Langs,
 		Description:   JourneyUnitReq.Description,
@@ -413,27 +417,29 @@ func (s *HTTPServer) CreateJourneyTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var nodeAbove int64
+	var nodeAbove *int64
 
-	var err error = nil
 	if journeyTaskReq.NodeAbove != nil {
-		nodeAbove, err = strconv.ParseInt(*journeyTaskReq.NodeAbove, 10, 64)
+		res, err := strconv.ParseInt(*journeyTaskReq.NodeAbove, 10, 64)
 		if err != nil {
 			s.handleError(w, "failed to marshal nodeAbove to int", r.URL.Path, "CreateJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID),
 				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
 			return
 		}
+		nodeAbove = &res
 	}
 
-	var nodeBelow int64
+	var nodeBelow *int64
 
 	if journeyTaskReq.NodeBelow != nil {
-		nodeBelow, err = strconv.ParseInt(*journeyTaskReq.NodeBelow, 10, 64)
+		res, err := strconv.ParseInt(*journeyTaskReq.NodeBelow, 10, 64)
 		if err != nil {
 			s.handleError(w, "failed to marshal unitBelow to int", r.URL.Path, "CreateJourneyUnit", r.Method, r.Context().Value(CtxKeyRequestID),
 				network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
 			return
 		}
+
+		nodeBelow = &res
 	}
 
 	unitId, _ := strconv.ParseInt(journeyTaskReq.JourneyUnitID, 10, 64)
@@ -446,8 +452,8 @@ func (s *HTTPServer) CreateJourneyTask(w http.ResponseWriter, r *http.Request) {
 		Sf:             s.sf,
 		JourneyUnitID:  unitId,
 		Name:           journeyTaskReq.Name,
-		NodeBelow:      &nodeBelow,
-		NodeAbove:      &nodeAbove,
+		NodeBelow:      nodeBelow,
+		NodeAbove:      nodeAbove,
 		Description:    journeyTaskReq.Description,
 		CodeSourceType: journeyTaskReq.CodeSourceType,
 		CodeSourceID:   codeSrcID,
@@ -1342,7 +1348,7 @@ func (s *HTTPServer) UpdateJourneyUnitTree(w http.ResponseWriter, r *http.Reques
 
 	// attempt to load code source id from body
 	unitAboveIdI, ok := s.loadValue(w, r, reqJson, "UpdateJourneyUnitTree", "unit_above", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
-	if unitIdI == nil || !ok {
+	if !ok {
 		return
 	}
 
@@ -1361,7 +1367,7 @@ func (s *HTTPServer) UpdateJourneyUnitTree(w http.ResponseWriter, r *http.Reques
 
 	// attempt to load code source id from body
 	unitBelowIdI, ok := s.loadValue(w, r, reqJson, "UpdateJourneyUnitTree", "unit_below", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
-	if unitIdI == nil || !ok {
+	if !ok {
 		return
 	}
 
@@ -1456,7 +1462,7 @@ func (s *HTTPServer) UpdateJourneyTaskTree(w http.ResponseWriter, r *http.Reques
 
 	// attempt to load code source id from body
 	nodeAboveIdI, ok := s.loadValue(w, r, reqJson, "UpdateJourneyTaskTree", "node_above", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
-	if nodeAboveIdI == nil || !ok {
+	if !ok {
 		return
 	}
 
@@ -1475,10 +1481,9 @@ func (s *HTTPServer) UpdateJourneyTaskTree(w http.ResponseWriter, r *http.Reques
 
 	// attempt to load code source id from body
 	nodeBelowIdI, ok := s.loadValue(w, r, reqJson, "UpdateJourneyTaskTree", "node_below", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
-	if nodeBelowIdI == nil || !ok {
+	if !ok {
 		return
 	}
-
 	var nodeBelow *int64 = nil
 	if nodeBelowIdI != nil {
 		temp, err := strconv.ParseInt(nodeBelowIdI.(string), 10, 64)
