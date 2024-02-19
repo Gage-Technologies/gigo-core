@@ -386,22 +386,8 @@ func (s *HTTPServer) CreateJourneyTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// receive upload part and handle file assemble
-	reqJson := s.receiveUpload(w, r, "CreateJourneyTask", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
-	if reqJson == nil {
-		return
-	}
-
-	// marshall the reqJson then send through the validation system
-	buf, err := json.Marshal(reqJson)
-	if err != nil {
-		s.handleError(w, "failed to marshal reqjson", r.URL.Path, "CreateJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
-		return
-	}
-
 	var journeyTaskReq CreateJourneyTaskRequest
-	if ok := s.validateRequest(w, r, callingUser.(*models.User), bytes.NewBuffer(buf), &journeyTaskReq); !ok {
+	if !s.validateRequest(w, r, callingUser.(*models.User), r.Body, &journeyTaskReq) {
 		return
 	}
 
@@ -776,22 +762,8 @@ func (s *HTTPServer) CreateJourneyDetour(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// receive upload part and handle file assemble
-	reqJson := s.receiveUpload(w, r, "CreateJourneyDetour", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
-	if reqJson == nil {
-		return
-	}
-
-	// marshall the reqJson then send through the validation system
-	buf, err := json.Marshal(reqJson)
-	if err != nil {
-		s.handleError(w, "failed to marshal reqjson", r.URL.Path, "CreateJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
-		return
-	}
-
 	var journeyDetourReq CreateJourneyDetourRequest
-	if ok := s.validateRequest(w, r, callingUser.(*models.User), bytes.NewBuffer(buf), &journeyDetourReq); !ok {
+	if ok := s.validateRequest(w, r, callingUser.(*models.User), r.Body, &journeyDetourReq); !ok {
 		return
 	}
 
@@ -924,22 +896,8 @@ func (s *HTTPServer) CreateJourneyDetourRecommendation(w http.ResponseWriter, r 
 		return
 	}
 
-	// receive upload part and handle file assemble
-	reqJson := s.receiveUpload(w, r, "CreateJourneyDetourRecommendation", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
-	if reqJson == nil {
-		return
-	}
-
-	// marshall the reqJson then send through the validation system
-	buf, err := json.Marshal(reqJson)
-	if err != nil {
-		s.handleError(w, "failed to marshal reqjson", r.URL.Path, "CreateJourneyDetourRecommendation", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
-		return
-	}
-
 	var journeyDetourReq CreateJourneyDetourRecommendationRequest
-	if ok := s.validateRequest(w, r, callingUser.(*models.User), bytes.NewBuffer(buf), &journeyDetourReq); !ok {
+	if ok := s.validateRequest(w, r, callingUser.(*models.User), r.Body, &journeyDetourReq); !ok {
 		return
 	}
 
@@ -1088,22 +1046,8 @@ func (s *HTTPServer) CreateJourneyUserMap(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// receive upload part and handle file assemble
-	reqJson := s.receiveUpload(w, r, "CreateJourneyUserMap", "File Part Uploaded.", callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
-	if reqJson == nil {
-		return
-	}
-
-	// marshall the reqJson then send through the validation system
-	buf, err := json.Marshal(reqJson)
-	if err != nil {
-		s.handleError(w, "failed to marshal reqjson", r.URL.Path, "CreateJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
-		return
-	}
-
 	var journeyMapReq CreateJourneyUserMapRequest
-	if ok := s.validateRequest(w, r, callingUser.(*models.User), bytes.NewBuffer(buf), &journeyMapReq); !ok {
+	if ok := s.validateRequest(w, r, callingUser.(*models.User), r.Body, &journeyMapReq); !ok {
 		return
 	}
 
