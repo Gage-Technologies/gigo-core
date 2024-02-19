@@ -353,7 +353,7 @@ func PublishJourneyUnit(params PublishJourneyUnitParams) (map[string]interface{}
 	var journeyUnit models.JourneyUnit
 
 	for rows.Next() {
-		err = sqlstruct.Scan(journeyUnit, rows)
+		err = sqlstruct.Scan(&journeyUnit, rows)
 		if err != nil {
 			failed = true
 			return nil, errors.New(fmt.Sprintf("failed to scan journey unit after update, err: %v", err))
@@ -366,6 +366,8 @@ func PublishJourneyUnit(params PublishJourneyUnitParams) (map[string]interface{}
 		return nil, errors.New(fmt.Sprintf("failed to add journey unit: %v to search, err: %v", journeyUnit.ID, err))
 	}
 
+	failed = false
+
 	return map[string]interface{}{"success": true, "journey_unit": journeyUnit}, nil
 
 }
@@ -375,7 +377,7 @@ func UnPublishJourneyUnit(params UnPublishJourneyUnitParams) (map[string]interfa
 	defer span.End()
 	callerName := "UnPublishJourneyUnit"
 
-	failed := false
+	failed := true
 
 	tx, err := params.TiDB.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
@@ -417,6 +419,8 @@ func UnPublishJourneyUnit(params UnPublishJourneyUnitParams) (map[string]interfa
 
 	_ = params.Meili.DeleteDocuments("journey_units", params.JourneyID)
 
+	failed = false
+
 	return map[string]interface{}{"success": true}, nil
 }
 
@@ -425,7 +429,7 @@ func DeleteJourneyUnit(params DeleteJourneyUnitParams) (map[string]interface{}, 
 	defer span.End()
 	callerName := "DeleteJourneyUnit"
 
-	failed := false
+	failed := true
 
 	tx, err := params.TiDB.BeginTx(ctx, &span, &callerName, nil)
 	if err != nil {
@@ -489,6 +493,8 @@ func DeleteJourneyUnit(params DeleteJourneyUnitParams) (map[string]interface{}, 
 	}
 
 	_ = params.Meili.DeleteDocuments("journey_units", params.JourneyID)
+
+	failed = false
 
 	return map[string]interface{}{"success": true}, nil
 
@@ -1139,6 +1145,8 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 			finalReturn.UnitCompleted = false
 		}
 	}
+
+	failed = false
 
 	return map[string]interface{}{"success": true, "data": finalReturn}, nil
 
