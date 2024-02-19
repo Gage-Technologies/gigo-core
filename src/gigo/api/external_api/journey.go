@@ -30,8 +30,8 @@ type CreateJourneyUnitRequest struct {
 type CreateJourneyTaskRequest struct {
 	JourneyUnitID  string                     `json:"journey_unit_id" validate:"required,number"`
 	Name           string                     `json:"name" validate:"required"`
-	NodeAbove      *string                    `json:"node_above" validate:"required,number"`
-	NodeBelow      *string                    `json:"node_below" validate:"required,number"`
+	NodeAbove      *string                    `json:"node_above"`
+	NodeBelow      *string                    `json:"node_below"`
 	Description    string                     `json:"description" validate:"required"`
 	CodeSourceType models.CodeSource          `json:"code_source_type" validate:"required"`
 	CodeSourceID   string                     `json:"code_source_id" validate:"required,number"`
