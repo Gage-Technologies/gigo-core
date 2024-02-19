@@ -344,31 +344,15 @@ func PublishJourneyUnit(params PublishJourneyUnitParams) (map[string]interface{}
 		return nil, errors.New(fmt.Sprintf("expected one row changed but got %d", numChanged))
 	}
 
-	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, "select * from journey_units where _id = ? and published = ?", params.JourneyID, true)
+	err = params.Meili.AddDocuments("journey_units", map[string]interface{}{"_id": params.JourneyID, "published": true})
 	if err != nil {
 		failed = true
-		return nil, errors.New(fmt.Sprintf("failed to query for updated journey unit, err: %v", err))
-	}
-
-	var journeyUnit models.JourneyUnit
-
-	for rows.Next() {
-		err = sqlstruct.Scan(&journeyUnit, rows)
-		if err != nil {
-			failed = true
-			return nil, errors.New(fmt.Sprintf("failed to scan journey unit after update, err: %v", err))
-		}
-	}
-
-	err = params.Meili.AddDocuments("journey_units", journeyUnit)
-	if err != nil {
-		failed = true
-		return nil, errors.New(fmt.Sprintf("failed to add journey unit: %v to search, err: %v", journeyUnit.ID, err))
+		return nil, errors.New(fmt.Sprintf("failed to add journey unit: %v to search, err: %v", params.JourneyID, err))
 	}
 
 	failed = false
 
-	return map[string]interface{}{"success": true, "journey_unit": journeyUnit}, nil
+	return map[string]interface{}{"success": true}, nil
 
 }
 
