@@ -1193,9 +1193,9 @@ func UpdateJourneyTaskTree(params UpdateJourneyTaskUnitTreeParams) (map[string]i
 
 	val = append(val, params.TaskID)
 
-	res, err := params.TiDB.ExecContext(ctx, &span, &callerName, "update journey_units set"+strings.Join(paramsQ, ",")+" where _id = ?", val...)
+	res, err := params.TiDB.ExecContext(ctx, &span, &callerName, "update journey_tasks set"+strings.Join(paramsQ, ",")+" where _id = ?", val...)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to execute journey unit update for above/below: %v, err: %v", "update journey_tasks set"+strings.Join(paramsQ, ",")+" where _id = ?", err))
+		return nil, errors.New(fmt.Sprintf("failed to execute journey tasks update for above/below: %v, err: %v", "update journey_tasks set"+strings.Join(paramsQ, ",")+" where _id = ?", err))
 	}
 
 	rows, err := res.RowsAffected()
