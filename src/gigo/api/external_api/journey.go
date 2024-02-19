@@ -18,7 +18,7 @@ import (
 )
 
 type CreateJourneyUnitRequest struct {
-	Name        string                       `json:"name" validate:"required,lte=35"`
+	Name        string                       `json:"name" validate:"required"`
 	UnitAbove   *string                      `json:"unit_above"`
 	UnitBelow   *string                      `json:"unit_below"`
 	Description string                       `json:"description" validate:"required"`

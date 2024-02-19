@@ -18,7 +18,7 @@ import (
 )
 
 type CreateByteRequest struct {
-	Name                   string                     `json:"name" validate:"required,lte=35"`
+	Name                   string                     `json:"name" validate:"required,lte=100"`
 	DescriptionEasy        string                     `json:"description_easy" validate:"required,lte=500"`
 	DescriptionMedium      string                     `json:"description_medium" validate:"required,lte=500"`
 	DescriptionHard        string                     `json:"description_hard" validate:"required,lte=500"`
@@ -629,4 +629,3 @@ func (s *HTTPServer) UnPublishByte(w http.ResponseWriter, r *http.Request) {
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "UnPublishByte", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
-
