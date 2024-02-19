@@ -113,6 +113,9 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 		UnitAbove:     JourneyUnitReq.UnitAbove,
 		UnitBelow:     JourneyUnitReq.UnitBelow,
 		Thumbnail:     thumbnailTempPath,
+		Langs:         JourneyUnitReq.Langs,
+		Description:   JourneyUnitReq.Description,
+		Tags:          JourneyUnitReq.Tags,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
@@ -407,6 +410,7 @@ func (s *HTTPServer) CreateJourneyTask(w http.ResponseWriter, r *http.Request) {
 		Ctx:            ctx,
 		TiDB:           s.tiDB,
 		Sf:             s.sf,
+		JourneyUnitID:  journeyTaskReq.JourneyUnitID,
 		Name:           journeyTaskReq.Name,
 		NodeBelow:      journeyTaskReq.NodeBelow,
 		NodeAbove:      journeyTaskReq.NodeAbove,
@@ -793,12 +797,13 @@ func (s *HTTPServer) CreateJourneyDetour(w http.ResponseWriter, r *http.Request)
 
 	// call the core
 	res, err := core.CreateJourneyDetour(core.CreateJourneyDetourParams{
-		Ctx:       ctx,
-		TiDB:      s.tiDB,
-		Sf:        s.sf,
-		UserID:    journeyDetourReq.UserID,
-		TaskID:    journeyDetourReq.TaskID,
-		StartedAt: time.Now(),
+		Ctx:          ctx,
+		TiDB:         s.tiDB,
+		Sf:           s.sf,
+		DetourUnitID: journeyDetourReq.DetourUnitID,
+		UserID:       journeyDetourReq.UserID,
+		TaskID:       journeyDetourReq.TaskID,
+		StartedAt:    time.Now(),
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
