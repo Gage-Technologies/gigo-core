@@ -990,7 +990,7 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 		return nil, errors.New(fmt.Sprintf("no units returned from user map with userID: %v", params.UserID))
 	}
 
-	return map[string]interface{}{"success": true, "user_map": final.ToFrontend()}, err
+	return map[string]interface{}{"success": true, "user_map": final.ToFrontend()}, nil
 }
 
 func CreateJourneyDetourRecommendation(params CreateDetourRecommendationParams) (map[string]interface{}, error) {
