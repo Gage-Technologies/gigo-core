@@ -52,7 +52,7 @@ type CreateJourneyDetourRecommendationRequest struct {
 
 type CreateJourneyUserMapRequest struct {
 	UserID string   `json:"user_id" validate:"required,number"`
-	Units  []string `json:"units" validate:"required,number"`
+	Units  []string `json:"units" validate:"required,dive,number"`
 }
 
 func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
