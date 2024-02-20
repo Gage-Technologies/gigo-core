@@ -974,7 +974,7 @@ func CreateJourneyUserMap(params CreateJourneyUserMapParams) (map[string]interfa
 func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-journey-user-map-core")
 	defer span.End()
-	callerName := "CreateJourneyUserMap"
+	callerName := "GetJourneyUserMap"
 
 	res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_user_map where user_id = ?`, params.UserID)
 	if err != nil {
@@ -987,7 +987,7 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 	}
 
 	if final == nil || len(final.Units) < 1 {
-		return nil, errors.New(fmt.Sprintf("no units returned from user map"))
+		return nil, errors.New(fmt.Sprintf("no units returned from user map with userID: %v", params.UserID))
 	}
 
 	return map[string]interface{}{"success": true, "user_map": final.ToFrontend()}, err
