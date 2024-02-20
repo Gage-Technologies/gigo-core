@@ -90,14 +90,14 @@ type GetAllTasksInUnitParams struct {
 }
 
 type GetAllTasksInUnitReturn struct {
-	JourneyUnitID int64       `json:"journey_unit_id" sql:"ju._id"`
-	Tasks         []*UserTask `json:"tasks"`
-	UnitCompleted bool        `json:"unit_completed"`
-	UnitAbove     *int64      `json:"unit_above_id" sql:"ju.node_above"`
-	UnitBelow     *int64      `json:"unit_below_id" sql:"ju.node_below"`
-	Langs         []string    `json:"languages"`
-	Name          string      `json:"name" sql:"ju.name"`
-	Description   string      `json:"description" sql:"ju.description"`
+	JourneyUnitID string              `json:"journey_unit_id" sql:"ju._id"`
+	Tasks         []*UserTaskFrontend `json:"tasks"`
+	UnitCompleted bool                `json:"unit_completed"`
+	UnitAbove     *string             `json:"unit_above_id" sql:"ju.node_above"`
+	UnitBelow     *string             `json:"unit_below_id" sql:"ju.node_below"`
+	Langs         []string            `json:"languages"`
+	Name          string              `json:"name" sql:"ju.name"`
+	Description   string              `json:"description" sql:"ju.description"`
 }
 
 type GetUserJourneyTaskReturn struct {
@@ -196,6 +196,45 @@ type UserTask struct {
 	NodeAbove     *int64 `json:"node_above" sql:"jt.node_above"`
 	NodeBelow     *int64 `json:"node_below" sql:"jt.node_below"`
 	Completed     *bool  `json:"completed" sql:"completed"`
+}
+
+func (u *UserTask) ToFrontend() *UserTaskFrontend {
+
+	var nodeBelow *string
+
+	if u.NodeBelow != nil {
+		belowStr := fmt.Sprintf("%v", *u.NodeBelow)
+		nodeBelow = &belowStr
+	}
+
+	var nodeAbove *string
+
+	if u.NodeAbove != nil {
+		aboveStr := fmt.Sprintf("%v", *u.NodeAbove)
+		nodeAbove = &aboveStr
+	}
+
+	return &UserTaskFrontend{
+		ID:            fmt.Sprintf("%v", u.ID),
+		Name:          fmt.Sprintf("%v", u.Name),
+		Description:   fmt.Sprintf("%v", u.Description),
+		Lang:          fmt.Sprintf("%v", u.Lang),
+		JourneyUnitID: fmt.Sprintf("%v", u.JourneyUnitID),
+		NodeAbove:     nodeAbove,
+		NodeBelow:     nodeBelow,
+		Completed:     u.Completed,
+	}
+}
+
+type UserTaskFrontend struct {
+	ID            string  `json:"_id" sql:"jt._id"`
+	Name          string  `json:"name" sql:"jt.name"`
+	Description   string  `json:"description" sql:"jt.description"`
+	Lang          string  `json:"lang" sql:"jt.lang"`
+	JourneyUnitID string  `json:"journey_unit_id" sql:"jt.journey_unit_id"`
+	NodeAbove     *string `json:"node_above" sql:"jt.node_above"`
+	NodeBelow     *string `json:"node_below" sql:"jt.node_below"`
+	Completed     *bool   `json:"completed" sql:"completed"`
 }
 
 type UpdateJourneyUnitTreeParams struct {
@@ -1138,10 +1177,15 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 
 	defer res.Close()
 
-	journeyUnit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
-	if err != nil {
-		failed = true
-		return nil, errors.New(fmt.Sprintf("failed to decode query for results \n Error: %v", err))
+	var journeyUnit *models.JourneyUnit
+
+	for res.Next() {
+		journeyUnit, err = models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
+		if err != nil {
+			failed = true
+			return nil, errors.New(fmt.Sprintf("failed to decode query for results \n Error: %v", err))
+		}
+
 	}
 
 	if journeyUnit == nil {
@@ -1149,11 +1193,24 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 		return nil, errors.New(fmt.Sprintf("no Journey Unit found"))
 	}
 
-	finalReturn.JourneyUnitID = journeyUnit.ID
+	var unitBelow *string
+	var unitAbove *string
+
+	if journeyUnit.UnitBelow != nil {
+		belowStr := fmt.Sprintf("%v", *journeyUnit.UnitBelow)
+		unitBelow = &belowStr
+	}
+
+	if journeyUnit.UnitAbove != nil {
+		aboveStr := fmt.Sprintf("%v", *journeyUnit.UnitAbove)
+		unitAbove = &aboveStr
+	}
+
+	finalReturn.JourneyUnitID = fmt.Sprintf("%v", journeyUnit.ID)
 	finalReturn.Name = journeyUnit.Name
 	finalReturn.Description = journeyUnit.Description
-	finalReturn.UnitBelow = journeyUnit.UnitBelow
-	finalReturn.UnitAbove = journeyUnit.UnitAbove
+	finalReturn.UnitBelow = unitBelow
+	finalReturn.UnitAbove = unitAbove
 
 	for _, l := range journeyUnit.Langs {
 		finalReturn.Langs = append(finalReturn.Langs, l.String())
@@ -1181,7 +1238,7 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 			failed = true
 			return nil, errors.New(fmt.Sprintf("failed to decode query for user task results \n Error: %v", err))
 		}
-		finalReturn.Tasks = append(finalReturn.Tasks, &userTask)
+		finalReturn.Tasks = append(finalReturn.Tasks, userTask.ToFrontend())
 	}
 
 	finalReturn.UnitCompleted = true
