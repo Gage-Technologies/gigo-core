@@ -247,8 +247,9 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 		return
 	}
 
+	removeProvisionerCtx, remoteProvisionerSpan := otel.Tracer("gigo-core").Start(ctx, "remote-provisioner-create-workspace")
 	// create workspace via remote provisioner
-	newAgentData, err := wsClient.CreateWorkspace(ctx, ws.CreateWorkspaceOptions{
+	newAgentData, err := wsClient.CreateWorkspace(removeProvisionerCtx, ws.CreateWorkspaceOptions{
 		WorkspaceID: createWsMsg.WorkspaceID,
 		OwnerID:     createWsMsg.OwnerID,
 		OwnerName:   createWsMsg.OwnerName,
@@ -260,32 +261,43 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 		AccessUrl:   createWsMsg.AccessUrl,
 	})
 	if err != nil {
+		remoteProvisionerSpan.RecordError(err)
+		remoteProvisionerSpan.End()
 		logger.Error(fmt.Sprintf(
 			"(workspace: %d) failed to create workspace %d via remote prvisioner: %v",
 			nodeId, createWsMsg.WorkspaceID, err,
 		))
 		return
 	}
+	remoteProvisionerSpan.End()
 
+	_, zitiCreateAgentSpan := otel.Tracer("gigo-core").Start(ctx, "ziti-create-agent")
 	// create a new ziti mesh agent for the new agent
 	zitiAgentID, zitiAgentToken, err := zitiManager.CreateAgent(newAgentData.ID)
 	if err != nil {
+		zitiCreateAgentSpan.RecordError(err)
+		zitiCreateAgentSpan.End()
 		logger.Error(fmt.Sprintf(
 			"(workspace: %d) failed to create ziti agent for workspace %d: %v",
 			nodeId, createWsMsg.WorkspaceID, err,
 		))
 		return
 	}
+	zitiCreateAgentSpan.End()
 
+	_, zitiEnrollIdentitySpan := otel.Tracer("gigo-core").Start(ctx, "ziti-enroll-identity")
 	// enroll the identity into a configuration
 	zitiConfig, err := zitimesh.EnrollIdentity(zitiAgentToken)
 	if err != nil {
+		zitiEnrollIdentitySpan.RecordError(err)
+		zitiEnrollIdentitySpan.End()
 		logger.Error(fmt.Sprintf(
 			"(workspace: %d) failed to enroll ziti agent for workspace %d: %v",
 			nodeId, createWsMsg.WorkspaceID, err,
 		))
 		return
 	}
+	zitiEnrollIdentitySpan.End()
 	zitiConfigBuf, err := json.Marshal(&zitiConfig)
 	if err != nil {
 		logger.Error(fmt.Sprintf(
