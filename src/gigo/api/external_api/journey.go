@@ -220,7 +220,7 @@ func (s *HTTPServer) GetJourneyUnitMetadata(w http.ResponseWriter, r *http.Reque
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)
 		// handle error internally
-		s.handleError(w, "StartByteAttempt core failed", r.URL.Path, "GetJourneyUnitMetadata", r.Method, r.Context().Value(CtxKeyRequestID),
+		s.handleError(w, "GetJourneyUnitMetadata core failed", r.URL.Path, "GetJourneyUnitMetadata", r.Method, r.Context().Value(CtxKeyRequestID),
 			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
 		// exit
 		return

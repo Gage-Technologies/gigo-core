@@ -328,12 +328,17 @@ func GetJourneyUnitMetadata(params GetJourneyUnitMetadataParams) (map[string]int
 
 	defer res.Close()
 
-	unit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to marhsal unit with from sql native, err : %v", err))
+	for res.Next() {
+		unit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to marhsal unit with from sql native, err : %v", err))
+		}
+
+		return map[string]interface{}{"success": true, "unit": unit}, nil
+
 	}
 
-	return map[string]interface{}{"success": true, "unit": unit}, nil
+	return nil, errors.New(fmt.Sprintf("failed to find journey unit with id: %v, err: %v", params.JourneyUnitID, err))
 
 }
 
