@@ -277,6 +277,23 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 		return
 	}
 
+	// enroll the identity into a configuration
+	zitiConfig, err := zitimesh.EnrollIdentity(zitiAgentToken)
+	if err != nil {
+		logger.Error(fmt.Sprintf(
+			"(workspace: %d) failed to enroll ziti agent for workspace %d: %v",
+			nodeId, createWsMsg.WorkspaceID, err,
+		))
+		return
+	}
+	zitiConfigBuf, err := json.Marshal(&zitiConfig)
+	if err != nil {
+		logger.Error(fmt.Sprintf(
+			"(workspace: %d) failed to marshal ziti config for workspace %d: %v",
+			nodeId, createWsMsg.WorkspaceID, err,
+		))
+	}
+
 	// create a new agent
 	newAgent := models.CreateWorkspaceAgent(
 		newAgentData.ID,
@@ -285,7 +302,7 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 		createWsMsg.OwnerID,
 		newAgentData.Token,
 		zitiAgentID,
-		zitiAgentToken,
+		string(zitiConfigBuf),
 	)
 
 	// update agent id for cleanup function
