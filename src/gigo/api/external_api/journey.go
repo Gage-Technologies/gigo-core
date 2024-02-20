@@ -51,8 +51,8 @@ type CreateJourneyDetourRecommendationRequest struct {
 }
 
 type CreateJourneyUserMapRequest struct {
-	UserID string               `json:"user_id" validate:"required,number"`
-	Units  []models.JourneyUnit `json:"units" validate:"required"`
+	UserID string   `json:"user_id" validate:"required,number"`
+	Units  []string `json:"units" validate:"required,number"`
 }
 
 func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
@@ -1188,12 +1188,19 @@ func (s *HTTPServer) CreateJourneyUserMap(w http.ResponseWriter, r *http.Request
 
 	userID, _ := strconv.ParseInt(journeyMapReq.UserID, 10, 64)
 
+	units := make([]int64, 0)
+
+	for _, unit := range journeyMapReq.Units {
+		num, _ := strconv.ParseInt(unit, 10, 64)
+		units = append(units, num)
+	}
+
 	// call the core
 	res, err := core.CreateJourneyUserMap(core.CreateJourneyUserMapParams{
 		Ctx:    ctx,
 		TiDB:   s.tiDB,
 		UserID: userID,
-		Units:  journeyMapReq.Units,
+		Units:  units,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function

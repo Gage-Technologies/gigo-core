@@ -148,7 +148,7 @@ type CreateJourneyUserMapParams struct {
 	Ctx    context.Context
 	TiDB   *ti.Database
 	UserID int64
-	Units  []models.JourneyUnit
+	Units  []int64
 }
 
 type GetJourneyUserMapParams struct {
@@ -893,10 +893,45 @@ func CreateJourneyUserMap(params CreateJourneyUserMapParams) (map[string]interfa
 	// record failure state to cleanup on exit
 	failed := true
 
+	tx, err := params.TiDB.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to create transaction: %v", err))
+	}
+
+	paramSlots := make([]string, 0)
+	unitIDs := make([]interface{}, 0)
+
+	for _, u := range params.Units {
+		unitIDs = append(unitIDs, u)
+		paramSlots = append(paramSlots, "?")
+	}
+
+	res, err := tx.QueryContext(ctx, &callerName, fmt.Sprintf("select * from journey_units where _id in (%s)", strings.Join(paramSlots, ",")), unitIDs...)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to query: %v for journey units in user map, err: %v", fmt.Sprintf("select * from journey_units where _id in (%s)", strings.Join(paramSlots, ",")), err))
+	}
+
+	defer res.Close()
+
+	fullUnits := make([]models.JourneyUnit, 0)
+
+	for res.Next() {
+		j, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to marhsal journey unit with from sql in user map, err: %v", err))
+		}
+
+		if j == nil {
+			return nil, errors.New(fmt.Sprintf("failed to marhsal journey unit with from sql in user map, err: nmo journey nit return from function"))
+		}
+
+		fullUnits = append(fullUnits, *j)
+	}
+
 	// create a new journey unit
 	journeyMap, err := models.CreateJourneyUserMap(
 		params.UserID,
-		params.Units,
+		fullUnits,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create journeyUserMap: %v", err)
@@ -906,11 +941,6 @@ func CreateJourneyUserMap(params CreateJourneyUserMapParams) (map[string]interfa
 	statements, err := journeyMap.ToSQLNative()
 	if err != nil {
 		return nil, fmt.Errorf("failed to format user map into insert statements: %v", err)
-	}
-
-	tx, err := params.TiDB.BeginTx(ctx, &span, &callerName, nil)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to create transaction: %v", err))
 	}
 
 	defer func() {
