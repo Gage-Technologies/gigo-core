@@ -334,7 +334,7 @@ func GetJourneyUnitMetadata(params GetJourneyUnitMetadataParams) (map[string]int
 			return nil, errors.New(fmt.Sprintf("failed to marhsal unit with from sql native, err : %v", err))
 		}
 
-		return map[string]interface{}{"success": true, "unit": unit}, nil
+		return map[string]interface{}{"success": true, "unit": unit.ToFrontend()}, nil
 
 	}
 
@@ -960,7 +960,7 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 		return nil, errors.New(fmt.Sprintf("no units returned from user map"))
 	}
 
-	return map[string]interface{}{"success": true, "user_map": final}, err
+	return map[string]interface{}{"success": true, "user_map": final.ToFrontend()}, err
 }
 
 func CreateJourneyDetourRecommendation(params CreateDetourRecommendationParams) (map[string]interface{}, error) {
