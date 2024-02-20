@@ -1965,6 +1965,7 @@ func (s *HTTPServer) linkAPI() {
 
 	///////////////////////////////////////Journey
 	s.router.HandleFunc("/api/journey/createUnit", s.CreateJourneyUnit).Methods("POST")
+	s.router.HandleFunc("/api/journey/getUnitMetadata", s.GetJourneyUnitMetadata).Methods("POST")
 	s.router.HandleFunc("/api/journey/publishUnit", s.PublishJourneyUnit).Methods("POST")
 	s.router.HandleFunc("/api/journey/unPublishUnit", s.UnPublishJourneyUnit).Methods("POST")
 	s.router.HandleFunc("/api/journey/deleteUnit", s.DeleteJourneyUnit).Methods("POST")

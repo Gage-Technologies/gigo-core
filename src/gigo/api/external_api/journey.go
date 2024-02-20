@@ -165,6 +165,80 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	s.jsonResponse(r, w, res, r.URL.Path, "CreateProject", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
 
+func (s *HTTPServer) GetJourneyUnitMetadata(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "get-journey-unit-metadata-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "GetJourneyUnitMetadata", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "GetJourneyUnitMetadata", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// attempt to load code source id from body
+	unitIdI, ok := s.loadValue(w, r, reqJson, "GetJourneyUnitMetadata", "unit_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
+	if unitIdI == nil || !ok {
+		return
+	}
+
+	// parse post code source id to integer
+	journeyUnitId, err := strconv.ParseInt(unitIdI.(string), 10, 64)
+	if err != nil {
+		// handle error internally
+		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", unitIdI.(string)), r.URL.Path, "GetJourneyUnitMetadata", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
+		// exit
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetJourneyUnitMetadata", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.GetJourneyUnitMetadata(core.GetJourneyUnitMetadataParams{
+		Ctx:           ctx,
+		TiDB:          s.tiDB,
+		JourneyUnitID: journeyUnitId,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "StartByteAttempt core failed", r.URL.Path, "GetJourneyUnitMetadata", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"get-journey-unit-metadata",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "GetJourneyUnitMetadata", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
 func (s *HTTPServer) PublishJourneyUnit(w http.ResponseWriter, r *http.Request) {
 	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "publish-journey-attempt-http")
 	defer parentSpan.End()

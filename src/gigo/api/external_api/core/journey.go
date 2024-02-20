@@ -69,6 +69,12 @@ type CreateJourneyTaskParams struct {
 	Lang           models.ProgrammingLanguage
 }
 
+type GetJourneyUnitMetadataParams struct {
+	Ctx           context.Context
+	TiDB          *ti.Database
+	JourneyUnitID int64
+}
+
 type GetUserJourneyTaskParams struct {
 	Ctx    context.Context
 	TiDB   *ti.Database
@@ -307,6 +313,27 @@ func CreateJourneyUnit(params CreateJourneyUnitParams) (map[string]interface{}, 
 	failed = false
 
 	return map[string]interface{}{"message": "Byte created successfully.", "byte": fp}, nil
+
+}
+
+func GetJourneyUnitMetadata(params GetJourneyUnitMetadataParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "publish-journey-unit-core")
+	defer span.End()
+	callerName := "PublishJourneyUnit"
+
+	res, err := params.TiDB.QueryContext(ctx, &span, &callerName, "select * from journey_units where published = 1 and _id = ?", params.JourneyUnitID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to query for journey units by id: %v, err: %v", params.JourneyUnitID, err))
+	}
+
+	defer res.Close()
+
+	unit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to marhsal unit with from sql native, err : %v", err))
+	}
+
+	return map[string]interface{}{"success": true, "unit": unit}, nil
 
 }
 
