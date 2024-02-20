@@ -262,14 +262,14 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 			p.socket.logger.Infof("no active agents found for workspace %s", statusMsg.Workspace.ID)
 		}
 
-		p.s.logger.Debugf("initializing code server connection: %s", statusMsg.Workspace.ID)
+		p.s.logger.Debugf("initializing agent connection: %s", statusMsg.Workspace.ID)
 
 		// we record the start time of our ping loop so we can exit if it takes longer than 5s
 		startTime := time.Now()
 		for {
 			// exit if it's been more than five seconds since we started waiting
 			if time.Since(startTime) > 5*time.Second {
-				p.socket.logger.Warnf("timed out initializing code server connection: %s", statusMsg.Workspace.ID)
+				p.socket.logger.Warnf("timed out initializing agent connection: %s", statusMsg.Workspace.ID)
 				break
 			}
 
@@ -280,23 +280,23 @@ func (p *WebSocketPluginWorkspace) workspaceStatusCallback(msg *nats.Msg) {
 						// we dial the agent here using the zitimesh server which will
 						// establish a connection to the end target on the agent over
 						// the ziti net mesh ovelay
-						return p.s.zitiServer.DialAgent(agentId, zitimesh.NetworkTypeTCP, 13337)
+						return p.s.zitiServer.DialAgent(agentId, zitimesh.NetworkTypeTCP, agentsdk.ZitiAgentServerPort)
 					},
 				},
 			}
 
-			// execute a get request to the /healthz endpoint - this warms up the connection to code-server via ziti
+			// execute a get request to the /healthz endpoint - this warms up the connection to the agent via ziti
 			resp, err := client.Get("http://dummy/healthz")
 			if resp != nil && resp.Body != nil {
 				defer resp.Body.Close()
 			}
 			if err != nil {
-				p.socket.logger.Debugf("failed to warmup code-server connection for workspace %s: %v", statusMsg.Workspace.ID, err)
+				p.socket.logger.Debugf("failed to warmup agent connection for workspace %s: %v", statusMsg.Workspace.ID, err)
 				time.Sleep(time.Millisecond * 100)
 				continue
 			}
 			if resp.StatusCode != 200 {
-				p.socket.logger.Debugf("code-server healthcheck returned non-successful response for workspace %s: %s", statusMsg.Workspace.ID, resp.StatusCode)
+				p.socket.logger.Debugf("agent healthcheck returned non-successful response for workspace %s: %s", statusMsg.Workspace.ID, resp.StatusCode)
 				time.Sleep(time.Millisecond * 100)
 				continue
 			}
