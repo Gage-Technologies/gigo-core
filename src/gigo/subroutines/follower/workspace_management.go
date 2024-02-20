@@ -138,7 +138,14 @@ func boundWorkspaceAllocations(ctx context.Context, tidb *ti.Database, msg model
 //	system (gigo-ws) and updates the database directly on completion or failure
 func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, wsStatusUpdater *utils.WorkspaceStatusUpdater,
 	js *mq.JetstreamClient, msg *nats.Msg, zitiManager *zitimesh.Manager, logger logging.Logger) {
-	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-create-workspace-routine")
+	// create context for workspace create
+	// we set the timeout to 15 minutes which is pretty high
+	// given that this API call will only need to instruct kubernetes
+	// to launch a new pod for the workspace, so it should complete within
+	// 40s (if this isn't true the image is too big or the system broke)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*15)
+
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "async-create-workspace-routine")
 	defer span.End()
 	callerName := "asyncCreateWorkspace"
 
@@ -148,6 +155,7 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 	err := decoder.Decode(&createWsMsg)
 	if err != nil {
 		logger.Errorf("(workspace: %d) failed to decode create workspace message: %v", nodeId, err)
+		cancel()
 		return
 	}
 
@@ -159,13 +167,6 @@ func asyncCreateWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspac
 
 	// create variable to hold agent id so we can cleanup if we fail
 	agentId := int64(-1)
-
-	// create context for workspace create
-	// we set the timeout to 15 minutes which is pretty high
-	// given that this API call will only need to instruct kubernetes
-	// to launch a new pod for the workspace, so it should complete within
-	// 40s (if this isn't true the image is too big or the system broke)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*15)
 
 	// cleanup workspace on failure
 	defer func() {
