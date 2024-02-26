@@ -100,6 +100,12 @@ type GetAllTasksInUnitReturn struct {
 	Description   string              `json:"description" sql:"ju.description"`
 }
 
+type GetAllJourneyUnitsParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	UserID int64
+}
+
 type GetUserJourneyTaskReturn struct {
 	TaskID      string `json:"task_id" sql:"jt._id"`
 	Name        string `json:"name" sql:"jt.name"`
@@ -1252,6 +1258,85 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 
 	return map[string]interface{}{"success": true, "data": finalReturn}, nil
 
+}
+
+func GetAllJourneyUnits(params GetAllJourneyUnitsParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "get-all-journey-units-core")
+	defer span.End()
+	callerName := "GetAllJourneyUnits"
+
+	failed := true
+
+	tx, err := params.TiDB.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to create transaction to query for journey units, err: %v", err))
+	}
+
+	defer func() {
+		// skip cleanup if we succeeded
+		if !failed {
+			return
+		}
+
+		_ = tx.Rollback()
+	}()
+
+	res, err := tx.QueryContext(ctx, &callerName, "SELECT unit_id from journey_user_map where user_id = ?", params.UserID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to get all users units, err: %v", err))
+	}
+
+	defer res.Close()
+
+	units := make([]interface{}, 0)
+
+	for res.Next() {
+		var unit int64
+		err := res.Scan(&unit)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to scan row into variable, err: %v", err))
+		}
+		units = append(units, unit)
+	}
+
+	err = res.Close()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to close result set, err: %v", err))
+	}
+
+	res, err = tx.QueryContext(ctx, &callerName, "SELECT * from journey_units where published = 1 and _id in ("+strings.Repeat(" ,? ", len(units)-1)+")", units...)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to query database for journey units: %v, err: %v", "SELECT * from journey_units where published = 1 and _id in ("+strings.Repeat(" ,? ", len(units)-1)+")", err))
+	}
+
+	defer res.Close()
+
+	unitsFrontend := make([]*models.JourneyUnitFrontend, 0)
+
+	for res.Next() {
+		unit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to scan row into variable, err: %v", err))
+		}
+
+		if unit == nil {
+			return nil, errors.New(fmt.Sprintf("failed to scan row into variable, err: no unit returned from scan"))
+		}
+
+		unitsFrontend = append(unitsFrontend, unit.ToFrontend())
+	}
+
+	if unitsFrontend == nil || len(unitsFrontend) < 1 {
+		return nil, errors.New(fmt.Sprintf("no units returned from scan"))
+	}
+
+	failed = false
+	err = tx.Commit(&callerName)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to commit transaction, err: %v", err))
+	}
+
+	return map[string]interface{}{"success": true, "units": unitsFrontend}, nil
 }
 
 func UpdateJourneyUnitTree(params UpdateJourneyUnitTreeParams) (map[string]interface{}, error) {
