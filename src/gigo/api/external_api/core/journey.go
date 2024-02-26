@@ -194,14 +194,16 @@ type UserJourneyStats struct {
 }
 
 type UserTask struct {
-	ID            int64  `json:"_id" sql:"jt._id"`
-	Name          string `json:"name" sql:"jt.name"`
-	Description   string `json:"description" sql:"jt.description"`
-	Lang          string `json:"lang" sql:"jt.lang"`
-	JourneyUnitID int64  `json:"journey_unit_id" sql:"jt.journey_unit_id"`
-	NodeAbove     *int64 `json:"node_above" sql:"jt.node_above"`
-	NodeBelow     *int64 `json:"node_below" sql:"jt.node_below"`
-	Completed     *bool  `json:"completed" sql:"completed"`
+	ID             int64             `json:"_id" sql:"jt._id"`
+	Name           string            `json:"name" sql:"jt.name"`
+	Description    string            `json:"description" sql:"jt.description"`
+	Lang           string            `json:"lang" sql:"jt.lang"`
+	JourneyUnitID  int64             `json:"journey_unit_id" sql:"jt.journey_unit_id"`
+	NodeAbove      *int64            `json:"node_above" sql:"jt.node_above"`
+	NodeBelow      *int64            `json:"node_below" sql:"jt.node_below"`
+	CodeSourceID   int64             `json:"code_source_id" sql:"jt.code_source_id"`
+	CodeSourceType models.CodeSource `json:"code_source_type" sql:"jt.code_source_type"`
+	Completed      *bool             `json:"completed" sql:"completed"`
 }
 
 func (u *UserTask) ToFrontend() *UserTaskFrontend {
@@ -221,26 +223,30 @@ func (u *UserTask) ToFrontend() *UserTaskFrontend {
 	}
 
 	return &UserTaskFrontend{
-		ID:            fmt.Sprintf("%v", u.ID),
-		Name:          fmt.Sprintf("%v", u.Name),
-		Description:   fmt.Sprintf("%v", u.Description),
-		Lang:          fmt.Sprintf("%v", u.Lang),
-		JourneyUnitID: fmt.Sprintf("%v", u.JourneyUnitID),
-		NodeAbove:     nodeAbove,
-		NodeBelow:     nodeBelow,
-		Completed:     u.Completed,
+		ID:             fmt.Sprintf("%v", u.ID),
+		Name:           fmt.Sprintf("%v", u.Name),
+		Description:    fmt.Sprintf("%v", u.Description),
+		Lang:           fmt.Sprintf("%v", u.Lang),
+		JourneyUnitID:  fmt.Sprintf("%v", u.JourneyUnitID),
+		NodeAbove:      nodeAbove,
+		NodeBelow:      nodeBelow,
+		CodeSourceID:   fmt.Sprintf("%v", u.CodeSourceID),
+		CodeSourceType: int(u.CodeSourceType),
+		Completed:      u.Completed,
 	}
 }
 
 type UserTaskFrontend struct {
-	ID            string  `json:"_id" sql:"jt._id"`
-	Name          string  `json:"name" sql:"jt.name"`
-	Description   string  `json:"description" sql:"jt.description"`
-	Lang          string  `json:"lang" sql:"jt.lang"`
-	JourneyUnitID string  `json:"journey_unit_id" sql:"jt.journey_unit_id"`
-	NodeAbove     *string `json:"node_above" sql:"jt.node_above"`
-	NodeBelow     *string `json:"node_below" sql:"jt.node_below"`
-	Completed     *bool   `json:"completed" sql:"completed"`
+	ID             string  `json:"_id" sql:"jt._id"`
+	Name           string  `json:"name" sql:"jt.name"`
+	Description    string  `json:"description" sql:"jt.description"`
+	Lang           string  `json:"lang" sql:"jt.lang"`
+	JourneyUnitID  string  `json:"journey_unit_id" sql:"jt.journey_unit_id"`
+	NodeAbove      *string `json:"node_above" sql:"jt.node_above"`
+	NodeBelow      *string `json:"node_below" sql:"jt.node_below"`
+	CodeSourceID   string  `json:"code_source_id" sql:"jt.code_source_id"`
+	CodeSourceType int     `json:"code_source_type" sql:"jt.code_source_type"`
+	Completed      *bool   `json:"completed" sql:"completed"`
 }
 
 type UpdateJourneyUnitTreeParams struct {
@@ -1214,7 +1220,7 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 
 	res.Close()
 
-	query = `SELECT jt._id, jt.name, jt.description, jt.lang, jt.journey_unit_id, jt.node_above, jt.node_below,
+	query = `SELECT jt._id, jt.name, jt.description, jt.lang, jt.journey_unit_id, jt.code_source_id, jt.code_source_type, jt.node_above, jt.node_below,
 				CASE
 					WHEN ba.completed_easy = 1 OR ba.completed_medium = 1 OR ba.completed_hard = 1 THEN 1
 					ELSE 0
@@ -1240,6 +1246,8 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 		var junit int64
 		var nodeAboveInt, nodeBelowInt *int64 // Use pointers to int64 for nullable columns
 		var completedBool int                 // Use an int to capture the boolean value, then convert it to *bool later
+		var codeSourceID int64
+		var codeSourceType int
 		var completed *bool
 
 		// Initialize pointers for nullable fields
@@ -1247,7 +1255,7 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 		nodeBelow := new(int64) // Initialize nodeBelow as a pointer to int64
 
 		// Scan the result into variables, including the newly initialized pointers
-		err = res.Scan(&id, &name, &desc, &lang, &junit, &nodeAboveInt, &nodeBelowInt, &completedBool)
+		err = res.Scan(&id, &name, &desc, &lang, &junit, &codeSourceID, &codeSourceType, &nodeAboveInt, &nodeBelowInt, &completedBool)
 		if err != nil {
 			failed = true
 			return nil, errors.New(fmt.Sprintf("failed to decode query for user task results \n Error: %v", err))
@@ -1276,14 +1284,16 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 		}
 
 		userTask := UserTask{
-			ID:            id,
-			Name:          name,
-			Description:   desc,
-			Lang:          models.ProgrammingLanguage(lang).String(),
-			JourneyUnitID: junit,
-			NodeAbove:     nodeAbove,
-			NodeBelow:     nodeBelow,
-			Completed:     completed,
+			ID:             id,
+			Name:           name,
+			Description:    desc,
+			Lang:           models.ProgrammingLanguage(lang).String(),
+			JourneyUnitID:  junit,
+			NodeAbove:      nodeAbove,
+			NodeBelow:      nodeBelow,
+			CodeSourceID:   codeSourceID,
+			CodeSourceType: models.CodeSource(codeSourceType),
+			Completed:      completed,
 		}
 
 		finalReturn.Tasks = append(finalReturn.Tasks, userTask.ToFrontend())
