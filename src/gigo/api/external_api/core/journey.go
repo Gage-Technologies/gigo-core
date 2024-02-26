@@ -1148,8 +1148,6 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 	defer span.End()
 	callerName := "GetAllTasksInUnit"
 
-	var finalReturn GetAllTasksInUnitReturn
-
 	// record failure state to cleanup on exit
 	failed := true
 
@@ -1169,7 +1167,7 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 
 	query := `select * from journey_units where _id = ? and published = 1`
 
-	res, err := tx.QueryContext(ctx, &callerName, query, params.UserID)
+	res, err := tx.QueryContext(ctx, &callerName, query, params.UnitID)
 	if err != nil {
 		failed = true
 		return nil, fmt.Errorf("failed to query user journey task with query: %v: %v", query, err)
@@ -1177,53 +1175,49 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 
 	defer res.Close()
 
-	var journeyUnit *models.JourneyUnit
-
-	for res.Next() {
-		journeyUnit, err = models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
-		if err != nil {
-			failed = true
-			return nil, errors.New(fmt.Sprintf("failed to decode query for results \n Error: %v", err))
-		}
-
-	}
-
-	if journeyUnit == nil {
+	if !res.Next() {
 		failed = false
 		return nil, errors.New(fmt.Sprintf("no Journey Unit found"))
 	}
 
-	var unitBelow *string
-	var unitAbove *string
+	journeyUnit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
+	if err != nil {
+		failed = true
+		return nil, errors.New(fmt.Sprintf("failed to decode query for results \n Error: %v", err))
+	}
+
+	finalReturn := GetAllTasksInUnitReturn{
+		JourneyUnitID: fmt.Sprintf("%v", journeyUnit.ID),
+		Name:          journeyUnit.Name,
+		Description:   journeyUnit.Description,
+	}
 
 	if journeyUnit.UnitBelow != nil {
 		belowStr := fmt.Sprintf("%v", *journeyUnit.UnitBelow)
-		unitBelow = &belowStr
+		finalReturn.UnitBelow = &belowStr
 	}
 
 	if journeyUnit.UnitAbove != nil {
 		aboveStr := fmt.Sprintf("%v", *journeyUnit.UnitAbove)
-		unitAbove = &aboveStr
+		finalReturn.UnitAbove = &aboveStr
 	}
-
-	finalReturn.JourneyUnitID = fmt.Sprintf("%v", journeyUnit.ID)
-	finalReturn.Name = journeyUnit.Name
-	finalReturn.Description = journeyUnit.Description
-	finalReturn.UnitBelow = unitBelow
-	finalReturn.UnitAbove = unitAbove
 
 	for _, l := range journeyUnit.Langs {
 		finalReturn.Langs = append(finalReturn.Langs, l.String())
 	}
 
-	query = `select jt._id, jt.name, jt.description, jt.lang, jt.journey_unit_id, jt.node_above, jt.node_below, completed
-				    CASE
-						WHEN ba.complete_easy = 1 OR ba.completed_medium = 1 OR ba.completed_hard = 1 THEN 1
-						ELSE 0
-					END AS completed
- 					from journey_tasks INNER JOIN bytes b ON jt.code_source_id = b._id 
-					LEFT JOIN byte_attempts ba ON ba.byte_id = b._id 
- 					WHERE jt.published IS TRUE and ba.author_id = ? and jt.journey_unit_id = ?`
+	res.Close()
+
+	query = `SELECT jt._id, jt.name, jt.description, jt.lang, jt.journey_unit_id, jt.node_above, jt.node_below,
+				CASE
+					WHEN ba.completed_easy = 1 OR ba.completed_medium = 1 OR ba.completed_hard = 1 THEN 1
+					ELSE 0
+				END AS completed
+			FROM journey_tasks AS jt
+			INNER JOIN bytes AS b ON jt.code_source_id = b._id 
+			LEFT JOIN byte_attempts AS ba ON ba.byte_id = b._id AND ba.author_id = ?
+			WHERE jt.published = TRUE AND jt.journey_unit_id = ?
+			`
 
 	res, err = tx.QueryContext(ctx, &callerName, query, params.UserID, journeyUnit.ID)
 	if err != nil {
@@ -1232,8 +1226,8 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 	}
 
 	for res.Next() {
-		var userTask UserTask
-		err = sqlstruct.Scan(&userTask, res)
+		userTask := new(UserTask)
+		err = sqlstruct.Scan(userTask, res)
 		if err != nil {
 			failed = true
 			return nil, errors.New(fmt.Sprintf("failed to decode query for user task results \n Error: %v", err))
@@ -1247,6 +1241,11 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 		if t.Completed == nil || !*t.Completed {
 			finalReturn.UnitCompleted = false
 		}
+	}
+
+	err = tx.Commit(&callerName)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to close transaction, err: %v", err))
 	}
 
 	failed = false
