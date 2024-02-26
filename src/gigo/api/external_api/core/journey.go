@@ -1231,14 +1231,70 @@ func GetAllTasksInUnit(params GetAllTasksInUnitParams) (map[string]interface{}, 
 		return nil, errors.New(fmt.Sprintf("failed to query for tasks in journet unit: %v, err: %v", params.UnitID, err))
 	}
 
+	defer res.Close()
+
 	for res.Next() {
-		userTask := new(UserTask)
-		err = sqlstruct.Scan(userTask, res)
+		var id int64
+		var name, desc string
+		var lang int
+		var junit int64
+		var nodeAboveInt, nodeBelowInt *int64 // Use pointers to int64 for nullable columns
+		var completedBool int                 // Use an int to capture the boolean value, then convert it to *bool later
+		var completed *bool
+
+		// Initialize pointers for nullable fields
+		nodeAbove := new(int64) // Initialize nodeAbove as a pointer to int64
+		nodeBelow := new(int64) // Initialize nodeBelow as a pointer to int64
+
+		// Scan the result into variables, including the newly initialized pointers
+		err = res.Scan(&id, &name, &desc, &lang, &junit, &nodeAboveInt, &nodeBelowInt, &completedBool)
 		if err != nil {
 			failed = true
 			return nil, errors.New(fmt.Sprintf("failed to decode query for user task results \n Error: %v", err))
 		}
+
+		// Convert completedBool to *bool
+		if completedBool == 1 {
+			completed = new(bool)
+			*completed = true
+		} else {
+			completed = new(bool)
+			*completed = false
+		}
+
+		// Check if nodeAboveInt or nodeBelowInt are nil and handle accordingly
+		if nodeAboveInt == nil {
+			nodeAbove = nil // Ensure nodeAbove is nil if the database returned NULL
+		} else {
+			nodeAbove = nodeAboveInt
+		}
+
+		if nodeBelowInt == nil {
+			nodeBelow = nil // Ensure nodeBelow is nil if the database returned NULL
+		} else {
+			nodeBelow = nodeBelowInt
+		}
+
+		userTask := UserTask{
+			ID:            id,
+			Name:          name,
+			Description:   desc,
+			Lang:          models.ProgrammingLanguage(lang).String(),
+			JourneyUnitID: junit,
+			NodeAbove:     nodeAbove,
+			NodeBelow:     nodeBelow,
+			Completed:     completed,
+		}
+
 		finalReturn.Tasks = append(finalReturn.Tasks, userTask.ToFrontend())
+	}
+
+	if finalReturn.Tasks == nil {
+		return nil, errors.New(fmt.Sprintf("user tasks returned nil for unit: %v", params.UnitID))
+	}
+
+	if finalReturn.Tasks[0].ID == "0" {
+		return nil, errors.New(fmt.Sprintf("user tasks returned nil for unit: %v", params.UnitID))
 	}
 
 	finalReturn.UnitCompleted = true
