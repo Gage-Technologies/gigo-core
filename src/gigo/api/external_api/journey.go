@@ -1262,22 +1262,6 @@ func (s *HTTPServer) GetAllTasksInUnit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// attempt to load code source id from body
-	userIdI, ok := s.loadValue(w, r, reqJson, "GetAllTasksInUnit", "user_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
-	if userIdI == nil || !ok {
-		return
-	}
-
-	// parse post code source id to integer
-	journeyUserId, err := strconv.ParseInt(userIdI.(string), 10, 64)
-	if err != nil {
-		// handle error internally
-		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", userIdI.(string)), r.URL.Path, "GetAllTasksInUnit", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
-		// exit
-		return
-	}
-
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
@@ -1290,7 +1274,7 @@ func (s *HTTPServer) GetAllTasksInUnit(w http.ResponseWriter, r *http.Request) {
 		Ctx:    ctx,
 		TiDB:   s.tiDB,
 		UnitID: journeyUnitId,
-		UserID: journeyUserId,
+		UserID: callingUser.(*models.User).ID,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
