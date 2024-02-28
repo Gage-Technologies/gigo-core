@@ -1937,6 +1937,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/notification/get", s.GetUserNotifications).Methods("POST")
 	s.router.HandleFunc("/static/posts/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
 	s.router.HandleFunc("/static/bytes/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
+	s.router.HandleFunc("/static/journey/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
 	s.router.HandleFunc("/static/attempts/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
 	s.router.HandleFunc("/static/user/pfp/{id:.+}", s.SiteImages).Methods("GET")
 	s.router.PathPrefix("/static/git/p/{id:[0-9]+}").HandlerFunc(s.GitImages).Methods("GET")

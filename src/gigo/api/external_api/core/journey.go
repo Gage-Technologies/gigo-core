@@ -1355,6 +1355,7 @@ func GetAllJourneyUnits(params GetAllJourneyUnitsParams) (map[string]interface{}
 	defer res.Close()
 
 	units := make([]interface{}, 0)
+	qParams := make([]string, 0)
 
 	for res.Next() {
 		var unit int64
@@ -1363,6 +1364,7 @@ func GetAllJourneyUnits(params GetAllJourneyUnitsParams) (map[string]interface{}
 			return nil, errors.New(fmt.Sprintf("failed to scan row into variable, err: %v", err))
 		}
 		units = append(units, unit)
+		qParams = append(qParams, "?")
 	}
 
 	err = res.Close()
@@ -1370,9 +1372,19 @@ func GetAllJourneyUnits(params GetAllJourneyUnitsParams) (map[string]interface{}
 		return nil, errors.New(fmt.Sprintf("failed to close result set, err: %v", err))
 	}
 
-	res, err = tx.QueryContext(ctx, &callerName, "SELECT * from journey_units where published = 1 and _id in ("+strings.Repeat(" ,? ", len(units)-1)+")", units...)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("failed to query database for journey units: %v, err: %v", "SELECT * from journey_units where published = 1 and _id in ("+strings.Repeat(" ,? ", len(units)-1)+")", err))
+	query := "SELECT * from journey_units where published = 1"
+
+	if len(units) > 0 {
+		query += "and _id not in (" + strings.Join(qParams, ",") + ")"
+		res, err = tx.QueryContext(ctx, &callerName, query, units...)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to query database for journey units: %v, err: %v", query, err))
+		}
+	} else {
+		res, err = tx.QueryContext(ctx, &callerName, query)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to query database for journey units: %v, err: %v", query, err))
+		}
 	}
 
 	defer res.Close()
