@@ -58,6 +58,9 @@ func (s *HTTPServer) SiteImages(w http.ResponseWriter, r *http.Request) {
 		source = models.CodeSourceAttempt
 	} else if strings.HasPrefix(r.URL.Path, "/static/bytes") {
 		source = models.CodeSourceByte
+	} else if strings.HasPrefix(r.URL.Path, "/static/junit") {
+		// fake code source to indicate we're using a journey unit
+		source = models.CodeSource(-2)
 	}
 
 	// parse id to int if all the characters are numerical

@@ -122,6 +122,7 @@ var hybridRoutes = []*regexp.Regexp{
 	regexp.MustCompile("^/static/user/pfp.*$"),
 	regexp.MustCompile("^/static/posts/t.*$"),
 	regexp.MustCompile("^/static/bytes/t.*$"),
+	regexp.MustCompile("^/static/junit/t.*$"),
 	regexp.MustCompile("^/static/attempts/t.*$"),
 	regexp.MustCompile("^/api/project/attempts$"),
 	regexp.MustCompile("^/api/project/get$"),
@@ -1937,7 +1938,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/notification/get", s.GetUserNotifications).Methods("POST")
 	s.router.HandleFunc("/static/posts/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
 	s.router.HandleFunc("/static/bytes/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
-	s.router.HandleFunc("/static/journey/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
+	s.router.HandleFunc("/static/junit/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
 	s.router.HandleFunc("/static/attempts/t/{id:[0-9]+}", s.SiteImages).Methods("GET")
 	s.router.HandleFunc("/static/user/pfp/{id:.+}", s.SiteImages).Methods("GET")
 	s.router.PathPrefix("/static/git/p/{id:[0-9]+}").HandlerFunc(s.GitImages).Methods("GET")
@@ -1964,7 +1965,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/stripe/stripeCheckoutSession", s.StripeCheckoutSession).Methods("POST")
 	s.router.HandleFunc("/api/stripe/premiumMembershipSession", s.StripePremiumMembershipSession).Methods("POST")
 
-	///////////////////////////////////////Journey
+	// /////////////////////////////////////Journey
 	s.router.HandleFunc("/api/journey/createUnit", s.CreateJourneyUnit).Methods("POST")
 	s.router.HandleFunc("/api/journey/getUnitMetadata", s.GetJourneyUnitMetadata).Methods("POST")
 	s.router.HandleFunc("/api/journey/publishUnit", s.PublishJourneyUnit).Methods("POST")

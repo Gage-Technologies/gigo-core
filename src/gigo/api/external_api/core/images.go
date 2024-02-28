@@ -139,6 +139,45 @@ func SiteImages(ctx context.Context, callingUser *models.User, tidb *ti.Database
 		}
 
 		path = fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash)
+	} else if sourceType == models.CodeSource(-2) {
+		// throw an error if no id is provided
+		if id == 0 {
+			return nil, fmt.Errorf("id is required")
+		}
+
+		// query for the post to validate its availability
+		res, err := tidb.QueryContext(ctx, &span, &callerName, "select published from journey_units where _id = ? limit 1", id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query journey units: %v", err)
+		}
+
+		defer res.Close()
+
+		// check if post was found with given id
+		if res == nil || !res.Next() {
+			return nil, fmt.Errorf("not found")
+		}
+
+		// create variables to hold values from curso
+		var published bool
+
+		// attempt to decode res into variables
+		err = res.Scan(&published)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan values from cursor: %v", err)
+		}
+
+		if published != true && (callingUser == nil || callingUser.AuthRole != models.Admin) {
+			return nil, fmt.Errorf("not found")
+		}
+
+		// write thumbnail to final location
+		idHash, err := utils2.HashData([]byte(fmt.Sprintf("%d", id)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash post id: %v", err)
+		}
+
+		path = fmt.Sprintf("post/%s/%s/%s/thumbnail.jpg", idHash[:3], idHash[3:6], idHash)
 	} else {
 		// if the username is provided retrieve the user's id from the database
 		if username != "" {
