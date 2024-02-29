@@ -2067,3 +2067,209 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 		"workspace": workspace.ToFrontend(hostname, tls),
 	}, nil
 }
+
+func CreateHHWorkspace(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, snowflakeNode *snowflake.Node,
+	wsStatusUpdater *utils.WorkspaceStatusUpdater, callingUser *models.User, accessUrl string, hhId int64,
+	hostname string, tls bool) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "create-byte-workspace-core")
+	defer span.End()
+	callerName := "CreateHHWorkspace"
+
+	// attempt to retrieve any existing workspaces
+	res, err := tidb.QueryContext(ctx, &span, &callerName,
+		"select * from workspaces where owner_id = ? and code_source_id = ? and code_source_type = ? and state not in (?, ?, ?) limit 1",
+		callingUser.ID, hhId, models.CodeSourceHH, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for existing workspace: %v\n    query: %s\n    params: %v", err,
+			"select * from workspaces where owner_id = ? and code_source_type = ? and code_source_id = ? and state not in (?, ?, ?) limit 1",
+			[]interface{}{callingUser.ID, hhId, models.CodeSourceHH, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed})
+	}
+
+	// ensure the closure of the cursor
+	defer res.Close()
+
+	// handle case that a workspace is already live
+	if res.Next() {
+		// attempt to load values from the cursor
+		workspace, err := models.WorkspaceFromSQLNative(res)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load workspace from cursor: %v", err)
+		}
+
+		// update expiration
+		workspace.Expiration = time.Now().Add(time.Minute * 30)
+
+		// handle non-live workspaces by performing a start transition
+		if workspace.State != models.WorkspaceActive && workspace.State != models.WorkspaceStarting {
+			// update workspace in tidb using a tx
+			tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to start transaction for workspace start: %v", err)
+			}
+
+			// update the workspace state
+			workspace.State = models.WorkspaceStarting
+			workspace.InitState = -1
+			workspace.LastStateUpdate = time.Now()
+
+			_, err = tx.ExecContext(ctx, &callerName,
+				"update workspaces set expiration = ?, state = ?, init_state = -1, last_state_update = ? where _id = ?",
+				workspace.Expiration, workspace.State, workspace.LastStateUpdate, workspace.ID,
+			)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("failed to update workspace in database: %v", err)
+			}
+
+			// format start workspace request and marshall it with gob
+			buf := bytes.NewBuffer(nil)
+			encoder := gob.NewEncoder(buf)
+			err = encoder.Encode(models2.StartWorkspaceMsg{
+				ID: workspace.ID,
+			})
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("failed to encode workspace: %v", err)
+			}
+
+			// send workspace start message to jetstream so a follower will
+			// start the workspace
+			_, err = js.PublishAsync(streams.SubjectWorkspaceStart, buf.Bytes())
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("failed to send workspace start message to jetstream: %v", err)
+			}
+
+			// commit update tx
+			err = tx.Commit(&callerName)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, fmt.Errorf("failed to commit transaction for workspace start: %v", err)
+			}
+		} else {
+			// update workspace in tidb
+			_, err = tidb.ExecContext(ctx, &span, &callerName, "update workspaces set expiration = ? where _id = ?", workspace.Expiration, workspace.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update expiration for active workspace in tidb: %v", err)
+			}
+		}
+
+		// push workspace status update to subscribers
+		wsStatusUpdater.PushStatus(ctx, workspace.ID, workspace)
+
+		return map[string]interface{}{
+			"message":   "Workspace Created Successfully",
+			"agent_url": fmt.Sprintf("/agent/%d/%d/ws", callingUser.ID, workspace.ID),
+			"workspace": workspace.ToFrontend(hostname, tls),
+		}, nil
+	}
+
+	// close cursor explicitly
+	_ = res.Close()
+
+	_, err = tidb.ExecContext(ctx, &span, &callerName,
+		"update workspaces set expiration = ? where owner_id = ? and code_source_type = ? and _id != ? and state in (?, ?)",
+		time.Now(), callingUser.ID, models.CodeSourceHH, hhId, models.WorkspaceStarting, models.WorkspaceActive,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stop previous HH workspaces: %v", err)
+	}
+
+	// select user defaults
+	var wsSettings models.WorkspaceSettings
+
+	if callingUser.WorkspaceSettings == nil {
+		return nil, fmt.Errorf("user workspace settings are not set")
+	}
+	wsSettings = *callingUser.WorkspaceSettings
+
+	// set the default workspace config for bytes
+	wsConfig := constants.BytesWorkspaceConfig
+
+	// create id for new workspace
+	wsId := snowflakeNode.Generate().Int64()
+
+	// create expiration for workspace
+	expiration := time.Now().Add(time.Minute * 15)
+
+	// create a new workspace
+	workspace, err := models.CreateWorkspace(
+		wsId, -1, hhId, models.CodeSourceHH, time.Now(), callingUser.ID, -1, expiration, "",
+		&wsSettings, nil, []models.WorkspacePort{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workspace model: %v", err)
+	}
+
+	// set workspace init state to -1
+	workspace.InitState = -1
+
+	// format workspace for sql insertion
+	wsInsertionStatements, err := workspace.ToSQLNative()
+	if err != nil {
+		return nil, fmt.Errorf("failed to format workspace for insertion: %v", err)
+	}
+
+	// create tx for insertion
+	tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tx for workspace insertion: %v", err)
+	}
+
+	// defer rollback incase we fail
+	defer tx.Rollback()
+
+	// iterate over statements executing them in sql
+	for _, statement := range wsInsertionStatements {
+		_, err = tx.ExecContext(ctx, &callerName, statement.Statement, statement.Values...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to perform insertion: %v\n    statement: %s\n    params: %v", err, statement.Statement, statement.Values)
+		}
+	}
+
+	// format create workspace request and marshall it with gob
+	buf := bytes.NewBuffer(nil)
+	encoder := gob.NewEncoder(buf)
+	err = encoder.Encode(models2.CreateWorkspaceMsg{
+		WorkspaceID: workspace.ID,
+		OwnerID:     callingUser.ID,
+		OwnerEmail:  callingUser.Email,
+		OwnerName:   callingUser.UserName,
+		Disk:        wsConfig.Resources.Disk,
+		CPU:         wsConfig.Resources.CPU,
+		Memory:      wsConfig.Resources.Mem,
+		Container:   wsConfig.BaseContainer,
+		AccessUrl:   accessUrl,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to encode workspace: %v", err)
+	}
+
+	// send workspace create message to jetstream so a follower will
+	// create the workspace
+	_, err = js.PublishAsync(streams.SubjectWorkspaceCreate, buf.Bytes())
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to send workspace create message to jetstream: %v", err)
+	}
+
+	// push workspace status update to subscribers
+	wsStatusUpdater.PushStatus(ctx, workspace.ID, workspace)
+
+	// commit tx
+	err = tx.Commit(&callerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to commit tx: %v", err)
+	}
+
+	// increment init state before frontend to represent the step that we are working on
+	workspace.InitState++
+
+	return map[string]interface{}{
+		"message":   "Workspace Created Successfully",
+		"agent_url": fmt.Sprintf("/agent/%d/%d/ws", callingUser.ID, workspace.ID),
+		"workspace": workspace.ToFrontend(hostname, tls),
+	}, nil
+}
