@@ -101,9 +101,10 @@ type GetAllTasksInUnitReturn struct {
 }
 
 type GetAllJourneyUnitsParams struct {
-	Ctx    context.Context
-	TiDB   *ti.Database
-	UserID int64
+	Ctx        context.Context
+	TiDB       *ti.Database
+	UserID     int64
+	SearchText *string
 }
 
 type GetUserJourneyTaskReturn struct {
@@ -1374,8 +1375,12 @@ func GetAllJourneyUnits(params GetAllJourneyUnitsParams) (map[string]interface{}
 
 	query := "SELECT * from journey_units where published = 1"
 
+	if params.SearchText != nil {
+		query += " and name like '%" + *params.SearchText + "%'"
+	}
+
 	if len(units) > 0 {
-		query += "and _id not in (" + strings.Join(qParams, ",") + ")"
+		query += " and _id not in (" + strings.Join(qParams, ",") + ")"
 		res, err = tx.QueryContext(ctx, &callerName, query, units...)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to query database for journey units: %v, err: %v", query, err))
@@ -1405,7 +1410,7 @@ func GetAllJourneyUnits(params GetAllJourneyUnitsParams) (map[string]interface{}
 	}
 
 	if unitsFrontend == nil || len(unitsFrontend) < 1 {
-		return nil, errors.New(fmt.Sprintf("no units returned from scan"))
+		return map[string]interface{}{"success": true, "units": unitsFrontend}, nil
 	}
 
 	failed = false

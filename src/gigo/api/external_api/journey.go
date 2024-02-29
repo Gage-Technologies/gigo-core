@@ -1321,6 +1321,19 @@ func (s *HTTPServer) GetAllJourneyUnits(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// attempt to load parameter from body
+	text, ok := s.loadValue(w, r, reqJson, "GetAllJourneyUnits", "search_text", reflect.String, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	// load search text if it was passed
+	var searchText *string = nil
+	if text != nil {
+		tempText := fmt.Sprintf("%s", text.(string))
+		searchText = &tempText
+	}
+
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
@@ -1330,9 +1343,10 @@ func (s *HTTPServer) GetAllJourneyUnits(w http.ResponseWriter, r *http.Request) 
 
 	// execute core function logic
 	res, err := core.GetAllJourneyUnits(core.GetAllJourneyUnitsParams{
-		Ctx:    ctx,
-		TiDB:   s.tiDB,
-		UserID: callingUser.(*models.User).ID,
+		Ctx:        ctx,
+		TiDB:       s.tiDB,
+		UserID:     callingUser.(*models.User).ID,
+		SearchText: searchText,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
