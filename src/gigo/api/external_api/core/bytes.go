@@ -489,3 +489,64 @@ func UnPublishByte(ctx context.Context, tidb *ti.Database, meili *search.MeiliSe
 	return map[string]interface{}{"success": true}, nil
 
 }
+
+// CheckByteHelpMobile checks if the byte_help_mobile flag is set for the user.
+func CheckByteHelpMobile(ctx context.Context, tidb *ti.Database, userID int64) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "check-byte-help-mobile")
+	defer span.End()
+	callerName := "checkByteHelpMobile"
+
+	// Prepare the SQL query to fetch the byte_help_mobile flag
+	query := "SELECT byte_help_mobile FROM users WHERE _id = ?"
+
+	// Variable to store the result
+	var byteHelpMobile bool
+
+	// Execute the query
+	err := tidb.QueryRowContext(ctx, &span, &callerName, query, userID).Scan(&byteHelpMobile)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Handle the case where the user is not found
+			return map[string]interface{}{"error": fmt.Sprintf("User with ID %d not found", userID)}, nil
+		}
+		// Handle other types of errors
+		return nil, fmt.Errorf("failed to query byte_help_mobile for user %d: %v", userID, err)
+	}
+
+	// Return the result in a map
+	return map[string]interface{}{
+		"byte_help_mobile": byteHelpMobile,
+	}, nil
+}
+
+// DisableByteHelpMobile sets the byte_help_mobile flag to false for the user, disabling byte mobile help auto popup.
+func DisableByteHelpMobile(ctx context.Context, tidb *ti.Database, userID int64) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(ctx, "enable-byte-help-mobile")
+	defer span.End()
+	callerName := "enableByteHelpMobile"
+
+	// Prepare the SQL statement to update the byte_help_mobile flag
+	stmt := "UPDATE users SET byte_help_mobile = FALSE WHERE _id = ?"
+
+	// Execute the update
+	res, err := tidb.ExecContext(ctx, &span, &callerName, stmt, userID)
+	if err != nil {
+		// Handle possible errors during execution
+		return nil, fmt.Errorf("failed to update byte_help_mobile for user %d: %v", userID, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("error checking affected rows for user %d: %v", userID, err)
+	}
+
+	// Check if the user was found and updated
+	if rowsAffected == 0 {
+		return map[string]interface{}{"error": fmt.Sprintf("User with ID %d not found or byte_help_mobile already true", userID)}, nil
+	}
+
+	// Return success message
+	return map[string]interface{}{
+		"message": fmt.Sprintf("byte_help_mobile set to disabled for user"),
+	}, nil
+}

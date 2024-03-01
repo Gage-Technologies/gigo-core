@@ -1799,6 +1799,8 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/project/publish", s.PublishProject).Methods("POST")
 	s.router.HandleFunc("/api/bytes/publish", s.PublishByte).Methods("POST")
 	s.router.HandleFunc("/api/bytes/unpublish", s.UnPublishByte).Methods("POST")
+	s.router.HandleFunc("/api/bytes/checkHelpMobile", s.CheckByteHelpMobile).Methods("POST")
+	s.router.HandleFunc("/api/bytes/disableHelpMobile", s.DisableByteHelpMobile).Methods("POST")
 	s.router.HandleFunc("/api/recommendation/top", s.TopRecommendation).Methods("POST")
 	s.router.HandleFunc("/api/attempt/get", s.AttemptInformation).Methods("POST")
 	s.router.HandleFunc("/api/attempt/getProject", s.ProjectAttemptInformation).Methods("POST")
@@ -1995,7 +1997,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/bytes/createWorkspace", s.CreateByteWorkspace).Methods("POST")
 	s.router.HandleFunc("/api/bytes/create", s.CreateByte).Methods("POST")
 	s.router.HandleFunc("/api/bytes/setCompleted", s.SetByteCompleted).Methods("POST")
-	
+
 	//////////////////////////////////////////////HH
 	s.router.HandleFunc("/api/homework/createWorkspace", s.CreateHHWorkspace).Methods("POST")
 

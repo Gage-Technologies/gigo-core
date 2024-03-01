@@ -539,8 +539,12 @@ github.com/gabriel-vasile/mimetype v1.3.1/go.mod h1:fA8fi6KUiG7MgQQ+mEWotXoEOvmx
 github.com/gabriel-vasile/mimetype v1.4.0/go.mod h1:fA8fi6KUiG7MgQQ+mEWotXoEOvmxRtOJlERCzSmRvr8=
 github.com/gage-technologies/drpc-lib v0.0.0-20230222154330-0a639616debe h1:eXU7JUmV9TFdMOyK5Hly37x+/qv89lRhrNmPz8PhOEU=
 github.com/gage-technologies/drpc-lib v0.0.0-20230222154330-0a639616debe/go.mod h1:Ze6k8kZi3D8Rt3nwx9DDhVBDyWGcV0ZD3EgOwu8sNEM=
-github.com/gage-technologies/gigo-lib v0.0.0-20240229175755-24de2d406c1e h1:m7m/UcNRBTwZgCsTTAF/ZzT6JpYkJTPB/xx8oWXjQnc=
-github.com/gage-technologies/gigo-lib v0.0.0-20240229175755-24de2d406c1e/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20240220223512-869e2bbaa7c5 h1:cR1OUG3owSb98K6Zr+h5TdGnVf3PbP8WOaippXe66Ao=
+github.com/gage-technologies/gigo-lib v0.0.0-20240220223512-869e2bbaa7c5/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20240301175758-63ccada6baef h1:xJ8Ty+BrXqgHENLavQw8Css2PB5O+ADFu4ajxtYIQ8s=
+github.com/gage-technologies/gigo-lib v0.0.0-20240301175758-63ccada6baef/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20240301195016-3c37bce961c7 h1:Z4rRelU4r9s0OcwnLJu6xWi6w6qE/nJtuAqPu2lR7bk=
+github.com/gage-technologies/gigo-lib v0.0.0-20240301195016-3c37bce961c7/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
 github.com/gage-technologies/gitea-go/gitea v0.16.0 h1:w0eOZn9HMR7acXzaJlvZ4BoPZfH76OOibm+U1cTB28I=
 github.com/gage-technologies/gitea-go/gitea v0.16.0/go.mod h1:nMhiMA2jCA/JHqGWtn6zsc1A34LILhMaJWpG8orDdzo=
 github.com/gage-technologies/go-logrus-elasticsearch v0.0.0-20210908162149-c64f8e07bb9e h1:ui469cZfaOayIzw7jhRD+eoTHxwIk0JupCpjUiVmAao=

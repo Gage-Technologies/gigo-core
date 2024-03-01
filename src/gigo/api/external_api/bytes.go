@@ -629,3 +629,89 @@ func (s *HTTPServer) UnPublishByte(w http.ResponseWriter, r *http.Request) {
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "UnPublishByte", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
+
+func (s *HTTPServer) CheckByteHelpMobile(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "check-byte-help-mobile-http")
+	defer parentSpan.End()
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "UnPublishByte", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	// Execute core function logic
+	res, err := core.CheckByteHelpMobile(ctx, s.tiDB, callingUser.(*models.User).ID)
+	if err != nil {
+		// Handle potential errors from the core function
+		responseMessage := "internal server error occurred"
+		if res != nil {
+			if msg, ok := res["error"].(string); ok {
+				responseMessage = msg
+			}
+		}
+		s.handleError(w, "core function checkByteHelpMobile failed", r.URL.Path, "CheckByteHelpMobile", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		return
+	}
+
+	parentSpan.AddEvent(
+		"checked-byte-help-mobile",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// Return response
+	s.jsonResponse(r, w, res, r.URL.Path, "CheckByteHelpMobile", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) DisableByteHelpMobile(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "disable-byte-help-mobile-http")
+	defer parentSpan.End()
+
+	// Retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "DisableByteHelpMobile", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingUserTyped := callingUser.(*models.User)
+	callingId := strconv.FormatInt(callingUserTyped.ID, 10)
+
+	// Execute core function logic
+	res, err := core.DisableByteHelpMobile(ctx, s.tiDB, callingUserTyped.ID)
+	if err != nil {
+		// Handle potential errors from the core function
+		responseMessage := "internal server error occurred"
+		if res != nil {
+			if msg, ok := res["error"].(string); ok {
+				responseMessage = msg
+			}
+		}
+		s.handleError(w, "core function DisableByteHelpMobile failed", r.URL.Path, "DisableByteHelpMobile", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUserTyped.UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		return
+	}
+
+	parentSpan.AddEvent(
+		"disabled-byte-help-mobile",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUserTyped.UserName),
+		),
+	)
+
+	// Return response
+	s.jsonResponse(r, w, res, r.URL.Path, "DisableByteHelpMobile", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUserTyped.UserName, callingId, http.StatusOK)
+}
