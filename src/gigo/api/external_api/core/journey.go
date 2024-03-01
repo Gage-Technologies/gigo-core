@@ -1049,7 +1049,7 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 	res.Close()
 
 	if lastUnit.UnitBelow != nil {
-		res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_units where unit_above = ?`, *lastUnit.UnitBelow)
+		res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_units where unit_above = ?`, lastUnit.ID)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to query for unit below, err: %v", err))
 		}
