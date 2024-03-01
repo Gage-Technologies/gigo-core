@@ -165,7 +165,8 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 		}
 
 		for _, content := range contents {
-			if len(content.Name) > 3 && content.Name[len(content.Name)-3:] == ".md" && content.Name != "README.md" {
+			if strings.Contains(content.Name, ".md") && content.Name != "README.md" {
+				logger.Debugf("(sitemap_gen: %d) adding article to sitemap: %v", nodeId, content.Name)
 				err = sm.Add(&smg.SitemapLoc{
 					Loc:        fmt.Sprintf("/articles/%v", strings.Replace(content.Name, ".md", "", 1)),
 					LastMod:    &n,
