@@ -2,9 +2,13 @@ package follower
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/sourcegraph/conc/pool"
+	"io/ioutil"
+	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"context"
@@ -131,6 +135,48 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 		if err != nil {
 			logger.Errorf("(sitemap_gen: %d) unable to add articles to the sitemap: %v", nodeId, err)
 			return
+		}
+
+		type GitHubContent struct {
+			Name        string `json:"name"`
+			DownloadURL string `json:"download_url"`
+		}
+
+		owner := "Gage-Technologies"
+		repo := "blogs-gigo.dev"
+		path := "" // Specify a directory if needed
+		apiUrl := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, path)
+
+		resp, err := http.Get(apiUrl)
+		if err != nil {
+			logger.Errorf("(sitemap_gen: %d) unable to fetch github api url: %v", nodeId, err)
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			logger.Errorf("(sitemap_gen: %d) unable to read github response: %v", nodeId, err)
+		}
+
+		var contents []GitHubContent
+		err = json.Unmarshal(body, &contents)
+		if err != nil {
+			logger.Errorf("(sitemap_gen: %d) unable to marshal github response: %v", nodeId, err)
+		}
+
+		for _, content := range contents {
+			if len(content.Name) > 3 && content.Name[len(content.Name)-3:] == ".md" && content.Name != "README.md" {
+				err = sm.Add(&smg.SitemapLoc{
+					Loc:        fmt.Sprintf("/articles/%v", strings.Replace(content.Name, ".md", "", 1)),
+					LastMod:    &n,
+					ChangeFreq: smg.Daily,
+					Priority:   0.4,
+				})
+				if err != nil {
+					logger.Errorf("(sitemap_gen: %d) unable to add articles to the sitemap: %v", nodeId, err)
+					return
+				}
+			}
 		}
 
 		err = sm.Add(&smg.SitemapLoc{
