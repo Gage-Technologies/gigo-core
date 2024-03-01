@@ -129,7 +129,7 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 		err = sm.Add(&smg.SitemapLoc{
 			Loc:        "/articles",
 			LastMod:    &n,
-			ChangeFreq: smg.Weekly,
+			ChangeFreq: smg.Daily,
 			Priority:   0.4,
 		})
 		if err != nil {
@@ -170,7 +170,7 @@ func GenerateSiteMap(ctx context.Context, db *ti.Database, js *mq.JetstreamClien
 				err = sm.Add(&smg.SitemapLoc{
 					Loc:        fmt.Sprintf("/articles/%v", strings.Replace(content.Name, ".md", "", 1)),
 					LastMod:    &n,
-					ChangeFreq: smg.Daily,
+					ChangeFreq: smg.Weekly,
 					Priority:   0.4,
 				})
 				if err != nil {
