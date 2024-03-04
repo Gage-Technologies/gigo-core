@@ -1145,7 +1145,7 @@ func GetWorkspaceStatus(ctx context.Context, db *ti.Database, vcsClient *git.VCS
 
 	// conditionally assemble the workspace url
 	workspaceUrl := ""
-	if workspace.CodeSourceType != models.CodeSourceByte {
+	if workspace.CodeSourceType != models.CodeSourceByte && workspace.CodeSourceType != models.CodeSourceHH {
 		// get repository name from repo id
 		repository, _, err := vcsClient.GiteaClient.GetRepoByID(workspace.RepoID)
 		if err != nil {

@@ -168,9 +168,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 			}
 			return nil, fmt.Errorf("failed to query project workspaces: %v", err)
 		}
-	} else if projectType == models.CodeSourceByte || projectType == models.CodeSourceHH {
-		challengeType = models.BytesChallenge
-	} else {
+	} else if projectType == models.CodeSourceAttempt {
 		err = opts.DB.QueryRowContext(ctx, &span, &callerName,
 			"SELECT post_type FROM attempt WHERE _id = ? LIMIT 1",
 			&projectId,
@@ -181,6 +179,8 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 			}
 			return nil, fmt.Errorf("failed to query project workspaces: %v", err)
 		}
+	} else {
+		challengeType = models.BytesChallenge
 	}
 
 	// unmarshall workspace settings
