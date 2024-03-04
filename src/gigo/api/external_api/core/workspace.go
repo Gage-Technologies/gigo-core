@@ -1188,7 +1188,7 @@ func GetWorkspaceStatus(ctx context.Context, db *ti.Database, vcsClient *git.VCS
 		if err != nil {
 			return nil, fmt.Errorf("failed to query attempts for name: %v", err)
 		}
-	} else {
+	} else if workspace.CodeSourceType == models.CodeSourceByte {
 		err := db.QueryRowContext(ctx, &span, &callerName, "select b.name from byte_attempts ba join bytes b on ba.byte_id = b._id where ba._id = ? limit 1", workspace.CodeSourceID).Scan(&csName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query bytes for name: %v", err)
