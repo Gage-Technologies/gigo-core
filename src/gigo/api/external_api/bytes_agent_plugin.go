@@ -21,51 +21,6 @@ import (
 	"nhooyr.io/websocket/wsjson"
 )
 
-type AgentWebSocketMessageType int
-
-const (
-	AgentWebSocketMessageTypeInit AgentWebSocketMessageType = iota
-	AgentWebSocketMessageTypeValidationError
-	AgentWebSocketMessageTypeGenericError
-	AgentWebSocketMessageTypeExecRequest
-	AgentWebSocketMessageTypeExecResponse
-	AgentWebSocketMessageTypeLintRequest
-	AgentWebSocketMessageTypeLintResponse
-	AgentWebSocketMessageTypeCancelExecRequest
-	AgentWebSocketMessageTypeCancelExecResponse
-	AgentWebSocketMessageTypeStdinExecRequest
-	AgentWebSocketMessageTypeStdinExecResponse
-	AgentWebSocketMessageTypeLaunchLspRequest
-	AgentWebSocketMessageTypeLaunchLspResponse
-)
-
-type AgentWebSocketMessageOrigin int
-
-const (
-	AgentWebSocketMessageOriginServer AgentWebSocketMessageOrigin = iota
-	AgentWebSocketMessageOriginClient
-)
-
-type AgentWsRequestMessage struct {
-	ByteAttemptID string `json:"byte_attempt_id" validate:"required,number"`
-	Payload       any    `json:"payload" validate:"required"`
-}
-
-type AgentWebSocketPayload struct {
-	SequenceID string                      `json:"sequence_id"`
-	Type       AgentWebSocketMessageType   `json:"type" validate:"required,gte=0,lte=35"`
-	Origin     AgentWebSocketMessageOrigin `json:"origin" validate:"required,gte=0,lte=1"`
-	CreatedAt  int64                       `json:"created_at" validate:"required,gt=0"`
-	Payload    any                         `json:"payload" validate:"required"`
-}
-
-type agentWebSocketConn struct {
-	*websocket.Conn
-	lastMessageTime *time.Time
-	byteID          int64
-	workspaceID     int64
-}
-
 type ByteLivePingRequest struct {
 	ByteAttemptID string `json:"byte_attempt_id" validate:"required,number"`
 }
@@ -214,7 +169,38 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 	p.socket.logger.Debugf("(bytes-agent-ws) handling agent request: %+v", agentReqMsg)
 
 	// parse byte attempt id to int64
-	byteAttemptID, _ := strconv.ParseInt(agentReqMsg.ByteAttemptID, 10, 64)
+	if agentReqMsg.CodeSourceID == "" {
+		agentReqMsg.CodeSourceID = agentReqMsg.ByteAttemptID
+	}
+	if agentReqMsg.CodeSourceID == "" {
+		p.socket.logger.Errorf("(bytes-agent-ws) missing code source: %v", err)
+		// handle internal server error via websocket
+		p.outputChan <- ws.PrepMessage[any](
+			msg.SequenceID,
+			ws.MessageTypeValidationError,
+			ws.ValidationErrorPayload{
+				ValidationErrors: map[string]string{
+					"code_source_id": "missing",
+				},
+			},
+		)
+		return
+	}
+	codeSourceID, err := strconv.ParseInt(agentReqMsg.CodeSourceID, 10, 64)
+	if err != nil {
+		p.socket.logger.Errorf("(bytes-agent-ws) invalid code source: %v", err)
+		// handle internal server error via websocket
+		p.outputChan <- ws.PrepMessage[any](
+			msg.SequenceID,
+			ws.MessageTypeValidationError,
+			ws.ValidationErrorPayload{
+				ValidationErrors: map[string]string{
+					"code_source_id": "not a number",
+				},
+			},
+		)
+		return
+	}
 
 	user := p.socket.user.Load()
 	if user == nil {
@@ -231,47 +217,9 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		return
 	}
 
-	// check if byte attempt id is valid for the user
-	var userID int64
-	err = p.s.tiDB.DB.QueryRow(
-		"select author_id from byte_attempts where _id = ?",
-		byteAttemptID,
-	).Scan(&userID)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			p.socket.logger.Errorf("(bytes-agent-ws) init code-server conn for workspace %d: failed to query workspace agent: %v", byteAttemptID, err)
-			return
-		}
-		p.socket.logger.Infof("(bytes-agent-ws) cannot find byte attempt %s", byteAttemptID)
-		// handle internal server error via websocket
-		p.outputChan <- ws.PrepMessage[any](
-			msg.SequenceID,
-			ws.MessageTypeGenericError,
-			ws.GenericErrorPayload{
-				Code:  ws.ResponseCodeServerError,
-				Error: "cannot find byte attempt",
-			},
-		)
-		return
-	}
-
-	if userID != user.ID {
-		p.socket.logger.Debugf("(bytes-agent-ws) skipping init code-server conn for workspace %d because it is not for the current user", byteAttemptID)
-		// handle internal server error via websocket
-		p.outputChan <- ws.PrepMessage[any](
-			msg.SequenceID,
-			ws.MessageTypeGenericError,
-			ws.GenericErrorPayload{
-				Code:  ws.ResponseCodeServerError,
-				Error: "this user is not authorized for this byte attempt",
-			},
-		)
-		return
-	}
-
 	// lock to access the agentConns map
 	p.mu.Lock()
-	conn, ok := p.agentConns[byteAttemptID]
+	conn, ok := p.agentConns[codeSourceID]
 	p.mu.Unlock()
 
 	// connect to the byte agent if it doesn't exist
@@ -283,15 +231,15 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		var workspaceId int64
 		var workspaceState models.WorkspaceState
 		err = p.s.tiDB.DB.QueryRow(
-			"select wa._id as agent_id, bin_to_uuid(wa.secret) as secret, w._id as workspace_id, w.state as workspace_state from workspaces w join workspace_agent wa on w._id = wa.workspace_id where w.code_source_id = ? order by w._id desc limit 1",
-			byteAttemptID,
+			"select wa._id as agent_id, bin_to_uuid(wa.secret) as secret, w._id as workspace_id, w.state as workspace_state from workspaces w join workspace_agent wa on w._id = wa.workspace_id where w.code_source_id = ? and w.owner_id = ? order by w._id desc limit 1",
+			codeSourceID, p.socket.user.Load().ID,
 		).Scan(&agentId, &secret, &workspaceId, &workspaceState)
 		if err != nil {
 			if err != sql.ErrNoRows {
-				p.socket.logger.Errorf("(bytes-agent-ws) init code-server conn for workspace %d: failed to query workspace agent: %v", byteAttemptID, err)
+				p.socket.logger.Errorf("(bytes-agent-ws) init code-server conn for workspace %d: failed to query workspace agent: %v", codeSourceID, err)
 				return
 			}
-			p.socket.logger.Infof("(bytes-agent-ws) no active agents found for workspace %s", byteAttemptID)
+			p.socket.logger.Infof("(bytes-agent-ws) no active agents found for workspace %s", codeSourceID)
 			// handle internal server error via websocket
 			p.outputChan <- ws.PrepMessage[any](
 				msg.SequenceID,
@@ -306,7 +254,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 
 		// return a specific message to the caller if the workspace is not alive yet
 		if workspaceState != models.WorkspaceActive {
-			p.socket.logger.Debugf("(bytes-agent-ws) skipping init code-server conn for workspace %d because it is not active", byteAttemptID)
+			p.socket.logger.Debugf("(bytes-agent-ws) skipping init code-server conn for workspace %d because it is not active", codeSourceID)
 			// handle internal server error via websocket
 			p.outputChan <- ws.PrepMessage[any](
 				msg.SequenceID,
@@ -381,7 +329,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		agentConn := agentWebSocketConn{
 			Conn:            ac,
 			lastMessageTime: &n,
-			byteID:          byteAttemptID,
+			byteID:          codeSourceID,
 			workspaceID:     workspaceID,
 		}
 
@@ -392,7 +340,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 
 		// add the agent connection to the map
 		p.mu.Lock()
-		p.agentConns[byteAttemptID] = agentConn
+		p.agentConns[codeSourceID] = agentConn
 		p.mu.Unlock()
 
 		// update the outer connection variable
@@ -417,7 +365,7 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		return
 	}
 	buf, _ := json.Marshal(agentMsg)
-	p.socket.logger.Debugf("(bytes-agent-ws) forwarding message to byte agent %d: %s", byteAttemptID, string(buf))
+	p.socket.logger.Debugf("(bytes-agent-ws) forwarding message to byte agent %d: %s", codeSourceID, string(buf))
 	err = wsjson.Write(p.ctx, conn.Conn, agentMsg)
 	if err != nil {
 		p.socket.logger.Errorf("(bytes-agent-ws) failed to write message to agent: %v", err)
@@ -597,72 +545,4 @@ func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], 
 		return
 	}
 	return
-}
-
-func formatPayloadForAgent(msg *ws.Message[any], inner any) (AgentWebSocketPayload, error) {
-	t := AgentWebSocketMessageTypeGenericError
-	switch msg.Type {
-	case ws.MessageTypeAgentExecRequest:
-		t = AgentWebSocketMessageTypeExecRequest
-	case ws.MessageTypeAgentExecResponse:
-		t = AgentWebSocketMessageTypeExecResponse
-	case ws.MessageTypeAgentLintRequest:
-		t = AgentWebSocketMessageTypeLintRequest
-	case ws.MessageTypeAgentLintResponse:
-		t = AgentWebSocketMessageTypeLintResponse
-	case ws.MessageTypeCancelExecRequest:
-		t = AgentWebSocketMessageTypeCancelExecRequest
-	case ws.MessageTypeCancelExecResponse:
-		t = AgentWebSocketMessageTypeCancelExecResponse
-	case ws.MessageTypeStdinExecRequest:
-		t = AgentWebSocketMessageTypeStdinExecRequest
-	case ws.MessageTypeStdinExecResponse:
-		t = AgentWebSocketMessageTypeStdinExecResponse
-	case ws.MessageTypeLaunchLspRequest:
-		t = AgentWebSocketMessageTypeLaunchLspRequest
-	default:
-		return AgentWebSocketPayload{}, fmt.Errorf("unsupported message type: %v", msg.Type)
-	}
-
-	return AgentWebSocketPayload{
-		SequenceID: msg.SequenceID,
-		Type:       t,
-		Origin:     AgentWebSocketMessageOriginClient,
-		CreatedAt:  time.Now().Unix(),
-		Payload:    inner,
-	}, nil
-}
-
-func formatPayloadFromAgent(msg AgentWebSocketPayload) (ws.Message[any], error) {
-	t := ws.MessageTypeGenericError
-	switch msg.Type {
-	case AgentWebSocketMessageTypeExecResponse:
-		t = ws.MessageTypeAgentExecResponse
-	case AgentWebSocketMessageTypeLintResponse:
-		t = ws.MessageTypeAgentLintResponse
-	case AgentWebSocketMessageTypeValidationError:
-		t = ws.MessageTypeValidationError
-	case AgentWebSocketMessageTypeCancelExecRequest:
-		t = ws.MessageTypeCancelExecRequest
-	case AgentWebSocketMessageTypeCancelExecResponse:
-		t = ws.MessageTypeCancelExecResponse
-	case AgentWebSocketMessageTypeStdinExecRequest:
-		t = ws.MessageTypeStdinExecRequest
-	case AgentWebSocketMessageTypeStdinExecResponse:
-		t = ws.MessageTypeStdinExecResponse
-	case AgentWebSocketMessageTypeGenericError:
-		t = ws.MessageTypeGenericError
-	case AgentWebSocketMessageTypeLaunchLspResponse:
-		t = ws.MessageTypeLaunchLspResponse
-	case AgentWebSocketMessageTypeInit:
-		return ws.Message[any]{}, nil
-	default:
-		return ws.Message[any]{}, fmt.Errorf("unsupported message type: %v", msg.Type)
-	}
-
-	return ws.Message[any]{
-		SequenceID: msg.SequenceID,
-		Type:       t,
-		Payload:    msg.Payload,
-	}, nil
 }
