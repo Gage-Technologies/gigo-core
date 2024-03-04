@@ -66,7 +66,7 @@ where
 	) or
 	-- logic for destroying expired byte workspaces
 	(
-		code_source_type = 2 and expiration < now() and
+		(code_source_type = 2 or code_source_type = 3) and expiration < now() and
 		(
 			-- any workspace state other than removing
 			state in (0, 1, 2, 3, 5) or 
