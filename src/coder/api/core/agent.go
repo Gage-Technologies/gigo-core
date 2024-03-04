@@ -168,7 +168,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 			}
 			return nil, fmt.Errorf("failed to query project workspaces: %v", err)
 		}
-	} else if projectType == models.CodeSourceByte {
+	} else if projectType == models.CodeSourceByte || projectType == models.CodeSourceHH {
 		challengeType = models.BytesChallenge
 	} else {
 		err = opts.DB.QueryRowContext(ctx, &span, &callerName,
@@ -193,7 +193,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 	var gigoConfig workspace_config.GigoWorkspaceConfig
 
 	cloneURL := ""
-	if projectType != models.CodeSourceByte {
+	if projectType != models.CodeSourceByte && projectType != models.CodeSourceHH {
 		// use the repo id to retrieve the repository URL
 		repository, _, err := opts.VcsClient.GiteaClient.GetRepoByID(repo)
 		if err != nil {
@@ -255,7 +255,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 
 	var giteaToken string
 
-	if projectType == models.CodeSourceByte {
+	if projectType == models.CodeSourceByte || projectType == models.CodeSourceHH {
 		giteaToken = ""
 	} else {
 		// create a git token for the workspace
