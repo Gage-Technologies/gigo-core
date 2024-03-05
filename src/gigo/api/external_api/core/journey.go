@@ -266,6 +266,13 @@ type UpdateJourneyTaskUnitTreeParams struct {
 	TaskBelow *int64
 }
 
+type TempDetourRecParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	Sf     *snowflake.Node
+	UserID int64
+}
+
 func CreateJourneyUnit(params CreateJourneyUnitParams) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-journey-unit-core")
@@ -1642,3 +1649,73 @@ func UpdateJourneyTaskTree(params UpdateJourneyTaskUnitTreeParams) (map[string]i
 //	}
 //
 // }
+
+// TempDetourRec queries for all journey units not in the user map for the specified user and inserts
+// those records into the journey_detour_recommendation table.
+func TempDetourRec(params TempDetourRecParams) error {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "TempDetourRec")
+	defer span.End()
+	callerName := "TempDetourRec"
+
+	// Query to find journey units not in the user's map
+	query := `
+			SELECT ju._id FROM journey_units ju
+			LEFT JOIN journey_user_map jum ON ju._id = jum.unit_id AND jum.user_id = ?
+			WHERE jum.user_id IS NULL`
+
+	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to query journey units not in user map: %v", err)
+	}
+	defer rows.Close()
+
+	// Begin a transaction for inserting into journey_detour_recommendation
+	tx, err := params.TiDB.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for rows.Next() {
+		var unitID int64
+		if err = rows.Scan(&unitID); err != nil {
+			return fmt.Errorf("failed to scan unit ID: %v", err)
+		}
+
+		// create a JourneyDetourRecommendation instance
+		id := params.Sf.Generate().Int64()
+		jdr, err := models.CreateJourneyDetourRecommendation(id, params.UserID, unitID, 0, false, time.Now())
+		if err != nil {
+			return fmt.Errorf("failed to create JourneyDetourRecommendation instance: %v", err)
+		}
+
+		// SQL insert statements
+		statements, err := jdr.ToSQLNative()
+		if err != nil {
+			return fmt.Errorf("failed to convert JourneyDetourRecommendation to SQL statement: %v", err)
+		}
+
+		for _, stmt := range statements {
+			_, err = tx.ExecContext(ctx, &callerName, stmt.Statement, stmt.Values...)
+			if err != nil {
+				return fmt.Errorf("failed to execute SQL statement: %v", err)
+			}
+		}
+	}
+
+	// Check for errors from iterating over rows
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("error iterating over journey units not in user map: %v", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(&callerName); err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return nil
+}
