@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"gigo-core/gigo/config"
 	"gigo-core/gigo/utils"
-	"github.com/gage-technologies/gigo-lib/logging"
-
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
+	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/gage-technologies/gigo-lib/storage"
 	utils2 "github.com/gage-technologies/gigo-lib/utils"
@@ -416,6 +415,61 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	xpRes, err := AddXP(ctx, tidb, nil, nil, sf, stripeSubConfig, callingUser.ID, fmt.Sprintf("%v_byte", difficulty), nil, nil, logger, callingUser)
 	if err != nil {
 		return map[string]interface{}{"message": fmt.Sprintf("Byte Marked as a Success for difficulty: %s", difficulty)}, fmt.Errorf("failed to add xp to user: %v", err)
+	}
+
+	//get timezone to check streak
+	time, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT timezone FROM users where _id = ?", callingUser.ID)
+	if err != nil {
+		return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the timezone for the user: %v   error is: %v", callingUser.ID, err)
+	}
+
+	defer time.Close()
+
+	var timezone string
+
+	for time.Next() {
+		err = time.Scan(&timezone)
+		if err != nil {
+			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to decode the timezone for the user: %v  error is: %v", callingUser.ID, err)
+		}
+	}
+
+	// call check elapsed streak time, and get resmap as response
+	resMap, err := CheckElapsedStreakTime(ctx, tidb, callingUser.ID, timezone, logger)
+	if err != nil {
+		return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to check elapsed streak time for user: %v   error is: %v", callingUser.ID, err)
+
+	}
+
+	// sanity check that we have all the required fields
+	if resMap == nil {
+		return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("could not find streak time for the user: %v", callingUser.ID)
+	}
+
+	// if the users streak is not active today
+	if !resMap["streak_active"].(bool) {
+
+		// update the streak values for the user
+		err = UpdateStreak(ctx, tidb, callingUser.ID, resMap["current_streak"].(int), resMap["longest_streak"].(int), timezone)
+		if err != nil {
+			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("could not update streak for user: %v   error is: %v", callingUser.ID, err)
+		}
+
+		// retrieve updated map for user after streak update
+		resMap, err = CheckElapsedStreakTime(ctx, tidb, callingUser.ID, timezone, logger)
+		if err != nil {
+			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("could check elapsed streak time for user again: %v   error is: %v", callingUser.ID, err)
+		}
+
+		// sanity check that we have all the required fields
+		if resMap == nil {
+			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("filed to check elapsed streak time after update result map was nil: %v   map: %v", callingUser.ID, resMap)
+		}
+
+		//confirm that the streak was set to active
+		if !resMap["streak_active"].(bool) {
+			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("failed to check elapsed streak time after update streak active variable was not updated for user: %v   streakActive: %v", callingUser.ID, !resMap["streak_active"].(bool))
+		}
 	}
 
 	return map[string]interface{}{"success": true, "xp": xpRes}, nil

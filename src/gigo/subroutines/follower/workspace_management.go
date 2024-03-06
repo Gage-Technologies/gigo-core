@@ -622,7 +622,7 @@ func asyncStopWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceC
 //	system (gigo-ws) and updates the database directly on completion or failure
 func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.WorkspaceClient, vcsClient *git.VCSClient,
 	wsStatusUpdater *utils.WorkspaceStatusUpdater, js *mq.JetstreamClient, rdb redis.UniversalClient, msg *nats.Msg,
-	zitiManager *zitimesh.Manager, logger logging.Logger) {
+	zitiManager *zitimesh.Manager, streakEngine *streak.StreakEngine, logger logging.Logger) {
 	ctx, span := otel.Tracer("gigo-core").Start(context.TODO(), "async-destroy-workspace-routine")
 	defer span.End()
 	callerName := "asyncDestroyWorkspace"
@@ -736,12 +736,18 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 
 	// conditionally update user stats if logged in user
 	if !ephemeralUser && projectType == models.CodeSourceByte {
-		logger.Debugf("(workspace: %d) updating user daily usage stop time owner Id is: %v", nodeId, destroyWsMsg.OwnerID)
-		_, err = tidb.ExecContext(ctx, &span, &callerName, "UPDATE user_daily_usage SET open_session = open_session - 1, end_time = if(open_session = 1, now(), null) WHERE user_id = ? and end_time is null",
-			destroyWsMsg.OwnerID)
+		logger.Debugf("(workspace: %d) executing destroy streak workspace with user bytes: %v", destroyWsMsg.ID, destroyWsMsg.OwnerID, err)
+		err = streakEngine.UserStopWorkspace(ctx, destroyWsMsg.OwnerID)
 		if err != nil {
-			logger.Errorf("failed to update user daily interval with new session: %v", err)
+			logger.Errorf("(workspace: %d) failed to destroy workspace streak engine for user bytes: %v", destroyWsMsg.ID, destroyWsMsg.OwnerID, err)
+			return
 		}
+		//logger.Debugf("(workspace: %d) updating user daily usage stop time owner Id is: %v", nodeId, destroyWsMsg.OwnerID)
+		//_, err = tidb.ExecContext(ctx, &span, &callerName, "UPDATE user_daily_usage SET open_session = open_session - 1, end_time = if(open_session = 1, now(), null) WHERE user_id = ? and end_time is null",
+		//	destroyWsMsg.OwnerID)
+		//if err != nil {
+		//	logger.Errorf("failed to update user daily interval with new session: %v", err)
+		//}
 	}
 
 	logger.Debugf("(workspace: %d)  finished updating user daily usage", nodeId)
@@ -916,7 +922,7 @@ func WorkspaceManagementOperations(ctx context.Context, nodeId int64, tidb *ti.D
 		"workspace",
 		logger,
 		func(msg *nats.Msg) {
-			asyncDestroyWorkspace(nodeId, tidb, wsClient, vcsClient, wsStatusUpdater, js, rdb, msg, zitiManager, logger)
+			asyncDestroyWorkspace(nodeId, tidb, wsClient, vcsClient, wsStatusUpdater, js, rdb, msg, zitiManager, streakEngine, logger)
 		},
 	)
 
