@@ -2185,7 +2185,7 @@ func CreateHHWorkspace(ctx context.Context, tidb *ti.Database, js *mq.JetstreamC
 	wsSettings = *callingUser.WorkspaceSettings
 
 	// set the default workspace config for bytes
-	wsConfig := constants.BytesWorkspaceConfig
+	wsConfig := constants.HhWorkspaceConfig
 
 	// create id for new workspace
 	wsId := snowflakeNode.Generate().Int64()

@@ -227,8 +227,10 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		if opts.GitUseTLS {
 			cloneURL = strings.ReplaceAll(cloneURL, "http://", "https://")
 		}
-	} else {
+	} else if projectType == models.CodeSourceByte {
 		gigoConfig = constants.BytesWorkspaceConfig
+	} else if projectType == models.CodeSourceHH {
+		gigoConfig = constants.HhWorkspaceConfig
 	}
 
 	// attempt to route any of the container images in the containers spec
