@@ -890,6 +890,11 @@ func CreateJourneyDetour(params CreateJourneyDetourParams) (map[string]interface
 
 	}
 
+	_, err = tx.ExecContext(ctx, &callerName, "insert ignore into journey_user_map(user_id, unit_id, started_at) values(?,?,?);", params.UserID, params.DetourUnitID, time.Now())
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to execute journey user map insert statement in create detour: %v, err: %v", "insert ignore into journey_user_map(user_id, unit_id, started_at) values(?,?,?);", err))
+	}
+
 	err = tx.Commit(&callerName)
 	if err != nil {
 		failed = true
