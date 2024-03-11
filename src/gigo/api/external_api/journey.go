@@ -1778,3 +1778,177 @@ func (s *HTTPServer) TempDetourRec(w http.ResponseWriter, r *http.Request) {
 	// Return response
 	s.jsonResponse(r, w, map[string]interface{}{"success": true}, r.URL.Path, "TempDetourRec", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
+
+func (s *HTTPServer) GetUserJourneyStatsCompletedStats(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "get-user-journey-stats-completed-stats-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "GetUserJourneyStatsCompletedStats", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "GetUserJourneyStatsCompletedStats", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetUserJourneyStatsCompletedStats", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.GetUserJourneyStatsCompletedStats(core.GetUserJourneyStatsCompletedStatsParams{
+		Ctx:    ctx,
+		TiDB:   s.tiDB,
+		UserID: callingUser.(*models.User).ID,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "GetUserJourneyStatsCompletedStats core failed", r.URL.Path, "GetUserJourneyStatsCompletedStats", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"get-user-journey-stats-completed-stats",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "GetUserJourneyStatsCompletedStats", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) GetUserJourneyStatsTasks(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "get-user-journey-stats-tasks-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "GetUserJourneyStatsTasks", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "GetUserJourneyStatsTasks", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetUserJourneyStatsTasks", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.GetUserJourneyStatsTasks(core.GetUserJourneyStatsTasksParams{
+		Ctx:    ctx,
+		TiDB:   s.tiDB,
+		UserID: callingUser.(*models.User).ID,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "GetUserJourneyStatsTasks core failed", r.URL.Path, "GetUserJourneyStatsTasks", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"get-user-journey-stats-tasks",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "GetUserJourneyStatsTasks", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}
+
+func (s *HTTPServer) GetUserJourneyStatsDetour(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "get-user-journey-stats-detour-http")
+	defer parentSpan.End()
+
+	// retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "GetUserJourneyStatsDetour", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// attempt to load JSON from request body
+	reqJson := s.jsonRequest(w, r, "GetUserJourneyStatsDetour", false, callingUser.(*models.User).UserName, callingUser.(*models.User).ID)
+	if reqJson == nil {
+		return
+	}
+
+	// check if this is a test
+	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
+		// return success for test
+		s.jsonResponse(r, w, map[string]interface{}{}, r.URL.Path, "GetUserJourneyStatsDetour", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+		return
+	}
+
+	// execute core function logic
+	res, err := core.GetUserJourneyStatsDetour(core.GetUserJourneyStatsDetourParams{
+		Ctx:    ctx,
+		TiDB:   s.tiDB,
+		UserID: callingUser.(*models.User).ID,
+	})
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "GetUserJourneyStatsDetour core failed", r.URL.Path, "GetUserJourneyStatsDetour", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"get-user-journey-stats-detour",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "GetUserJourneyStatsDetour", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}

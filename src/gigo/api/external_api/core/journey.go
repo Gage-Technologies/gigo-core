@@ -15,6 +15,7 @@ import (
 	"github.com/go-git/go-git/v5/utils/ioutil"
 	"github.com/kisielk/sqlstruct"
 	"go.opentelemetry.io/otel"
+	"log"
 	"strings"
 	"time"
 )
@@ -262,6 +263,24 @@ type UpdateJourneyUnitTreeParams struct {
 	UnitID    int64
 	UnitAbove *int64
 	UnitBelow *int64
+}
+
+type GetUserJourneyStatsCompletedStatsParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	UserID int64
+}
+
+type GetUserJourneyStatsTasksParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	UserID int64
+}
+
+type GetUserJourneyStatsDetourParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	UserID int64
 }
 
 type UpdateJourneyTaskUnitTreeParams struct {
@@ -1634,6 +1653,107 @@ func UpdateJourneyTaskTree(params UpdateJourneyTaskUnitTreeParams) (map[string]i
 	}
 
 	return map[string]interface{}{"success": true}, nil
+}
+
+func GetUserJourneyStatsCompletedStats(params GetUserJourneyStatsCompletedStatsParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "GetUserJourneyStatsCompletedStats")
+	defer span.End()
+	callerName := "GetUserJourneyStatsCompletedStats"
+
+	var count int
+
+	// Query to find journey units not in the user's map
+	query := `select ju._id from journey_user_map jum left join journey_units ju on jum.unit_id = ju._id left join journey_tasks jt on jt.journey_unit_id = ju._id left join bytes b on jt.code_source_id = b._id
+                                          left join byte_attempts ba on b._id = ba.byte_id where jum.user_id = ? and ba.completed_easy = 1 or ba.completed_medium = 1 or ba.completed_hard = 1 group by ju._id`
+
+	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("unalbe to query for completed journey units, error: %v", err))
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		count++ // Increment count for each row processed
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Fatalf("Error iterating rows: %v", err)
+	}
+
+	return map[string]interface{}{"finished_journey_count": count}, nil
+}
+
+func GetUserJourneyStatsTasks(params GetUserJourneyStatsTasksParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "GetUserJourneyStatsTasks")
+	defer span.End()
+	callerName := "GetUserJourneyStatsTasks"
+
+	var completedTasks int
+	var incompletedTasks int
+
+	// Query to find journey units not in the user's map
+	query := `select count(*) from journey_user_map jum left join journey_units ju on jum.unit_id = ju._id left join journey_tasks jt on jt.journey_unit_id = ju._id
+    left join bytes b on jt.code_source_id = b._id left join byte_attempts ba on b._id = ba.byte_id
+                where jum.user_id = ? and ba.completed_easy = 1 or ba.completed_medium = 1 or ba.completed_hard = 1
+                union all select count(*) from journey_user_map jum left join journey_units ju on jum.unit_id = ju._id left join journey_tasks jt on jt.journey_unit_id = ju._id
+                left join bytes b on jt.code_source_id = b._id left join byte_attempts ba on b._id = ba.byte_id where jum.user_id = ? and ba.completed_easy = 0 or ba.completed_medium = 0 or ba.completed_hard = 0`
+
+	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID, params.UserID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("unalbe to query for completed and incomplete journey tasks, error: %v", err))
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		if err = rows.Scan(&completedTasks); err != nil {
+			log.Fatalf("Failed to scan the first count: %v", err)
+			return nil, errors.New(fmt.Sprintf("unalbe to scan first count: %v", err))
+		}
+	}
+
+	if rows.Next() {
+		if err = rows.Scan(&incompletedTasks); err != nil {
+			log.Fatalf("Failed to scan the second count: %v", err)
+			return nil, errors.New(fmt.Sprintf("unalbe to scan second count: %v", err))
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Fatalf("Error iterating rows: %v", err)
+	}
+
+	return map[string]interface{}{"completed_tasks": completedTasks, "incompleted_tasks": incompletedTasks}, nil
+}
+
+func GetUserJourneyStatsDetour(params GetUserJourneyStatsDetourParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "GetUserJourneyStatsDetour")
+	defer span.End()
+	callerName := "GetUserJourneyStatsDetour"
+
+	var detourCount int
+
+	// Query to find journey units not in the user's map
+	query := `select count(*) from journey_detour where user_id = ?`
+
+	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("unalbe to query for journey detour, error: %v", err))
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		// attempt to load count from row
+		err = rows.Scan(&detourCount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get detourCount decoding: %v", err)
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Fatalf("Error iterating rows: %v", err)
+	}
+
+	return map[string]interface{}{"detour_count": detourCount}, nil
 }
 
 // func GetUserJourneyStats(params GetUserJourneyStatsParams) (map[string]interface{}, error) {
