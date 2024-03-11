@@ -466,10 +466,10 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("filed to check elapsed streak time after update result map was nil: %v   map: %v", callingUser.ID, resMap)
 		}
 
-		//confirm that the streak was set to active
-		if !resMap["streak_active"].(bool) {
-			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("failed to check elapsed streak time after update streak active variable was not updated for user: %v   streakActive: %v", callingUser.ID, !resMap["streak_active"].(bool))
-		}
+		////confirm that the streak was set to active
+		//if !resMap["streak_active"].(bool) {
+		//	return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("failed to check elapsed streak time after update streak active variable was not updated for user: %v   streakActive: %v", callingUser.ID, !resMap["streak_active"].(bool))
+		//}
 	}
 
 	return map[string]interface{}{"success": true, "xp": xpRes}, nil
