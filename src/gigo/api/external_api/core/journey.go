@@ -284,6 +284,12 @@ type GetUserJourneyStatsDetourParams struct {
 	UserID int64
 }
 
+type UserJourneyDetermineStartParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	UserID int64
+}
+
 type UpdateJourneyTaskUnitTreeParams struct {
 	Ctx       context.Context
 	TiDB      *ti.Database
@@ -1756,6 +1762,39 @@ func GetUserJourneyStatsDetour(params GetUserJourneyStatsDetourParams) (map[stri
 	}
 
 	return map[string]interface{}{"detour_count": detourCount}, nil
+}
+
+func UserJourneyDetermineStart(params UserJourneyDetermineStartParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "GetUserJourneyStatsDetour")
+	defer span.End()
+	callerName := "GetUserJourneyStatsDetour"
+
+	var journeyCount int
+
+	// Query to find journey units not in the user's map
+	query := `select count(*) from journey_user_map where user_id = ?`
+
+	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("unalbe to query for journey map, error: %v", err))
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		// attempt to load count from row
+		err = rows.Scan(&journeyCount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user map count decoding: %v", err)
+		}
+	}
+
+	startedJourney := false
+
+	if journeyCount > 0 {
+		startedJourney = true
+	}
+
+	return map[string]interface{}{"started_journey": startedJourney}, nil
 }
 
 // func GetUserJourneyStats(params GetUserJourneyStatsParams) (map[string]interface{}, error) {
