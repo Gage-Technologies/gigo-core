@@ -1665,8 +1665,8 @@ func GetUserJourneyStatsCompletedStats(params GetUserJourneyStatsCompletedStatsP
 	var count int
 
 	// Query to find journey units not in the user's map
-	query := `select ju._id from journey_user_map jum left join journey_units ju on jum.unit_id = ju._id left join journey_tasks jt on jt.journey_unit_id = ju._id left join bytes b on jt.code_source_id = b._id
-                                          left join byte_attempts ba on b._id = ba.byte_id where jum.user_id = ? and ba.completed_easy = 1 or ba.completed_medium = 1 or ba.completed_hard = 1 group by ju._id`
+	query := `select ju._id from journey_user_map jum join journey_units ju on jum.unit_id = ju._id join journey_tasks jt on jt.journey_unit_id = ju._id join bytes b on jt.code_source_id = b._id
+                                          join byte_attempts ba on b._id = ba.byte_id where jum.user_id = ? and ba.completed_easy = 1 or ba.completed_medium = 1 or ba.completed_hard = 1 group by ju._id`
 
 	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID)
 	if err != nil {
@@ -1694,11 +1694,11 @@ func GetUserJourneyStatsTasks(params GetUserJourneyStatsTasksParams) (map[string
 	var incompletedTasks int
 
 	// Query to find journey units not in the user's map
-	query := `select count(*) from journey_user_map jum left join journey_units ju on jum.unit_id = ju._id left join journey_tasks jt on jt.journey_unit_id = ju._id
-    left join bytes b on jt.code_source_id = b._id left join byte_attempts ba on b._id = ba.byte_id
+	query := `select count(*) from journey_user_map jum join journey_units ju on jum.unit_id = ju._id join journey_tasks jt on jt.journey_unit_id = ju._id
+    join bytes b on jt.code_source_id = b._id join byte_attempts ba on b._id = ba.byte_id
                 where jum.user_id = ? and ba.completed_easy = 1 or ba.completed_medium = 1 or ba.completed_hard = 1
-                union all select count(*) from journey_user_map jum left join journey_units ju on jum.unit_id = ju._id left join journey_tasks jt on jt.journey_unit_id = ju._id
-                left join bytes b on jt.code_source_id = b._id left join byte_attempts ba on b._id = ba.byte_id where jum.user_id = ? and ba.completed_easy = 0 or ba.completed_medium = 0 or ba.completed_hard = 0`
+                union all select count(*) from journey_user_map jum join journey_units ju on jum.unit_id = ju._id join journey_tasks jt on jt.journey_unit_id = ju._id
+                join bytes b on jt.code_source_id = b._id join byte_attempts ba on b._id = ba.byte_id where jum.user_id = ? and ba.completed_easy = 0 or ba.completed_medium = 0 or ba.completed_hard = 0`
 
 	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID, params.UserID)
 	if err != nil {
