@@ -25,6 +25,7 @@ type CreateJourneyUnitRequest struct {
 	Langs       []models.ProgrammingLanguage `json:"langs" validate:"required"`
 	Tags        []string                     `json:"tags" validate:"required"`
 	UploadID    string                       `json:"upload_id" validate:"required"`
+	Handout     string                       `json:"handout" validate:"required"`
 }
 
 type CreateJourneyTaskRequest struct {
@@ -142,6 +143,7 @@ func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
 		Langs:         JourneyUnitReq.Langs,
 		Description:   JourneyUnitReq.Description,
 		Tags:          JourneyUnitReq.Tags,
+		Handout:       JourneyUnitReq.Handout,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function

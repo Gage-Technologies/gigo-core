@@ -33,6 +33,7 @@ type CreateJourneyUnitParams struct {
 	StorageEngine storage.Storage
 	Meili         *search.MeiliSearchEngine
 	Thumbnail     string
+	Handout       string
 }
 
 type PublishJourneyUnitParams struct {
@@ -343,6 +344,7 @@ func CreateJourneyUnit(params CreateJourneyUnitParams) (map[string]interface{}, 
 		params.Tags,
 		false,
 		color,
+		params.Handout,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create byte: %v", err)
