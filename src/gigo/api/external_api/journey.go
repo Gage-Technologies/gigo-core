@@ -2012,3 +2012,60 @@ func (s *HTTPServer) UserJourneyDetermineStart(w http.ResponseWriter, r *http.Re
 	// return response
 	s.jsonResponse(r, w, res, r.URL.Path, "UserJourneyDetermineStart", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
 }
+
+func (s *HTTPServer) TempGetNextUnit(w http.ResponseWriter, r *http.Request) {
+	ctx, parentSpan := otel.Tracer("gigo-core").Start(r.Context(), "temp-get-next-unit-http")
+	defer parentSpan.End()
+
+	// Retrieve calling user from context
+	callingUser := r.Context().Value(CtxKeyUser)
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "TempDetourRec", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	// return if calling user was not retrieved in authentication
+	if callingUser == nil {
+		s.handleError(w, "calling user missing from context", r.URL.Path, "TempGetNextUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), "anon", "-1", http.StatusInternalServerError, "internal server error occurred", nil)
+		return
+	}
+
+	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
+
+	// Construct TempDetourRecParams from the request and calling user information
+	params := core.TempGetNextUnitParams{
+		Ctx:    ctx,
+		TiDB:   s.tiDB,
+		UserID: callingUser.(*models.User).ID,
+	}
+
+	// Call the core TempDetourRec function
+	res, err := core.TempGetNextUnit(params)
+	if err != nil {
+		responseMessage := selectErrorResponse("internal server error occurred", map[string]interface{}{"message": err})
+		s.handleError(w, "core failed", r.URL.Path, "TempGetNextUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		return
+	}
+	if err != nil {
+		// select error message dependent on if there was one returned from the function
+		responseMessage := selectErrorResponse("internal server error occurred", res)
+		// handle error internally
+		s.handleError(w, "TempGetNextUnit core failed", r.URL.Path, "TempGetNextUnit", r.Method, r.Context().Value(CtxKeyRequestID),
+			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, responseMessage, err)
+		// exit
+		return
+	}
+
+	parentSpan.AddEvent(
+		"temp-get-next-unit-http",
+		trace.WithAttributes(
+			attribute.Bool("success", true),
+			attribute.String("ip", network.GetRequestIP(r)),
+			attribute.String("username", callingUser.(*models.User).UserName),
+		),
+	)
+
+	// return response
+	s.jsonResponse(r, w, res, r.URL.Path, "TempGetNextUnit", r.Method, r.Context().Value(CtxKeyRequestID), network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusOK)
+}

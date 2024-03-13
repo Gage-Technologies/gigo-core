@@ -305,6 +305,12 @@ type TempDetourRecParams struct {
 	UserID int64
 }
 
+type TempGetNextUnitParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	UserID int64
+}
+
 func CreateJourneyUnit(params CreateJourneyUnitParams) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-journey-unit-core")
@@ -1983,4 +1989,61 @@ func TempDetourRec(params TempDetourRecParams) error {
 	}
 
 	return nil
+}
+
+// TempGetNextUnit will grab a random unit that can be added to the user map
+// this is a temporary function that will later be replaced with a recommendation
+func TempGetNextUnit(params TempGetNextUnitParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "TempGetNextUnit")
+	defer span.End()
+	callerName := "TempGetNextUnit"
+
+	// Query to get all unit_ids where the user has started units
+	userUnitsQuery := `SELECT unit_id FROM journey_user_map WHERE user_id = ?`
+	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, userUnitsQuery, params.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query journey_user_map for user %d: %v", params.UserID, err)
+	}
+	defer rows.Close()
+
+	var userUnitIDs []int64
+	for rows.Next() {
+		var unitID int64
+		if err := rows.Scan(&unitID); err != nil {
+			return nil, fmt.Errorf("failed to scan unitID: %v", err)
+		}
+		userUnitIDs = append(userUnitIDs, unitID)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over user units: %v", err)
+	}
+
+	var randomUnitQuery string
+	var args []interface{}
+
+	if len(userUnitIDs) > 0 {
+		// Prepare placeholders for SQL IN clause
+		placeholders := strings.TrimSuffix(strings.Repeat("?,", len(userUnitIDs)), ",")
+		randomUnitQuery = fmt.Sprintf(`SELECT * FROM journey_units WHERE published = TRUE AND _id NOT IN (%s) ORDER BY RAND() LIMIT 1`, placeholders)
+		for _, id := range userUnitIDs {
+			args = append(args, id)
+		}
+	} else {
+		randomUnitQuery = `SELECT * FROM journey_units WHERE published = TRUE ORDER BY RAND() LIMIT 1`
+	}
+
+	// Execute query and scan into JourneyUnit model
+	row := params.TiDB.QueryRowContext(ctx, &span, &callerName, randomUnitQuery, args...)
+	var journeyUnit models.JourneyUnit
+	if err := row.Scan(&journeyUnit.ID, &journeyUnit.Name, &journeyUnit.Description); err != nil {
+		return nil, fmt.Errorf("failed to select a random unit: %v", err)
+	}
+
+	// to frontend model
+	frontendUnit := journeyUnit.ToFrontend()
+
+	return map[string]interface{}{
+		"success": true,
+		"unit":    frontendUnit,
+	}, nil
 }

@@ -1990,6 +1990,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/journey/updateUnitTree", s.UpdateJourneyUnitTree).Methods("POST")
 	s.router.HandleFunc("/api/journey/updateTaskTree", s.UpdateJourneyTaskTree).Methods("POST")
 	s.router.HandleFunc("/api/journey/tempDetourRec", s.TempDetourRec).Methods("POST")
+	s.router.HandleFunc("/api/journey/tempNextUnit", s.TempGetNextUnit).Methods("POST")
 
 	s.router.HandleFunc("/api/journey/completesUnitsStats", s.GetUserJourneyStatsCompletedStats).Methods("POST")
 	s.router.HandleFunc("/api/journey/tasksStats", s.GetUserJourneyStatsTasks).Methods("POST")
