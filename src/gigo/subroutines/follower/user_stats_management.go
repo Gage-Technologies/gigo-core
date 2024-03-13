@@ -294,29 +294,80 @@ func handleUserDayRollover(db *ti.Database, sf *snowflake.Node, logger logging.L
 
 	// Insert new rows
 	if len(newStats) > 0 {
-		insertStmt := "INSERT IGNORE INTO user_stats(_id, user_id, challenges_completed, streak_active, current_streak, longest_streak, total_time_spent, avg_time, days_on_platform, days_on_fire, streak_freezes, streak_freeze_used, xp_gained, date, expiration) VALUES " +
-			strings.Join(newStatsParamSlots, ",")
+		// batch the inserts in groups of 64
+		idx := 0
+		exit := false
+		for {
+			startIdx := idx
+			endIdx := idx + 64
+			if endIdx > len(newStatsParamSlots) {
+				endIdx = len(newStatsParamSlots)
+				exit = true
+			}
 
-		_, err = tx.ExecContext(ctx, &callerName, insertStmt, newStats...)
-		if err != nil {
-			return fmt.Errorf("failed to execute insert of update user stats rows: %v statement: %v params: %v", err, insertStmt, newStats)
+			insertStmt := "INSERT IGNORE INTO user_stats(_id, user_id, challenges_completed, streak_active, current_streak, longest_streak, total_time_spent, avg_time, days_on_platform, days_on_fire, streak_freezes, streak_freeze_used, xp_gained, date, expiration) VALUES " +
+				strings.Join(newStatsParamSlots[startIdx:endIdx], ",")
+
+			_, err = tx.ExecContext(ctx, &callerName, insertStmt, newStats[startIdx*15:endIdx*15]...)
+			if err != nil {
+				return fmt.Errorf("failed to execute insert of update user stats rows: %v statement: %v params: %v", err, insertStmt, newStats)
+			}
+
+			idx = endIdx
+			if exit || idx >= len(newStatsParamSlots) {
+				break
+			}
 		}
 	}
 	if len(newDailyUsage) > 0 {
-		insertStmt := "INSERT IGNORE INTO user_daily_usage(user_id, start_time, end_time, open_session, date) VALUES " +
-			strings.Join(newDailyUsageParamSlots, ",")
+		// batch the inserts in groups of 64
+		idx := 0
+		exit := false
+		for {
+			startIdx := idx
+			endIdx := idx + 64
+			if endIdx > len(newDailyUsageParamSlots) {
+				endIdx = len(newDailyUsageParamSlots)
+				exit = true
+			}
 
-		_, err = tx.ExecContext(ctx, &callerName, insertStmt, newDailyUsage...)
-		if err != nil {
-			return fmt.Errorf("failed to execute insert of update user daily usage rows: %v statement: %v params: %v", err, insertStmt, newDailyUsage)
+			insertStmt := "INSERT IGNORE INTO user_daily_usage(user_id, start_time, end_time, open_session, date) VALUES " +
+				strings.Join(newDailyUsageParamSlots[startIdx:endIdx], ",")
+
+			_, err = tx.ExecContext(ctx, &callerName, insertStmt, newDailyUsage[startIdx*5:endIdx*5]...)
+			if err != nil {
+				return fmt.Errorf("failed to execute insert of update user daily usage rows: %v statement: %v params: %v", err, insertStmt, newDailyUsage)
+			}
+
+			idx = endIdx
+			if exit || idx >= len(newDailyUsageParamSlots) {
+				break
+			}
 		}
 	}
 
 	// update user stats to mark the rows as closed
 	if len(closedStats) > 0 {
-		_, err = tx.ExecContext(ctx, &callerName, "update user_stats set closed = true where _id in ("+strings.Join(closedStatsParamSlots, ",")+")", closedStats...)
-		if err != nil {
-			return fmt.Errorf("failed to execute update of user stats rows: %v", err)
+		// batch the inserts in groups of 64
+		idx := 0
+		exit := false
+		for {
+			startIdx := idx
+			endIdx := idx + 64
+			if endIdx > len(closedStats) {
+				endIdx = len(closedStats)
+				exit = true
+			}
+
+			_, err = tx.ExecContext(ctx, &callerName, "update user_stats set closed = true where _id in ("+strings.Join(closedStatsParamSlots[startIdx:endIdx], ",")+")", closedStats[startIdx:endIdx]...)
+			if err != nil {
+				return fmt.Errorf("failed to execute update of user stats rows: %v", err)
+			}
+
+			idx = endIdx
+			if exit || idx >= len(closedStats) {
+				break
+			}
 		}
 	}
 
