@@ -735,19 +735,13 @@ func asyncDestroyWorkspace(nodeId int64, tidb *ti.Database, wsClient *ws.Workspa
 	logger.Debugf("(workspace: %d) ephemral user is: %v    and project type is: %v", nodeId, ephemeralUser, projectType)
 
 	// conditionally update user stats if logged in user
-	if !ephemeralUser && projectType == models.CodeSourceByte {
+	if !ephemeralUser && (projectType == models.CodeSourceByte || projectType == models.CodeSourceHH) {
 		logger.Debugf("(workspace: %d) executing destroy streak workspace with user bytes: %v", destroyWsMsg.ID, destroyWsMsg.OwnerID, err)
 		err = streakEngine.UserStopWorkspace(ctx, destroyWsMsg.OwnerID)
 		if err != nil {
 			logger.Errorf("(workspace: %d) failed to destroy workspace streak engine for user bytes: %v", destroyWsMsg.ID, destroyWsMsg.OwnerID, err)
 			return
 		}
-		//logger.Debugf("(workspace: %d) updating user daily usage stop time owner Id is: %v", nodeId, destroyWsMsg.OwnerID)
-		//_, err = tidb.ExecContext(ctx, &span, &callerName, "UPDATE user_daily_usage SET open_session = open_session - 1, end_time = if(open_session = 1, now(), null) WHERE user_id = ? and end_time is null",
-		//	destroyWsMsg.OwnerID)
-		//if err != nil {
-		//	logger.Errorf("failed to update user daily interval with new session: %v", err)
-		//}
 	}
 
 	logger.Debugf("(workspace: %d)  finished updating user daily usage", nodeId)

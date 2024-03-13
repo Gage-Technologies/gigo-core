@@ -294,80 +294,29 @@ func handleUserDayRollover(db *ti.Database, sf *snowflake.Node, logger logging.L
 
 	// Insert new rows
 	if len(newStats) > 0 {
-		// batch the inserts in groups of 64
-		idx := 0
-		exit := false
-		for {
-			startIdx := idx
-			endIdx := idx + 64
-			if endIdx > len(newStatsParamSlots) {
-				endIdx = len(newStatsParamSlots)
-				exit = true
-			}
+		insertStmt := "INSERT IGNORE INTO user_stats(_id, user_id, challenges_completed, streak_active, current_streak, longest_streak, total_time_spent, avg_time, days_on_platform, days_on_fire, streak_freezes, streak_freeze_used, xp_gained, date, expiration) VALUES " +
+			strings.Join(newStatsParamSlots, ",")
 
-			insertStmt := "INSERT IGNORE INTO user_stats(_id, user_id, challenges_completed, streak_active, current_streak, longest_streak, total_time_spent, avg_time, days_on_platform, days_on_fire, streak_freezes, streak_freeze_used, xp_gained, date, expiration) VALUES " +
-				strings.Join(newStatsParamSlots[startIdx:endIdx], ",")
-
-			_, err = tx.ExecContext(ctx, &callerName, insertStmt, newStats[startIdx*15:endIdx*15]...)
-			if err != nil {
-				return fmt.Errorf("failed to execute insert of update user stats rows: %v statement: %v params: %v", err, insertStmt, newStats)
-			}
-
-			idx = endIdx
-			if exit || idx >= len(newStatsParamSlots) {
-				break
-			}
+		_, err = tx.ExecContext(ctx, &callerName, insertStmt, newStats...)
+		if err != nil {
+			return fmt.Errorf("failed to execute insert of update user stats rows: %v statement: %v params: %v", err, insertStmt, newStats)
 		}
 	}
 	if len(newDailyUsage) > 0 {
-		// batch the inserts in groups of 64
-		idx := 0
-		exit := false
-		for {
-			startIdx := idx
-			endIdx := idx + 64
-			if endIdx > len(newDailyUsageParamSlots) {
-				endIdx = len(newDailyUsageParamSlots)
-				exit = true
-			}
+		insertStmt := "INSERT IGNORE INTO user_daily_usage(user_id, start_time, end_time, open_session, date) VALUES " +
+			strings.Join(newDailyUsageParamSlots, ",")
 
-			insertStmt := "INSERT IGNORE INTO user_daily_usage(user_id, start_time, end_time, open_session, date) VALUES " +
-				strings.Join(newDailyUsageParamSlots[startIdx:endIdx], ",")
-
-			_, err = tx.ExecContext(ctx, &callerName, insertStmt, newDailyUsage[startIdx*5:endIdx*5]...)
-			if err != nil {
-				return fmt.Errorf("failed to execute insert of update user daily usage rows: %v statement: %v params: %v", err, insertStmt, newDailyUsage)
-			}
-
-			idx = endIdx
-			if exit || idx >= len(newDailyUsageParamSlots) {
-				break
-			}
+		_, err = tx.ExecContext(ctx, &callerName, insertStmt, newDailyUsage...)
+		if err != nil {
+			return fmt.Errorf("failed to execute insert of update user daily usage rows: %v statement: %v params: %v", err, insertStmt, newDailyUsage)
 		}
 	}
 
 	// update user stats to mark the rows as closed
 	if len(closedStats) > 0 {
-		// batch the inserts in groups of 64
-		idx := 0
-		exit := false
-		for {
-			startIdx := idx
-			endIdx := idx + 64
-			if endIdx > len(closedStats) {
-				endIdx = len(closedStats)
-				exit = true
-			}
-
-			_, err = tx.ExecContext(ctx, &callerName, "update user_stats set closed = true where _id in ("+strings.Join(closedStatsParamSlots[startIdx:endIdx], ",")+")", closedStats[startIdx:endIdx]...)
-			if err != nil {
-				return fmt.Errorf("failed to execute update of user stats rows: %v", err)
-			}
-
-			idx = endIdx
-			if exit || idx >= len(closedStats) {
-				break
-			}
+		_, err = tx.ExecContext(ctx, &callerName, "update user_stats set closed = true where _id in ("+strings.Join(closedStatsParamSlots, ",")+")", closedStats...)
+		if err != nil {
+			return fmt.Errorf("failed to execute update of user stats rows: %v", err)
 		}
 	}
 
@@ -386,65 +335,6 @@ func premiumWeeklyFreeze(ctx context.Context, db *ti.Database, logger logging.Lo
 	callerName := "premiumWeeklyFreeze"
 
 	logger.Debugf("starting premiumWeeklyFreeze")
-	// create array to hold timezones that are past midnight in their local time
-
-	// beginningOFDayZone := make([]interface{}, 0)
-	// bParamSlots := make([]string, 0)
-	//
-	// // iterate over all timezones available
-	// for _, v := range timezones {
-	//	for _, z := range v {
-	//		// load user timezone
-	//		timeLocation, err := time.LoadLocation(z)
-	//		if err != nil {
-	//			return fmt.Errorf("error loading time zone %s", z)
-	//		}
-	//
-	//		// calculate the beginning of the day in the timezone
-	//		// beginningOfDayTZ := now.BeginningOfDay().In(timeLocation)
-	//		beginningOfDayTZ := now.New(time.Now().In(timeLocation)).BeginningOfDay()
-	//
-	//		// calculate the time since the beginning of the day in the timezone
-	//
-	//		// TODO change this calculation to be based on the current time in time zone
-	//		// timeSinceDayStart := time.Since(beginningOfDayTZ)
-	//		timeSinceDayStart := now.New(time.Now().In(timeLocation)).Sub(beginningOfDayTZ)
-	//
-	//		// logger.Debugf("(premiumWeeklyFreeze) handling time zone %s time since day start: %v day start: %v current time in zone: %v", timeLocation.String(), timeSinceDayStart, beginningOfDayTZ, time.Now().In(timeLocation))
-	//
-	//		// if we are within 10 seconds of the start of the day append the time zone to the array
-	//		if timeSinceDayStart > 0 && timeSinceDayStart < 5*time.Minute && beginningOfDayTZ.Weekday() == time.Monday {
-	//
-	//			if len(beginningOFDayZone) > 0 {
-	//				postToList := true
-	//				for _, tz := range beginningOFDayZone {
-	//					if tz.(string) == now.New(time.Now().In(timeLocation)).BeginningOfDay().Add(-24*time.Hour).String() {
-	//						postToList = false
-	//					}
-	//				}
-	//
-	//				if postToList {
-	//					logger.Debugf("(premiumWeeklyFreeze) appending time zone %v with time: %v", timeLocation.String(), now.New(time.Now().In(timeLocation)).BeginningOfDay().Add(-24*time.Hour).String())
-	//					beginningOFDayZone = append(beginningOFDayZone, now.New(time.Now().In(timeLocation)).BeginningOfDay().Add(-24*time.Hour).String())
-	//					bParamSlots = append(bParamSlots, "?")
-	//				}
-	//
-	//			} else {
-	//				logger.Debugf("(premiumWeeklyFreeze) appending time zone %v with time: %v", timeLocation.String(), now.New(time.Now().In(timeLocation)).BeginningOfDay().Add(-24*time.Hour).String())
-	//				beginningOFDayZone = append(beginningOFDayZone, now.New(time.Now().In(timeLocation)).BeginningOfDay().Add(-24*time.Hour).String())
-	//				bParamSlots = append(bParamSlots, "?")
-	//			}
-	//
-	//		}
-	//	}
-	// }
-	//
-	// // exit if there is no work to do
-	// if len(beginningOFDayZone) == 0 {
-	//	return nil
-	// }
-
-	// logger.Debugf("(premiumWeeklyFreeze) found %d timezones", len(beginningOFDayZone))
 
 	query := "select _id, timezone from users where user_status = 1"
 
