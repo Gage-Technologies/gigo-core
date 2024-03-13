@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gigo-core/gigo/streak"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,6 +34,7 @@ where
     us.closed = false and 
     us.expiration <= NOW()
 group by us._id
+limit 64
 `
 
 func LaunchUserStatsManagementRoutine(ctx context.Context, db *ti.Database, streakEngine *streak.StreakEngine, snowflakeN *snowflake.Node, workerPool *pool.Pool, js *mq.JetstreamClient, nodeId int64, logger logging.Logger) {
@@ -78,19 +80,33 @@ func LaunchUserStatsManagementRoutine(ctx context.Context, db *ti.Database, stre
 		return
 	}
 
-	workerPool.Go(func() {
-		err := handleUserDayRollover(db, snowflakeN, logger)
-		if err != nil {
-			logger.Errorf("failed to handleInactiveUserDayRollover: %v", err)
-		}
-	})
-
 	// ack the message so it isn't repeated
 	err = msg.Ack()
 	if err != nil {
 		logger.Errorf("(user_stats_management: %d) failed to ack message: %v", nodeId, err)
 		return
 	}
+
+	// parse the message to extract the timestamp
+	timestampStr := strings.SplitAfter(string(msg.Data), "-")[1]
+	timestamp, err := strconv.ParseInt(timestampStr, 10, 64)
+	if err != nil {
+		logger.Errorf("(user_stats_management: %d) failed to convert timestamp: %v", nodeId, err)
+	}
+
+	// skip if the job is older than 10s
+	if time.Now().Unix()-timestamp >= 10 {
+		logger.Debug("(user_stats_management: %d) skipping execution due to old timestamp", nodeId)
+		return
+	}
+
+	workerPool.Go(func() {
+		logger.Debug("(user_stats_management: %d) handling user stats management routine", nodeId)
+		err := handleUserDayRollover(db, snowflakeN, logger)
+		if err != nil {
+			logger.Errorf("failed to handleInactiveUserDayRollover: %v", err)
+		}
+	})
 
 	parentSpan.AddEvent(
 		"launch-user-stats-management-routine",
@@ -175,156 +191,177 @@ func handleUserDayRollover(db *ti.Database, sf *snowflake.Node, logger logging.L
 	defer span.End()
 	callerName := "handleInactiveUserDayRollover"
 
-	// open tx for all queries
-	tx, err := db.BeginTx(ctx, &span, &callerName, nil)
-	if err != nil {
-		return fmt.Errorf("failed to start transaction: %v", err)
-	}
-	defer tx.Rollback()
+	for {
+		logger.Debug("(user_stats_management) beginning daily user rollover operation")
 
-	// query for user stat rows that have expired
-	res, err := tx.QueryContext(ctx, &callerName, queryExpiredUserStats)
-	if err != nil {
-		return fmt.Errorf("failed to execute expired rows query: %v", err)
-	}
-	defer res.Close()
-
-	closedStats := make([]interface{}, 0)
-	closedStatsParamSlots := make([]string, 0)
-
-	newStats := make([]interface{}, 0)
-	newStatsParamSlots := make([]string, 0)
-
-	newDailyUsage := make([]interface{}, 0)
-	newDailyUsageParamSlots := make([]string, 0)
-
-	execs := make([]string, 0)
-	params := make([][]interface{}, 0)
-
-	for res.Next() {
-		userStatsSQL := new(models.UserStatsSQL)
-		// scan row into user stats object
-		err := sqlstruct.Scan(userStatsSQL, res)
+		// open tx for all queries
+		tx, err := db.BeginTx(ctx, &span, &callerName, nil)
 		if err != nil {
-			return fmt.Errorf("error scanning user stats in first scan: %v", err)
+			return fmt.Errorf("failed to start transaction: %v", err)
+		}
+		defer tx.Rollback()
+
+		// query for user stat rows that have expired
+		res, err := tx.QueryContext(ctx, &callerName, queryExpiredUserStats)
+		if err != nil {
+			return fmt.Errorf("failed to execute expired rows query: %v", err)
+		}
+		defer res.Close()
+
+		closedStats := make([]interface{}, 0)
+		closedStatsParamSlots := make([]string, 0)
+
+		newStats := make([]interface{}, 0)
+		newStatsParamSlots := make([]string, 0)
+
+		newDailyUsage := make([]interface{}, 0)
+		newDailyUsageParamSlots := make([]string, 0)
+
+		execs := make([]string, 0)
+		params := make([][]interface{}, 0)
+
+		count := 0
+
+		for res.Next() {
+			userStatsSQL := new(models.UserStatsSQL)
+			// scan row into user stats object
+			err := sqlstruct.Scan(userStatsSQL, res)
+			if err != nil {
+				return fmt.Errorf("error scanning user stats in first scan: %v", err)
+			}
+
+			// handle day where the streak could close
+			if userStatsSQL.CurrentStreak > 0 && !userStatsSQL.StreakActive {
+				if userStatsSQL.StreakFreezes > 0 {
+					// if user is on a streak, has streak freeze and is inactive, decrement streak freezes and set streak_freeze_used to true
+					userStatsSQL.StreakFreezes--
+					userStatsSQL.CurrentStreak++
+
+					// we only give fire if the user has been on fire prior to this - you can't get fire from a streak freeze
+					if userStatsSQL.DaysOnFire > 0 {
+						userStatsSQL.DaysOnFire++
+					}
+
+					// update the current user stats row to indicate that the streak freeze was used
+					execs = append(execs, "update user_stats set streak_freeze_used = true, streak_freezes = streak_freezes - 1, current_streak = current_streak + 1, days_on_fire = ? where _id = ?")
+					params = append(params, []interface{}{userStatsSQL.DaysOnFire, userStatsSQL.ID})
+				} else {
+					// if user is on a streak, does not have a streak freeze and is inactive, reset the streak to 0
+					userStatsSQL.CurrentStreak = 0
+					userStatsSQL.DaysOnFire = 0
+				}
+			}
+
+			// calculate new date and expiration times
+			oldExpiration := userStatsSQL.Expiration
+			userLocation, err := time.LoadLocation(userStatsSQL.Timezone)
+			if err != nil {
+				return fmt.Errorf("error loading time zone %s", userStatsSQL.Timezone)
+			}
+			// calculate the date by taking the expiration time in the user's timezone and calculate the beginning of the day
+			// we add 5 minutes to the expiration to ensure that the expiration is in the correct day
+			date := now.New(oldExpiration.In(userLocation).Add(time.Minute * 5)).BeginningOfDay()
+			nextExpiration := now.New(date).EndOfDay()
+
+			// conditionally perform rollover for active workspace sessions
+			if userStatsSQL.OpenSession > 0 {
+				execs = append(execs, "update user_daily_usage set end_time = ? where user_id = ? and end_time is null")
+				params = append(params, []interface{}{oldExpiration, userStatsSQL.UserID})
+
+				newDailyUsage = append(
+					newDailyUsage,
+					userStatsSQL.UserID,
+					// everything goes to UTC in the database so there is no need to mess with timezones
+					time.Now(),
+					nil,
+					userStatsSQL.OpenSession,
+					date,
+				)
+				newDailyUsageParamSlots = append(newDailyUsageParamSlots, "(?, ?, ?, ?, ?)")
+			}
+
+			// Append data for new row
+			newStats = append(newStats,
+				sf.Generate().Int64(),
+				userStatsSQL.UserID,
+				userStatsSQL.ChallengesCompleted,
+				false,
+				userStatsSQL.CurrentStreak,
+				userStatsSQL.LongestStreak,
+				userStatsSQL.TotalTimeSpent,
+				userStatsSQL.AvgTime,
+				userStatsSQL.DaysOnPlatform,
+				userStatsSQL.DaysOnFire,
+				userStatsSQL.StreakFreezes,
+				false,
+				0,
+				date,
+				nextExpiration,
+			)
+			newStatsParamSlots = append(newStatsParamSlots, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+
+			// Append data for closed row
+			closedStats = append(closedStats, userStatsSQL.ID)
+			closedStatsParamSlots = append(closedStatsParamSlots, "?")
+
+			count++
 		}
 
-		// handle day where the streak could close
-		if userStatsSQL.CurrentStreak > 0 && !userStatsSQL.StreakActive {
-			if userStatsSQL.StreakFreezes > 0 {
-				// if user is on a streak, has streak freeze and is inactive, decrement streak freezes and set streak_freeze_used to true
-				userStatsSQL.StreakFreezes--
-				userStatsSQL.CurrentStreak++
+		logger.Debugf("(user_stats_management) found %d users who are eligible for rolling over their daily usage records", count)
 
-				// we only give fire if the user has been on fire prior to this - you can't get fire from a streak freeze
-				if userStatsSQL.DaysOnFire > 0 {
-					userStatsSQL.DaysOnFire++
-				}
+		// explicitly close the  ursor
+		_ = res.Close()
 
-				// update the current user stats row to indicate that the streak freeze was used
-				execs = append(execs, "update user_stats set streak_freeze_used = true, streak_freezes = streak_freezes - 1, current_streak = current_streak + 1, days_on_fire = ? where _id = ?")
-				params = append(params, []interface{}{userStatsSQL.DaysOnFire, userStatsSQL.ID})
-			} else {
-				// if user is on a streak, does not have a streak freeze and is inactive, reset the streak to 0
-				userStatsSQL.CurrentStreak = 0
-				userStatsSQL.DaysOnFire = 0
+		// exit if there were no rows
+		if count == 0 {
+			tx.Rollback()
+			break
+		}
+
+		// execute execs
+		for i, exec := range execs {
+			_, err := tx.ExecContext(ctx, &callerName, exec, params[i]...)
+			if err != nil {
+				return fmt.Errorf("failed to execute exec statement: %v params: %v", err, params[i])
 			}
 		}
 
-		// calculate new date and expiration times
-		oldExpiration := userStatsSQL.Expiration
-		userLocation, err := time.LoadLocation(userStatsSQL.Timezone)
+		// Insert new rows
+		if len(newStats) > 0 {
+			insertStmt := "INSERT IGNORE INTO user_stats(_id, user_id, challenges_completed, streak_active, current_streak, longest_streak, total_time_spent, avg_time, days_on_platform, days_on_fire, streak_freezes, streak_freeze_used, xp_gained, date, expiration) VALUES " +
+				strings.Join(newStatsParamSlots, ",")
+
+			_, err = tx.ExecContext(ctx, &callerName, insertStmt, newStats...)
+			if err != nil {
+				return fmt.Errorf("failed to execute insert of update user stats rows: %v statement: %v params: %v", err, insertStmt, newStats)
+			}
+		}
+		if len(newDailyUsage) > 0 {
+			insertStmt := "INSERT IGNORE INTO user_daily_usage(user_id, start_time, end_time, open_session, date) VALUES " +
+				strings.Join(newDailyUsageParamSlots, ",")
+
+			_, err = tx.ExecContext(ctx, &callerName, insertStmt, newDailyUsage...)
+			if err != nil {
+				return fmt.Errorf("failed to execute insert of update user daily usage rows: %v statement: %v params: %v", err, insertStmt, newDailyUsage)
+			}
+		}
+
+		// update user stats to mark the rows as closed
+		if len(closedStats) > 0 {
+			_, err = tx.ExecContext(ctx, &callerName, "update user_stats set closed = true where _id in ("+strings.Join(closedStatsParamSlots, ",")+")", closedStats...)
+			if err != nil {
+				return fmt.Errorf("failed to execute update of user stats rows: %v", err)
+			}
+		}
+
+		// commit tx
+		err = tx.Commit(&callerName)
 		if err != nil {
-			return fmt.Errorf("error loading time zone %s", userStatsSQL.Timezone)
-		}
-		// calculate the date by taking the expiration time in the user's timezone and calculate the beginning of the day
-		// we add 5 minutes to the expiration to ensure that the expiration is in the correct day
-		date := now.New(oldExpiration.In(userLocation).Add(time.Minute * 5)).BeginningOfDay()
-		nextExpiration := now.New(date).EndOfDay()
-
-		// conditionally perform rollover for active workspace sessions
-		if userStatsSQL.OpenSession > 0 {
-			execs = append(execs, "update user_daily_usage set end_time = ? where user_id = ? and end_time is null")
-			params = append(params, []interface{}{oldExpiration, userStatsSQL.UserID})
-
-			newDailyUsage = append(
-				newDailyUsage,
-				userStatsSQL.UserID,
-				// everything goes to UTC in the database so there is no need to mess with timezones
-				time.Now(),
-				nil,
-				userStatsSQL.OpenSession,
-				date,
-			)
-			newDailyUsageParamSlots = append(newDailyUsageParamSlots, "(?, ?, ?, ?, ?)")
-		}
-
-		// Append data for new row
-		newStats = append(newStats,
-			sf.Generate().Int64(),
-			userStatsSQL.UserID,
-			userStatsSQL.ChallengesCompleted,
-			false,
-			userStatsSQL.CurrentStreak,
-			userStatsSQL.LongestStreak,
-			userStatsSQL.TotalTimeSpent,
-			userStatsSQL.AvgTime,
-			userStatsSQL.DaysOnPlatform,
-			userStatsSQL.DaysOnFire,
-			userStatsSQL.StreakFreezes,
-			false,
-			0,
-			date,
-			nextExpiration,
-		)
-		newStatsParamSlots = append(newStatsParamSlots, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-
-		// Append data for closed row
-		closedStats = append(closedStats, userStatsSQL.ID)
-		closedStatsParamSlots = append(closedStatsParamSlots, "?")
-	}
-
-	// execute execs
-	for i, exec := range execs {
-		_, err := tx.ExecContext(ctx, &callerName, exec, params[i]...)
-		if err != nil {
-			return fmt.Errorf("failed to execute exec statement: %v params: %v", err, params[i])
+			return fmt.Errorf("failed to commit tx: %v", err)
 		}
 	}
 
-	// Insert new rows
-	if len(newStats) > 0 {
-		insertStmt := "INSERT IGNORE INTO user_stats(_id, user_id, challenges_completed, streak_active, current_streak, longest_streak, total_time_spent, avg_time, days_on_platform, days_on_fire, streak_freezes, streak_freeze_used, xp_gained, date, expiration) VALUES " +
-			strings.Join(newStatsParamSlots, ",")
-
-		_, err = tx.ExecContext(ctx, &callerName, insertStmt, newStats...)
-		if err != nil {
-			return fmt.Errorf("failed to execute insert of update user stats rows: %v statement: %v params: %v", err, insertStmt, newStats)
-		}
-	}
-	if len(newDailyUsage) > 0 {
-		insertStmt := "INSERT IGNORE INTO user_daily_usage(user_id, start_time, end_time, open_session, date) VALUES " +
-			strings.Join(newDailyUsageParamSlots, ",")
-
-		_, err = tx.ExecContext(ctx, &callerName, insertStmt, newDailyUsage...)
-		if err != nil {
-			return fmt.Errorf("failed to execute insert of update user daily usage rows: %v statement: %v params: %v", err, insertStmt, newDailyUsage)
-		}
-	}
-
-	// update user stats to mark the rows as closed
-	if len(closedStats) > 0 {
-		_, err = tx.ExecContext(ctx, &callerName, "update user_stats set closed = true where _id in ("+strings.Join(closedStatsParamSlots, ",")+")", closedStats...)
-		if err != nil {
-			return fmt.Errorf("failed to execute update of user stats rows: %v", err)
-		}
-	}
-
-	// commit tx
-	err = tx.Commit(&callerName)
-	if err != nil {
-		return fmt.Errorf("failed to commit tx: %v", err)
-	}
+	logger.Debug("(user_stats_management) finished processing all eligible users")
 
 	return nil
 }

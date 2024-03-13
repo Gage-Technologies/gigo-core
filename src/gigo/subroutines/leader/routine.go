@@ -155,8 +155,10 @@ func Routine(nodeId int64, cfg *config.Config, tiDB *ti.Database, js *mq.Jetstre
 		// XpManagementOperations(ctx, nodeId, tiDB, js, logger)
 		// publishStreakExpirationCleanup(nodeId, js, logger)
 
-		// handle user day rollover every second
-		publishHandleDayRollover(nodeId, js, logger)
+		// handle user day rollover every 10s
+		if execCount%10 == 0 {
+			publishHandleDayRollover(nodeId, js, logger)
+		}
 
 		// send job for email jobs every 3s
 		if execCount%3 == 0 {
