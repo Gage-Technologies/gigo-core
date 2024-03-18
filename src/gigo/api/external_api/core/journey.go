@@ -2038,6 +2038,8 @@ func TempGetNextUnit(params TempGetNextUnitParams) (map[string]interface{}, erro
 		return nil, fmt.Errorf("failed to query for unit: %v", err)
 	}
 
+	row.Next()
+
 	journeyUnit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, row)
 	if err != nil {
 		return nil, fmt.Errorf("JourneyUnitFromSQLNative failed: TempGetNextUnit Core %v", err)
