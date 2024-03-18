@@ -1107,27 +1107,35 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 	res.Close()
 
 	if lastUnit.UnitBelow != nil {
-		res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_units where unit_above = ?`, lastUnit.ID)
+		res, err = params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_units where unit_above = ?`, lastUnit.ID)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to query for unit below, err: %v", err))
 		}
+	} else {
+		res, err = params.TiDB.QueryContext(
+			ctx, &span, &callerName,
+			`select ju.* from journey_units ju left join journey_user_map jum on ju._id = jum.unit_id and jum.user_id = ? where jum.user_id is null order by _id limit 1`,
+			params.UserID,
+		)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to query for unit below, err: %v", err))
+		}
+	}
 
-		for res.Next() {
-			finalLastUnit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("failed to call unit from sql native for final user map, err: %v", err))
-			}
-
-			if finalLastUnit == nil || finalLastUnit.ID == 0 {
-				return nil, errors.New(fmt.Sprintf("failed to get last unit from sql native, err: no unit returned"))
-			}
-
-			final.Units = append(final.Units, *finalLastUnit)
+	for res.Next() {
+		finalLastUnit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to call unit from sql native for final user map, err: %v", err))
 		}
 
-		res.Close()
+		if finalLastUnit == nil || finalLastUnit.ID == 0 {
+			return nil, errors.New(fmt.Sprintf("failed to get last unit from sql native, err: no unit returned"))
+		}
 
+		final.Units = append(final.Units, *finalLastUnit)
 	}
+
+	res.Close()
 
 	return map[string]interface{}{"success": true, "user_map": final.ToFrontend()}, nil
 }
