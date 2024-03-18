@@ -311,6 +311,13 @@ type TempGetNextUnitParams struct {
 	UserID int64
 }
 
+type AddUnitToUserMapParams struct {
+	Ctx    context.Context
+	TiDB   *ti.Database
+	UserID int64
+	UnitID int64
+}
+
 func CreateJourneyUnit(params CreateJourneyUnitParams) (map[string]interface{}, error) {
 
 	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-journey-unit-core")
@@ -2051,5 +2058,39 @@ func TempGetNextUnit(params TempGetNextUnitParams) (map[string]interface{}, erro
 	return map[string]interface{}{
 		"success": true,
 		"unit":    frontendUnit,
+	}, nil
+}
+
+// AddUnitToUserMap adds a new unit to the journey_user_map for a user.
+func AddUnitToUserMap(params AddUnitToUserMapParams) (map[string]interface{}, error) {
+	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "AddUnitToUserMap")
+	defer span.End()
+	callerName := "AddUnitToUserMap"
+
+	// Begin a new transaction
+	tx, err := params.TiDB.BeginTx(ctx, &span, &callerName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("starting transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Insert the new unit into journey_user_map
+	query := `INSERT INTO journey_user_map (user_id, unit_id, started_at) VALUES (?, ?, ?)`
+	_, err = tx.ExecContext(ctx, &callerName, query, params.UserID, params.UnitID, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("inserting unit to user map: %w", err)
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(&callerName); err != nil {
+		return nil, fmt.Errorf("committing transaction: %w", err)
+	}
+
+	return map[string]interface{}{
+		"success": true,
 	}, nil
 }
