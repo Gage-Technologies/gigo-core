@@ -2033,10 +2033,14 @@ func TempGetNextUnit(params TempGetNextUnitParams) (map[string]interface{}, erro
 	}
 
 	// Execute query and scan into JourneyUnit model
-	row := params.TiDB.QueryRowContext(ctx, &span, &callerName, randomUnitQuery, args...)
-	var journeyUnit models.JourneyUnit
-	if err := row.Scan(&journeyUnit.ID, &journeyUnit.Name, &journeyUnit.Description); err != nil {
-		return nil, fmt.Errorf("failed to select a random unit: %v", err)
+	row, err := params.TiDB.QueryContext(ctx, &span, &callerName, randomUnitQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query for unit: %v", err)
+	}
+
+	journeyUnit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, row)
+	if err != nil {
+		return nil, fmt.Errorf("JourneyUnitFromSQLNative failed: TempGetNextUnit Core %v", err)
 	}
 
 	// to frontend model
