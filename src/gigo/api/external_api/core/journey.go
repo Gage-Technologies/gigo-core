@@ -1692,10 +1692,39 @@ func GetUserJourneyStatsCompletedStats(params GetUserJourneyStatsCompletedStatsP
 	var count int
 
 	// Query to find journey units not in the user's map
-	query := `select ju._id from journey_user_map jum join journey_units ju on jum.unit_id = ju._id join journey_tasks jt on jt.journey_unit_id = ju._id join bytes b on jt.code_source_id = b._id
-                                          join byte_attempts ba on b._id = ba.byte_id where jum.user_id = ? and ba.completed_easy = 1 or ba.completed_medium = 1 or ba.completed_hard = 1 group by ju._id`
+	query := `SELECT
+		jum.unit_id,
+		COUNT(DISTINCT jt._id) AS total_tasks,
+		SUM(
+				CASE
+					WHEN ba.completed_easy = 1 OR ba.completed_medium = 1 OR ba.completed_hard = 1 THEN 1
+					ELSE 0
+					END
+		) AS completed_tasks,
+		COUNT(DISTINCT jt._id) = SUM(
+				CASE
+					WHEN ba.completed_easy = 1 OR ba.completed_medium = 1 OR ba.completed_hard = 1 THEN 1
+					ELSE 0
+					END
+								 ) AS unit_completed
+	FROM
+		journey_user_map jum
+			JOIN
+		journey_units ju ON jum.unit_id = ju._id
+			JOIN
+		journey_tasks jt ON jt.journey_unit_id = ju._id AND jt.published = TRUE
+			JOIN
+		bytes b ON jt.code_source_id = b._id
+			LEFT JOIN
+		byte_attempts ba ON ba.byte_id = b._id AND ba.author_id = ?
+	WHERE
+		jum.user_id = ?
+	GROUP BY
+		jum.unit_id
+	HAVING
+		unit_completed = 1;`
 
-	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID)
+	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID, params.UserID)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("unalbe to query for completed journey units, error: %v", err))
 	}
