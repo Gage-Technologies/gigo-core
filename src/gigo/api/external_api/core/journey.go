@@ -1713,29 +1713,60 @@ func GetUserJourneyStatsTasks(params GetUserJourneyStatsTasksParams) (map[string
 	var incompletedTasks int
 
 	// Query to find journey units not in the user's map
-	query := `select count(*) from journey_user_map jum join journey_units ju on jum.unit_id = ju._id join journey_tasks jt on jt.journey_unit_id = ju._id
-    join bytes b on jt.code_source_id = b._id join byte_attempts ba on b._id = ba.byte_id
-                where jum.user_id = ? and ba.completed_easy = 1 or ba.completed_medium = 1 or ba.completed_hard = 1
-                union all select count(*) from journey_user_map jum join journey_units ju on jum.unit_id = ju._id join journey_tasks jt on jt.journey_unit_id = ju._id
-                join bytes b on jt.code_source_id = b._id join byte_attempts ba on b._id = ba.byte_id where jum.user_id = ? and ba.completed_easy = 0 or ba.completed_medium = 0 or ba.completed_hard = 0`
+	query := `SELECT 'WithCompletedOrNoAttempt' AS Type, COUNT(*)
+		FROM journey_user_map jum
+				 JOIN journey_units ju ON jum.unit_id = ju._id
+				 JOIN journey_tasks jt ON jt.journey_unit_id = ju._id
+				 JOIN bytes b ON jt.code_source_id = b._id
+				 LEFT JOIN byte_attempts ba ON b._id = ba.byte_id
+		WHERE jum.user_id = ? AND (
+			ba.author_id = ? AND (
+				ba.completed_easy = 1 OR
+				ba.completed_medium = 1 OR
+				ba.completed_hard = 1
+				) OR ba.author_id IS NULL
+			)
+		GROUP BY Type
+		
+		UNION ALL
+		
+		SELECT 'WithoutCompleted' AS Type, COUNT(*)
+		FROM journey_user_map jum
+				 JOIN journey_units ju ON jum.unit_id = ju._id
+				 JOIN journey_tasks jt ON jt.journey_unit_id = ju._id
+				 JOIN bytes b ON jt.code_source_id = b._id
+				 LEFT JOIN byte_attempts ba ON b._id = ba.byte_id AND ba.author_id = ?
+		WHERE jum.user_id = ? AND (
+			ba.byte_id IS NULL OR (
+				ba.completed_easy = 0 AND
+				ba.completed_medium = 0 AND
+				ba.completed_hard = 0
+				)
+			)
+		GROUP BY Type;`
 
-	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID, params.UserID)
+	rows, err := params.TiDB.QueryContext(ctx, &span, &callerName, query, params.UserID, params.UserID, params.UserID, params.UserID)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("unalbe to query for completed and incomplete journey tasks, error: %v", err))
 	}
 	defer rows.Close()
 
-	if rows.Next() {
-		if err = rows.Scan(&completedTasks); err != nil {
-			log.Fatalf("Failed to scan the first count: %v", err)
-			return nil, errors.New(fmt.Sprintf("unalbe to scan first count: %v", err))
-		}
-	}
+	for rows.Next() {
+		var (
+			taskType string
+			count    int
+		)
 
-	if rows.Next() {
-		if err = rows.Scan(&incompletedTasks); err != nil {
-			log.Fatalf("Failed to scan the second count: %v", err)
-			return nil, errors.New(fmt.Sprintf("unalbe to scan second count: %v", err))
+		if err := rows.Scan(&taskType, &count); err != nil {
+			log.Fatal(err)
+		}
+
+		// Assign counts to variables based on the type
+		switch taskType {
+		case "WithCompletedOrNoAttempt":
+			completedTasks = count
+		case "WithoutCompleted":
+			incompletedTasks = count
 		}
 	}
 
