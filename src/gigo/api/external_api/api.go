@@ -1295,6 +1295,12 @@ func (s *HTTPServer) authenticate(next http.Handler) http.Handler {
 
 func (s *HTTPServer) rateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// we skip internal paths since they can hit the rate limit
+		if strings.HasPrefix(r.URL.Path, "/internal") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// retrieve IP address of caller
 		ip := network.GetRequestIP(r)
 
@@ -2006,7 +2012,7 @@ func (s *HTTPServer) linkAPI() {
 	s.router.HandleFunc("/api/bytes/create", s.CreateByte).Methods("POST")
 	s.router.HandleFunc("/api/bytes/setCompleted", s.SetByteCompleted).Methods("POST")
 
-	//////////////////////////////////////////////HH
+	// ////////////////////////////////////////////HH
 	s.router.HandleFunc("/api/homework/createWorkspace", s.CreateHHWorkspace).Methods("POST")
 
 	// /////////////////////////////////////////// Internal
