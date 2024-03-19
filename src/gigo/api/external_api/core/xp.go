@@ -23,15 +23,15 @@ import (
 )
 
 type XPUpdate struct {
-	OldXP         uint64           `json:"old_xp"`
-	NewXP         uint64           `json:"new_xp"`
-	OldRenown     *models.TierType `json:"old_renown"`
-	NewRenown     models.TierType  `json:"new_renown"`
-	CurrentRenown models.TierType  `json:"current_renown"`
-	OldLevel      models.LevelType `json:"old_level"`
-	NewLevel      models.LevelType `json:"new_level"`
-	NextLevel     models.LevelType `json:"next_level"`
-	MaxXpForLvl   uint64           `json:"max_xp_for_lvl"`
+	OldXP         uint64            `json:"old_xp"`
+	NewXP         uint64            `json:"new_xp"`
+	OldRenown     *models.TierType  `json:"old_renown"`
+	NewRenown     models.TierType   `json:"new_renown"`
+	CurrentRenown models.TierType   `json:"current_renown"`
+	OldLevel      *models.LevelType `json:"old_level"`
+	NewLevel      *models.LevelType `json:"new_level"`
+	NextLevel     models.LevelType  `json:"next_level"`
+	MaxXpForLvl   uint64            `json:"max_xp_for_lvl"`
 }
 
 func AddXP(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb redis.UniversalClient, sf *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, userID int64, source string, renownOfChallenge *models.TierType, nemesisBasesCaptured *int, logger logging.Logger, callingUser *models.User) (map[string]interface{}, error) {
@@ -295,8 +295,8 @@ func AddXP(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 
 	// if the user's level increased, update the struct
 	if oldLevel != newLevel {
-		update.OldLevel = oldLevel
-		update.NewLevel = newLevel
+		update.OldLevel = &oldLevel
+		update.NewLevel = &newLevel
 
 		levelUpReward, err = LevelUpLoot(ctx, tidb, sf, stripeSubConfig, userID, logger, callingUser)
 		if err != nil {
@@ -352,6 +352,8 @@ func AddXP(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, rdb r
 	if err != nil {
 		return nil, fmt.Errorf("failed to update xp_reasons for user: %v in AddXP Core: %v", userID, err)
 	}
+
+	logger.Debugf("xp update for user: %v, %v", userID, update)
 
 	return map[string]interface{}{"xp_update": update, "level_up_reward": levelUpReward}, nil
 }
