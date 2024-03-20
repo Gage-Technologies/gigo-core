@@ -440,6 +440,18 @@ func (s *HTTPServer) SetByteCompleted(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// attempt to load parameter from body
+	journeyI, ok := s.loadValue(w, r, reqJson, "SetByteCompleted", "journey", reflect.Bool, nil, true, callingUser.(*models.User).UserName, callingId)
+	if !ok {
+		return
+	}
+
+	var journey *bool = nil
+	if journeyI != nil {
+		tempJourney := journeyI.(bool)
+		journey = &tempJourney
+	}
+
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
@@ -448,7 +460,7 @@ func (s *HTTPServer) SetByteCompleted(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// execute core function logic
-	res, err := core.SetByteCompleted(ctx, s.tiDB, s.sf, s.stripeSubscriptions, callingUser.(*models.User), byteId, difficultyI.(string), s.logger)
+	res, err := core.SetByteCompleted(ctx, s.tiDB, s.sf, s.stripeSubscriptions, callingUser.(*models.User), byteId, difficultyI.(string), journey, s.logger)
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
 		responseMessage := selectErrorResponse("internal server error occurred", res)

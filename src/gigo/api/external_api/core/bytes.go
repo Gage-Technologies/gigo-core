@@ -392,7 +392,7 @@ func GetByte(ctx context.Context, tidb *ti.Database, byteId int64) (map[string]i
 	return map[string]interface{}{"rec_bytes": byte.ToFrontend()}, nil
 }
 
-func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, callingUser *models.User, byteAttemptId int64, difficulty string, logger logging.Logger) (map[string]interface{}, error) {
+func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node, stripeSubConfig config.StripeSubscriptionConfig, callingUser *models.User, byteAttemptId int64, difficulty string, journey *bool, logger logging.Logger) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(ctx, "get-bytes-core")
 	defer span.End()
 	callerName := "SetByteCompleted"
@@ -470,6 +470,67 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 		//if !resMap["streak_active"].(bool) {
 		//	return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("failed to check elapsed streak time after update streak active variable was not updated for user: %v   streakActive: %v", callingUser.ID, !resMap["streak_active"].(bool))
 		//}
+	}
+
+	if journey != nil && *journey == true {
+		//get timezone to check streak
+		byteInfo, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT byte_id FROM byte_attempts where _id = ?", byteAttemptId)
+		if err != nil {
+			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the byte attempt for the user: %v   error is: %v", callingUser.ID, err)
+		}
+
+		defer byteInfo.Close()
+
+		var byteId int64
+
+		for byteInfo.Next() {
+			err = byteInfo.Scan(&byteId)
+			if err != nil {
+				return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the byte attempt below for user: %v  error is: %v", callingUser.ID, err)
+			}
+		}
+
+		//get timezone to check streak
+		taskBelow, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT node_below FROM journey_tasks where code_source_id = ?", byteId)
+		if err != nil {
+			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the node below for the user: %v   error is: %v", callingUser.ID, err)
+		}
+
+		defer taskBelow.Close()
+
+		var nodeBelow *int64
+
+		for taskBelow.Next() {
+			err = taskBelow.Scan(&nodeBelow)
+			if err != nil {
+				return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the task below for user: %v  error is: %v", callingUser.ID, err)
+			}
+		}
+
+		var nodeBelowFrontend *string
+
+		if nodeBelow != nil {
+			byteBelow, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT code_source_id FROM journey_tasks where _id = ?", *nodeBelow)
+			if err != nil {
+				return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the byte attempt for the user: %v   error is: %v", callingUser.ID, err)
+			}
+
+			defer byteBelow.Close()
+
+			var byteBelowId int64
+
+			for byteBelow.Next() {
+				err = byteBelow.Scan(&byteBelowId)
+				if err != nil {
+					return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the byte attempt below for user: %v  error is: %v", callingUser.ID, err)
+				}
+			}
+
+			stringValue := fmt.Sprintf("%v", byteBelowId)
+			nodeBelowFrontend = &stringValue
+		}
+
+		return map[string]interface{}{"success": true, "xp": xpRes, "nodeBelow": nodeBelowFrontend}, nil
 	}
 
 	return map[string]interface{}{"success": true, "xp": xpRes}, nil
