@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"gigo-core/gigo/config"
 	"gigo-core/gigo/utils"
@@ -13,6 +14,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/gage-technologies/gigo-lib/storage"
+	"github.com/gage-technologies/gigo-lib/types"
 	utils2 "github.com/gage-technologies/gigo-lib/utils"
 	"github.com/go-git/go-git/v5/utils/ioutil"
 	"go.opentelemetry.io/otel"
@@ -29,9 +31,9 @@ type CreateByteParams struct {
 	DescriptionEasy        string
 	DescriptionMedium      string
 	DescriptionHard        string
-	OutlineEasy            string
-	OutlineMedium          string
-	OutlineHard            string
+	FilesEasy              []types.CodeFile
+	FilesMedium            []types.CodeFile
+	FilesHard              []types.CodeFile
 	DevelopmentStepsEasy   string
 	DevelopmentStepsMedium string
 	DevelopmentStepsHard   string
@@ -43,49 +45,28 @@ type CreateByteParams struct {
 }
 
 type BytesRecFrontend struct {
-	ID                   string                     `json:"_id" sql:"_id"`
-	Name                 string                     `json:"name" sql:"name"`
-	DescriptionEasy      string                     `json:"description_easy" sql:"description_easy"`
-	DescriptionMedium    string                     `json:"description_medium" sql:"description_medium"`
-	DescriptionHard      string                     `json:"description_hard" sql:"description_hard"`
-	OutlineContentEasy   string                     `json:"outline_content_easy" sql:"outline_content_easy"`
-	OutlineContentMedium string                     `json:"outline_content_medium" sql:"outline_content_medium"`
-	OutlineContentHard   string                     `json:"outline_content_hard" sql:"outline_content_hard"`
-	DevStepsEasy         string                     `json:"dev_steps_easy" sql:"dev_steps_easy"`
-	DevStepsMedium       string                     `json:"dev_steps_medium" sql:"dev_steps_medium"`
-	DevStepsHard         string                     `json:"dev_steps_hard" sql:"dev_steps_hard"`
-	QuestionsEasy        []string                   `json:"questions_easy" sql:"questions_easy"`
-	QuestionsMedium      []string                   `json:"questions_medium" sql:"questions_medium"`
-	QuestionsHard        []string                   `json:"questions_hard" sql:"questions_hard"`
-	Lang                 models.ProgrammingLanguage `json:"lang" sql:"lang"`
-	Published            bool                       `json:"published" sql:"published"`
-	Color                string                     `json:"color" sql:"color"`
-	CompletedEasy        bool                       `json:"completed_easy" sql:"completed_easy"`
-	CompletedMedium      bool                       `json:"completed_medium" sql:"completed_medium"`
-	CompletedHard        bool                       `json:"completed_hard" sql:"completed_hard"`
-	Modified             bool                       `json:"modified" sql:"modified"`
+	ID                string                     `json:"_id" sql:"_id"`
+	Name              string                     `json:"name" sql:"name"`
+	DescriptionEasy   string                     `json:"description_easy" sql:"description_easy"`
+	DescriptionMedium string                     `json:"description_medium" sql:"description_medium"`
+	DescriptionHard   string                     `json:"description_hard" sql:"description_hard"`
+	FilesEasy         []types.CodeFile           `json:"files_easy" sql:"files_easy"`
+	FilesMedium       []types.CodeFile           `json:"files_medium" sql:"files_medium"`
+	FilesHard         []types.CodeFile           `json:"files_hard" sql:"files_hard"`
+	DevStepsEasy      string                     `json:"dev_steps_easy" sql:"dev_steps_easy"`
+	DevStepsMedium    string                     `json:"dev_steps_medium" sql:"dev_steps_medium"`
+	DevStepsHard      string                     `json:"dev_steps_hard" sql:"dev_steps_hard"`
+	QuestionsEasy     []string                   `json:"questions_easy" sql:"questions_easy"`
+	QuestionsMedium   []string                   `json:"questions_medium" sql:"questions_medium"`
+	QuestionsHard     []string                   `json:"questions_hard" sql:"questions_hard"`
+	Lang              models.ProgrammingLanguage `json:"lang" sql:"lang"`
+	Published         bool                       `json:"published" sql:"published"`
+	Color             string                     `json:"color" sql:"color"`
+	CompletedEasy     bool                       `json:"completed_easy" sql:"completed_easy"`
+	CompletedMedium   bool                       `json:"completed_medium" sql:"completed_medium"`
+	CompletedHard     bool                       `json:"completed_hard" sql:"completed_hard"`
+	Modified          bool                       `json:"modified" sql:"modified"`
 }
-
-// type Difficulty int
-//
-// const (
-//	Easy Difficulty = iota
-//	Medium
-//	Hard
-// )
-//
-// func (d Difficulty) ToString() string {
-//	switch d {
-//	case Easy:
-//		return "easy"
-//	case Medium:
-//		return "medium"
-//	case Hard:
-//		return "hard"
-//	default:
-//		return "medium"
-//	}
-// }
 
 func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 	ctx, span := otel.Tracer("gigo-core").Start(params.Ctx, "create-byte-core")
@@ -129,9 +110,9 @@ func CreateByte(params CreateByteParams) (map[string]interface{}, error) {
 		params.DescriptionEasy,
 		params.DescriptionMedium,
 		params.DescriptionHard,
-		params.OutlineEasy,
-		params.OutlineMedium,
-		params.OutlineHard,
+		params.FilesEasy,
+		params.FilesMedium,
+		params.FilesHard,
 		params.DevelopmentStepsEasy,
 		params.DevelopmentStepsMedium,
 		params.DevelopmentStepsHard,
@@ -211,34 +192,49 @@ func StartByteAttempt(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 	callerName := "StartByteAttempt"
 
 	// ensure this user doesn't have an attempt already
-	var existingByteAttempt models.ByteAttempts
-	err := tidb.QueryRowContext(ctx, &span, &callerName,
-		"select _id, byte_id, author_id, content_easy, content_medium, content_hard, modified from byte_attempts where byte_id = ? and author_id = ? limit 1", byteId, callingUser.ID,
-	).Scan(&existingByteAttempt.ID, &existingByteAttempt.ByteID, &existingByteAttempt.AuthorID, &existingByteAttempt.ContentEasy, &existingByteAttempt.ContentMedium, &existingByteAttempt.ContentHard, &existingByteAttempt.Modified)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, fmt.Errorf("failed to get attempt count: %v", err)
-	}
+	rows, err := tidb.QueryContext(ctx, &span, &callerName,
+		"select * from byte_attempts where byte_id = ? and author_id = ? limit 1", byteId, callingUser.ID,
+	)
+	defer rows.Close()
+	if rows.Next() {
+		existingByteAttempt, err := models.ByteAttemptsFromSQLNative(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get attempt count: %v", err)
+		}
 
-	// if they already have an attempt, return the content of the attempt
-	if existingByteAttempt.ID > 0 {
 		return map[string]interface{}{
 			"message":      "Existing attempt found.",
 			"byte_attempt": existingByteAttempt.ToFrontend(),
 		}, nil
 	}
 
+	_ = rows.Close()
+
 	// Fetch outline_content for the byte
-	var outlineContentEasy string
-	var outlineContentMedium string
-	var outlineContentHard string
+	var filesEasyBuffer, filesMediumBuffer, filesHardBuffer []byte
 	err = tidb.QueryRowContext(ctx, &span, &callerName,
-		"select outline_content_easy, outline_content_medium, outline_content_hard from bytes where _id = ?", byteId,
-	).Scan(&outlineContentEasy, &outlineContentMedium, &outlineContentHard)
+		"select files_easy, files_medium, files_hard from bytes where _id = ?", byteId,
+	).Scan(&filesEasyBuffer, &filesMediumBuffer, &filesHardBuffer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get byte outline content: %v", err)
 	}
 
-	byteAttempt, err := models.CreateByteAttempts(sf.Generate().Int64(), byteId, callingUser.ID, outlineContentEasy, outlineContentMedium, outlineContentHard)
+	// unmarshall the files from byte buffers
+	var filesEasy, filesMedium, filesHard []types.CodeFile
+	err = json.Unmarshal(filesEasyBuffer, &filesEasy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get outline content: %v", err)
+	}
+	err = json.Unmarshal(filesMediumBuffer, &filesMedium)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get outline content: %v", err)
+	}
+	err = json.Unmarshal(filesHardBuffer, &filesHard)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get outline content: %v", err)
+	}
+
+	byteAttempt, err := models.CreateByteAttempts(sf.Generate().Int64(), byteId, callingUser.ID, filesEasy, filesMedium, filesHard)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create byte attempt struct: %v", err)
 	}
@@ -417,7 +413,7 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 		return map[string]interface{}{"message": fmt.Sprintf("Byte Marked as a Success for difficulty: %s", difficulty)}, fmt.Errorf("failed to add xp to user: %v", err)
 	}
 
-	//get timezone to check streak
+	// get timezone to check streak
 	time, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT timezone FROM users where _id = ?", callingUser.ID)
 	if err != nil {
 		return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the timezone for the user: %v   error is: %v", callingUser.ID, err)
@@ -466,14 +462,14 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("filed to check elapsed streak time after update result map was nil: %v   map: %v", callingUser.ID, resMap)
 		}
 
-		////confirm that the streak was set to active
-		//if !resMap["streak_active"].(bool) {
+		// //confirm that the streak was set to active
+		// if !resMap["streak_active"].(bool) {
 		//	return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("failed to check elapsed streak time after update streak active variable was not updated for user: %v   streakActive: %v", callingUser.ID, !resMap["streak_active"].(bool))
-		//}
+		// }
 	}
 
 	if journey != nil && *journey == true {
-		//get timezone to check streak
+		// get timezone to check streak
 		byteInfo, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT byte_id FROM byte_attempts where _id = ?", byteAttemptId)
 		if err != nil {
 			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the byte attempt for the user: %v   error is: %v", callingUser.ID, err)
@@ -490,7 +486,7 @@ func SetByteCompleted(ctx context.Context, tidb *ti.Database, sf *snowflake.Node
 			}
 		}
 
-		//get timezone to check streak
+		// get timezone to check streak
 		taskBelow, err := tidb.QueryContext(ctx, &span, &callerName, "SELECT node_below FROM journey_tasks where code_source_id = ?", byteId)
 		if err != nil {
 			return map[string]interface{}{"message": fmt.Sprintf("could not update streak")}, fmt.Errorf("unable to get the node below for the user: %v   error is: %v", callingUser.ID, err)
