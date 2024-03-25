@@ -1469,6 +1469,18 @@ func (s *HTTPServer) GetJourneyUserMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// attempt to load video id from body
+	skip, ok := s.loadValue(w, r, reqJson, "GetJourneyUserMap", "skip", reflect.Float64, nil, false, callingUser.(*models.User).UserName, callingId)
+	if skip == nil || !ok {
+		return
+	}
+
+	// attempt to load video id from body
+	limit, ok := s.loadValue(w, r, reqJson, "GetJourneyUserMap", "limit", reflect.Float64, nil, false, callingUser.(*models.User).UserName, callingId)
+	if limit == nil || !ok {
+		return
+	}
+
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
@@ -1481,6 +1493,8 @@ func (s *HTTPServer) GetJourneyUserMap(w http.ResponseWriter, r *http.Request) {
 		Ctx:    ctx,
 		TiDB:   s.tiDB,
 		UserID: journeyUserId,
+		Skip:   int(skip.(float64)),
+		Limit:  int(limit.(float64)),
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
