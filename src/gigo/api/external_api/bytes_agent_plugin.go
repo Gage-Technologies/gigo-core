@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gigo-core/gigo/api/external_api/ws"
+	"github.com/gage-technologies/gigo-lib/types"
 	"net"
 	"net/http"
 	"strconv"
@@ -55,9 +56,9 @@ func (d Difficulty) ToString() string {
 }
 
 type ByteUpdateCodeRequest struct {
-	ByteAttemptID     string     `json:"byte_attempt_id" validate:"required,number"`
-	Content           string     `json:"content" validate:"required"`
-	ContentDifficulty Difficulty `json:"content_difficulty"`
+	ByteAttemptID     string           `json:"byte_attempt_id" validate:"required,number"`
+	Files             []types.CodeFile `json:"files" validate:"required"`
+	ContentDifficulty Difficulty       `json:"content_difficulty"`
 }
 
 type WebSocketPluginBytesAgent struct {
@@ -526,10 +527,16 @@ func (p *WebSocketPluginBytesAgent) updateByteAttemptCode(msg *ws.Message[any], 
 	// parse byte attempt id to int64
 	byteAttemptID, _ := strconv.ParseInt(updateReq.ByteAttemptID, 10, 64)
 
+	// marshall the files into a json buffer
+	filesBuf, err := json.Marshal(updateReq.Files)
+	if err != nil {
+		p.socket.logger.Errorf("(bytes-agent-ws) failed to marshal file bytes: %v", err)
+	}
+
 	_, err = p.s.tiDB.Exec(
 		ctx, &span, &callerName,
-		fmt.Sprintf("update byte_attempts set content_%s = ?, modified = true where _id = ?", updateReq.ContentDifficulty.ToString()),
-		updateReq.Content, byteAttemptID,
+		fmt.Sprintf("update byte_attempts set files_%s = ?, modified = true where _id = ?", updateReq.ContentDifficulty.ToString()),
+		filesBuf, byteAttemptID,
 	)
 	if err != nil {
 		p.socket.logger.Errorf("(bytes-agent-ws) failed to update byte attempt code: %v", err)

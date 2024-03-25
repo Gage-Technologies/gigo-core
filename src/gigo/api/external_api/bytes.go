@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gigo-core/gigo/api/external_api/core"
+	"github.com/gage-technologies/gigo-lib/types"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -22,9 +23,9 @@ type CreateByteRequest struct {
 	DescriptionEasy        string                     `json:"description_easy" validate:"required,lte=500"`
 	DescriptionMedium      string                     `json:"description_medium" validate:"required,lte=500"`
 	DescriptionHard        string                     `json:"description_hard" validate:"required,lte=500"`
-	OutlineEasy            string                     `json:"outline_easy" validate:"required"`
-	OutlineMedium          string                     `json:"outline_medium" validate:"required"`
-	OutlineHard            string                     `json:"outline_hard" validate:"required"`
+	EasyFiles              []types.CodeFile           `json:"easy_files" validate:"required"`
+	MediumFiles            []types.CodeFile           `json:"medium_files" validate:"required"`
+	HardFiles              []types.CodeFile           `json:"hard_files" validate:"required"`
 	DevelopmentStepsEasy   string                     `json:"development_steps_easy" validate:"required"`
 	DevelopmentStepsMedium string                     `json:"development_steps_medium" validate:"required"`
 	DevelopmentStepsHard   string                     `json:"development_steps_hard" validate:"required"`
@@ -94,9 +95,9 @@ func (s *HTTPServer) CreateByte(w http.ResponseWriter, r *http.Request) {
 		DescriptionEasy:        byteReq.DescriptionEasy,
 		DescriptionMedium:      byteReq.DescriptionMedium,
 		DescriptionHard:        byteReq.DescriptionHard,
-		OutlineEasy:            byteReq.OutlineEasy,
-		OutlineMedium:          byteReq.OutlineMedium,
-		OutlineHard:            byteReq.OutlineHard,
+		FilesEasy:              byteReq.EasyFiles,
+		FilesMedium:            byteReq.MediumFiles,
+		FilesHard:              byteReq.HardFiles,
 		DevelopmentStepsEasy:   byteReq.DevelopmentStepsEasy,
 		DevelopmentStepsMedium: byteReq.DevelopmentStepsMedium,
 		DevelopmentStepsHard:   byteReq.DevelopmentStepsHard,
