@@ -229,6 +229,20 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		}
 	} else if projectType == models.CodeSourceByte {
 		gigoConfig = constants.BytesWorkspaceConfig
+		// attempt to load the workspace config from database
+		var wsConfigBuf []byte
+		err = opts.DB.QueryRowContext(ctx, &span, &callerName,
+			"select ifnull(b.custom_ws_config, ju.custom_ws_config) from bytes b left join journey_tasks jt on jt.code_source_id = b._id left join journey_units ju on ju._id = jt.journey_unit_id where b._id = ? group by b._id",
+			projectId).Scan(&wsConfigBuf)
+		if err != nil && err != sql.ErrNoRows {
+			return nil, fmt.Errorf("failed to load workspace config: %v", err)
+		}
+		if len(wsConfigBuf) > 0 {
+			err = json.Unmarshal(wsConfigBuf, &gigoConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load workspace config: %v", err)
+			}
+		}
 	} else if projectType == models.CodeSourceHH {
 		gigoConfig = constants.HhWorkspaceConfig
 	}
