@@ -1571,13 +1571,13 @@ func GetJourneyUnitsPreview(params GetJourneyUnitsPreviewParams) (map[string]int
 
 	if len(units) > 0 {
 		query += " and _id not in (" + strings.Join(qParams, ",") + ")"
-		query += " limit 15"
+		query += " limit 5"
 		res, err = tx.QueryContext(ctx, &callerName, query, units...)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to query database for journey units: %v, err: %v", query, err))
 		}
 	} else {
-		query += " limit 15"
+		query += " limit 5"
 		res, err = tx.QueryContext(ctx, &callerName, query)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to query database for journey units: %v, err: %v", query, err))
