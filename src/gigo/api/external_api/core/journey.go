@@ -3,11 +3,13 @@ package core
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"gigo-core/gigo/utils"
 	"github.com/bwmarrin/snowflake"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"github.com/gage-technologies/gigo-lib/db/models"
+	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/search"
 	"github.com/gage-technologies/gigo-lib/storage"
 	utils2 "github.com/gage-technologies/gigo-lib/utils"
@@ -172,6 +174,7 @@ type GetJourneyUserMapParams struct {
 	UserID int64
 	Skip   int
 	Limit  int
+	Logger logging.Logger
 }
 
 type CreateDetourRecommendationParams struct {
@@ -1088,7 +1091,7 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 	defer span.End()
 	callerName := "GetJourneyUserMap"
 
-	res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_user_map where user_id = ? order by started_at desc limit ? offset ?`, params.UserID, params.Limit, params.Skip)
+	res, err := params.TiDB.QueryContext(ctx, &span, &callerName, `select * from (SELECT * from journey_user_map where user_id = ? order by started_at desc limit ? offset ?) a order by started_at asc`, params.UserID, params.Limit, params.Skip)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("failed to query for journey user map, err: %v", err))
 	}
@@ -1104,17 +1107,23 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 		return nil, errors.New(fmt.Sprintf("no units returned from user map with userID: %v", params.UserID))
 	}
 
+	b, _ := json.Marshal(final)
+	params.Logger.Infof("next unit for user map: %s", string(b))
+
 	lastUnit := final.Units[len(final.Units)-1]
 
 	res.Close()
 
+	params.Logger.Infof("next unit for user map: %d - %v", lastUnit.ID, lastUnit.UnitBelow != nil)
 	if params.Skip == 0 {
 		if lastUnit.UnitBelow != nil {
-			res, err = params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_units where unit_above = ?`, lastUnit.ID)
+			params.Logger.Infof("next unit for user map: calling q1 %d - %d", lastUnit.ID, *lastUnit.UnitBelow)
+			res, err = params.TiDB.QueryContext(ctx, &span, &callerName, `SELECT * from journey_units where _id = ?`, *lastUnit.UnitBelow)
 			if err != nil {
 				return nil, errors.New(fmt.Sprintf("failed to query for unit below, err: %v", err))
 			}
 		} else {
+			params.Logger.Infof("next unit for user map: calling q2")
 			res, err = params.TiDB.QueryContext(
 				ctx, &span, &callerName,
 				`select ju.* from journey_units ju left join journey_user_map jum on ju._id = jum.unit_id and jum.user_id = ? where jum.user_id is null order by _id limit 1`,
@@ -1126,6 +1135,7 @@ func GetJourneyUserMap(params GetJourneyUserMapParams) (map[string]interface{}, 
 		}
 
 		for res.Next() {
+			params.Logger.Infof("next unit for user map: loading")
 			finalLastUnit, err := models.JourneyUnitFromSQLNative(ctx, &span, params.TiDB, res)
 			if err != nil {
 				return nil, errors.New(fmt.Sprintf("failed to call unit from sql native for final user map, err: %v", err))

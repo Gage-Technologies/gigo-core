@@ -41,19 +41,16 @@ type CreateJourneyTaskRequest struct {
 
 type CreateJourneyDetourRequest struct {
 	DetourUnitID string `json:"detour_unit_id" validate:"required,number"`
-	UserID       string `json:"user_id" validate:"required,number"`
 	TaskID       string `json:"task_id" validate:"required,number"`
 }
 
 type CreateJourneyDetourRecommendationRequest struct {
 	RecUnitID  string `json:"rec_unit_id" validate:"required,number"`
-	UserID     string `json:"user_id" validate:"required,number"`
 	FromTaskID string `json:"from_task_id" validate:"required,number"`
 }
 
 type CreateJourneyUserMapRequest struct {
-	UserID string   `json:"user_id" validate:"required,number"`
-	Units  []string `json:"units" validate:"required,dive,number"`
+	Units []string `json:"units" validate:"required,dive,number"`
 }
 
 func (s *HTTPServer) CreateJourneyUnit(w http.ResponseWriter, r *http.Request) {
@@ -595,22 +592,6 @@ func (s *HTTPServer) GetUserJourneyTask(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// attempt to load code source id from body
-	userIdI, ok := s.loadValue(w, r, reqJson, "GetUserJourneyTask", "user_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
-	if userIdI == nil || !ok {
-		return
-	}
-
-	// parse post code source id to integer
-	journeyUserId, err := strconv.ParseInt(userIdI.(string), 10, 64)
-	if err != nil {
-		// handle error internally
-		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", userIdI.(string)), r.URL.Path, "GetUserJourneyTask", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
-		// exit
-		return
-	}
-
 	// check if this is a test
 	if val, ok := reqJson["test"]; ok && (val == true || val == "true") {
 		// return success for test
@@ -623,7 +604,7 @@ func (s *HTTPServer) GetUserJourneyTask(w http.ResponseWriter, r *http.Request) 
 		Ctx:    ctx,
 		TiDB:   s.tiDB,
 		TaskID: journeyTaskId,
-		UserID: journeyUserId,
+		UserID: callingUser.(*models.User).ID,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
@@ -898,7 +879,6 @@ func (s *HTTPServer) CreateJourneyDetour(w http.ResponseWriter, r *http.Request)
 	}
 
 	detourUnitId, _ := strconv.ParseInt(journeyDetourReq.DetourUnitID, 10, 64)
-	userID, _ := strconv.ParseInt(journeyDetourReq.UserID, 10, 64)
 	taskID, _ := strconv.ParseInt(journeyDetourReq.TaskID, 10, 64)
 	// call the core
 	res, err := core.CreateJourneyDetour(core.CreateJourneyDetourParams{
@@ -906,7 +886,7 @@ func (s *HTTPServer) CreateJourneyDetour(w http.ResponseWriter, r *http.Request)
 		TiDB:         s.tiDB,
 		Sf:           s.sf,
 		DetourUnitID: detourUnitId,
-		UserID:       userID,
+		UserID:       callingUser.(*models.User).ID,
 		TaskID:       taskID,
 		StartedAt:    time.Now(),
 	})
@@ -1035,7 +1015,6 @@ func (s *HTTPServer) CreateJourneyDetourRecommendation(w http.ResponseWriter, r 
 	}
 
 	recUnitId, _ := strconv.ParseInt(journeyDetourReq.RecUnitID, 10, 64)
-	userID, _ := strconv.ParseInt(journeyDetourReq.UserID, 10, 64)
 	fromTaskID, _ := strconv.ParseInt(journeyDetourReq.FromTaskID, 10, 64)
 
 	// call the core
@@ -1044,7 +1023,7 @@ func (s *HTTPServer) CreateJourneyDetourRecommendation(w http.ResponseWriter, r 
 		TiDB:       s.tiDB,
 		Sf:         s.sf,
 		RecUnitID:  recUnitId,
-		UserID:     userID,
+		UserID:     callingUser.(*models.User).ID,
 		FromTaskID: fromTaskID,
 		CreatedAt:  time.Now(),
 	})
@@ -1188,8 +1167,6 @@ func (s *HTTPServer) CreateJourneyUserMap(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userID, _ := strconv.ParseInt(journeyMapReq.UserID, 10, 64)
-
 	units := make([]int64, 0)
 
 	for _, unit := range journeyMapReq.Units {
@@ -1201,7 +1178,7 @@ func (s *HTTPServer) CreateJourneyUserMap(w http.ResponseWriter, r *http.Request
 	res, err := core.CreateJourneyUserMap(core.CreateJourneyUserMapParams{
 		Ctx:    ctx,
 		TiDB:   s.tiDB,
-		UserID: userID,
+		UserID: callingUser.(*models.User).ID,
 		Units:  units,
 	})
 	if err != nil {
@@ -1453,22 +1430,6 @@ func (s *HTTPServer) GetJourneyUserMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// attempt to load code source id from body
-	userIdI, ok := s.loadValue(w, r, reqJson, "GetJourneyUserMap", "user_id", reflect.String, nil, false, callingUser.(*models.User).UserName, callingId)
-	if userIdI == nil || !ok {
-		return
-	}
-
-	// parse post code source id to integer
-	journeyUserId, err := strconv.ParseInt(userIdI.(string), 10, 64)
-	if err != nil {
-		// handle error internally
-		s.handleError(w, fmt.Sprintf("failed to parse code source id string to integer: %s", userIdI.(string)), r.URL.Path, "GetJourneyUserMap", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusInternalServerError, "internal server error occurred", err)
-		// exit
-		return
-	}
-
 	// attempt to load video id from body
 	skip, ok := s.loadValue(w, r, reqJson, "GetJourneyUserMap", "skip", reflect.Float64, nil, false, callingUser.(*models.User).UserName, callingId)
 	if skip == nil || !ok {
@@ -1492,9 +1453,10 @@ func (s *HTTPServer) GetJourneyUserMap(w http.ResponseWriter, r *http.Request) {
 	res, err := core.GetJourneyUserMap(core.GetJourneyUserMapParams{
 		Ctx:    ctx,
 		TiDB:   s.tiDB,
-		UserID: journeyUserId,
+		UserID: callingUser.(*models.User).ID,
 		Skip:   int(skip.(float64)),
 		Limit:  int(limit.(float64)),
+		Logger: s.logger,
 	})
 	if err != nil {
 		// select error message dependent on if there was one returned from the function
