@@ -1981,6 +1981,21 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 	// set the default workspace config for bytes
 	wsConfig := constants.BytesWorkspaceConfig
 
+	// attempt to load the workspace config from database
+	var wsConfigBuf []byte
+	err = tidb.QueryRowContext(ctx, &span, &callerName,
+		"select ifnull(b.custom_ws_config, ju.custom_ws_config) from bytes b left join journey_tasks jt on jt.code_source_id = b._id left join journey_units ju on ju._id = jt.journey_unit_id where b._id = ? group by b._id",
+		byteId).Scan(&wsConfigBuf)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to load workspace config: %v", err)
+	}
+	if len(wsConfigBuf) > 0 {
+		err = json.Unmarshal(wsConfigBuf, &wsConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load workspace config: %v", err)
+		}
+	}
+
 	// create id for new workspace
 	wsId := snowflakeNode.Generate().Int64()
 
