@@ -1860,6 +1860,25 @@ func DeleteEphemeral(ctx context.Context, tidb *ti.Database, vcsClient *git.VCSC
 	return nil
 }
 
+const sameUnitWorkspaceQuery = `
+SELECT w.*
+FROM workspaces w
+	JOIN byte_attempts ba ON w.code_source_id = ba._id
+	JOIN bytes b ON ba.byte_id = b._id
+	JOIN journey_tasks jt ON b._id = jt.code_source_id
+	JOIN journey_units ju ON jt.journey_unit_id = ju._id
+WHERE w.owner_id = ?
+  AND w.state not in (?, ?, ?)
+  AND ju._id = (
+    SELECT ju._id
+    FROM journey_units ju
+    JOIN journey_tasks jt ON ju._id = jt.journey_unit_id
+    JOIN bytes b ON jt.code_source_id = b._id
+    WHERE b._id = ?
+    LIMIT 1
+  )
+`
+
 func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.JetstreamClient, snowflakeNode *snowflake.Node,
 	wsStatusUpdater *utils.WorkspaceStatusUpdater, callingUser *models.User, accessUrl string, byteId int64,
 	hostname string, tls bool) (map[string]interface{}, error) {
@@ -1891,19 +1910,69 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 	// ensure the closure of the cursor
 	defer res.Close()
 
+	var existingWorkspace *models.Workspace
+
 	// handle case that a workspace is already live
 	if res.Next() {
 		// attempt to load values from the cursor
-		workspace, err := models.WorkspaceFromSQLNative(res)
+		existingWorkspace, err = models.WorkspaceFromSQLNative(res)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load workspace from cursor: %v", err)
 		}
+	}
 
+	// close the cursor
+	_ = res.Close()
+
+	// if we don't find a workspace under the byte attempt then check if this is a journey and if we have a live workspace
+	// for any other bytes within the unit
+	if existingWorkspace == nil {
+		// we can only reuse the workspace if the parent byte does not have a custom config
+		var c int64
+		err = tidb.QueryRowContext(ctx, &span, &callerName,
+			"select count(*) from bytes where _id = ? and custom_ws_config is null",
+			byteId,
+		).Scan(&c)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve existing workspace: %v", err)
+		}
+
+		// only query if there is no custom config for this byte
+		if c > 0 {
+			// attempt to retrieve any existing workspaces
+			res, err := tidb.QueryContext(ctx, &span, &callerName,
+				sameUnitWorkspaceQuery,
+				callingUser.ID, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed, byteId,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to query for existing workspace: %v\n    query: %s\n    params: %v", err,
+					sameUnitWorkspaceQuery,
+					[]interface{}{callingUser.ID, models.WorkspaceRemoving, models.WorkspaceDeleted, models.WorkspaceFailed, byteId})
+			}
+
+			// ensure the closure of the cursor
+			defer res.Close()
+
+			// handle case that a workspace is already live
+			if res.Next() {
+				// attempt to load values from the cursor
+				existingWorkspace, err = models.WorkspaceFromSQLNative(res)
+				if err != nil {
+					return nil, fmt.Errorf("failed to load workspace from cursor: %v", err)
+				}
+			}
+
+			// close the cursor
+			_ = res.Close()
+		}
+	}
+
+	if existingWorkspace != nil {
 		// update expiration
-		workspace.Expiration = time.Now().Add(time.Minute * 30)
+		existingWorkspace.Expiration = time.Now().Add(time.Minute * 30)
 
 		// handle non-live workspaces by performing a start transition
-		if workspace.State != models.WorkspaceActive && workspace.State != models.WorkspaceStarting {
+		if existingWorkspace.State != models.WorkspaceActive && existingWorkspace.State != models.WorkspaceStarting {
 			// update workspace in tidb using a tx
 			tx, err := tidb.BeginTx(ctx, &span, &callerName, nil)
 			if err != nil {
@@ -1911,13 +1980,13 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 			}
 
 			// update the workspace state
-			workspace.State = models.WorkspaceStarting
-			workspace.InitState = -1
-			workspace.LastStateUpdate = time.Now()
+			existingWorkspace.State = models.WorkspaceStarting
+			existingWorkspace.InitState = -1
+			existingWorkspace.LastStateUpdate = time.Now()
 
 			_, err = tx.ExecContext(ctx, &callerName,
-				"update workspaces set expiration = ?, state = ?, init_state = -1, last_state_update = ? where _id = ?",
-				workspace.Expiration, workspace.State, workspace.LastStateUpdate, workspace.ID,
+				"update workspaces set expiration = ?, state = ?, init_state = -1, last_state_update = ?, code_source_id = ? where _id = ?",
+				existingWorkspace.Expiration, existingWorkspace.State, existingWorkspace.LastStateUpdate, byteAttemptID, existingWorkspace.ID,
 			)
 			if err != nil {
 				_ = tx.Rollback()
@@ -1928,7 +1997,7 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 			buf := bytes.NewBuffer(nil)
 			encoder := gob.NewEncoder(buf)
 			err = encoder.Encode(models2.StartWorkspaceMsg{
-				ID: workspace.ID,
+				ID: existingWorkspace.ID,
 			})
 			if err != nil {
 				_ = tx.Rollback()
@@ -1951,19 +2020,19 @@ func CreateByteWorkspace(ctx context.Context, tidb *ti.Database, js *mq.Jetstrea
 			}
 		} else {
 			// update workspace in tidb
-			_, err = tidb.ExecContext(ctx, &span, &callerName, "update workspaces set expiration = ? where _id = ?", workspace.Expiration, workspace.ID)
+			_, err = tidb.ExecContext(ctx, &span, &callerName, "update workspaces set expiration = ?, code_source_id = ? where _id = ?", existingWorkspace.Expiration, byteAttemptID, existingWorkspace.ID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to update expiration for active workspace in tidb: %v", err)
 			}
 		}
 
 		// push workspace status update to subscribers
-		wsStatusUpdater.PushStatus(ctx, workspace.ID, workspace)
+		wsStatusUpdater.PushStatus(ctx, existingWorkspace.ID, existingWorkspace)
 
 		return map[string]interface{}{
 			"message":   "Workspace Created Successfully",
-			"agent_url": fmt.Sprintf("/agent/%d/%d/ws", callingUser.ID, workspace.ID),
-			"workspace": workspace.ToFrontend(hostname, tls),
+			"agent_url": fmt.Sprintf("/agent/%d/%d/ws", callingUser.ID, existingWorkspace.ID),
+			"workspace": existingWorkspace.ToFrontend(hostname, tls),
 		}, nil
 	}
 
