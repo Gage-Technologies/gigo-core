@@ -1,11 +1,15 @@
 package external_api
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"gigo-core/gigo/api/external_api/ws"
+	models2 "github.com/gage-technologies/gigo-lib/mq/models"
+	"github.com/gage-technologies/gigo-lib/mq/streams"
 	"github.com/gage-technologies/gigo-lib/types"
 	"net"
 	"net/http"
@@ -298,13 +302,32 @@ func (p *WebSocketPluginBytesAgent) HandleMessage(msg *ws.Message[any]) {
 		})
 		if err != nil {
 			p.socket.logger.Errorf("(bytes-agent-ws) failed to dial byte agent: %v", err)
+
+			// format destroy workspace request and marshall it with gob
+			buf := bytes.NewBuffer(nil)
+			encoder := gob.NewEncoder(buf)
+			err = encoder.Encode(models2.DestroyWorkspaceMsg{
+				ID:      workspaceID,
+				OwnerID: p.socket.user.Load().ID,
+			})
+			if err != nil {
+				p.socket.logger.Errorf("(bytes-agent-ws) failed to encode workspace destruction: %v", err)
+			} else {
+				// send workspace destroy message to jetstream so a follower will
+				// destroy the workspace
+				_, err = p.s.jetstreamClient.PublishAsync(streams.SubjectWorkspaceDestroy, buf.Bytes())
+				if err != nil {
+					p.socket.logger.Errorf("failed to send workspace destroy message to jetstream: %v", err)
+				}
+			}
+
 			// handle internal server error via websocket
 			p.outputChan <- ws.PrepMessage[any](
 				msg.SequenceID,
 				ws.MessageTypeGenericError,
 				ws.GenericErrorPayload{
 					Code:  ws.ResponseCodeServerError,
-					Error: "internal server error occurred",
+					Error: "We failed to establish a connection to your DevSpace. Please try to run the code again!",
 				},
 			)
 			return
