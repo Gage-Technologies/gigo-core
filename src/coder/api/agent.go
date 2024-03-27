@@ -72,6 +72,7 @@ func (api *WorkspaceAPI) InitializeAgent(rw http.ResponseWriter, r *http.Request
 		GitUseTLS:      api.GitUseTLS,
 		RegistryCaches: api.RegistryCaches,
 		IsVNC:          req.IsVNC,
+		Logger:         api.Logger,
 	})
 	if err != nil {
 		if err.Error() == "workspace not found" {

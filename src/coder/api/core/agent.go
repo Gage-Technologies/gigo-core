@@ -8,6 +8,7 @@ import (
 	"gigo-core/gigo/config"
 	"gigo-core/gigo/constants"
 	"gigo-core/gigo/utils"
+	"github.com/gage-technologies/gigo-lib/logging"
 	"io"
 	"net/url"
 	"strings"
@@ -40,6 +41,7 @@ type InitializeAgentOptions struct {
 	GitUseTLS      bool
 	RegistryCaches []config.RegistryCacheConfig
 	IsVNC          bool
+	Logger         logging.Logger
 }
 
 type UpdateAgentStatsOptions struct {
@@ -232,7 +234,7 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 		// attempt to load the workspace config from database
 		var wsConfigBuf []byte
 		err = opts.DB.QueryRowContext(ctx, &span, &callerName,
-			"select ifnull(b.custom_ws_config, ju.custom_ws_config) from bytes b left join journey_tasks jt on jt.code_source_id = b._id left join journey_units ju on ju._id = jt.journey_unit_id where b._id = ? group by b._id",
+			"select ifnull(b.custom_ws_config, ju.custom_ws_config) from bytes b join byte_attempts ba on b._id = ba.byte_id left join journey_tasks jt on jt.code_source_id = b._id left join journey_units ju on ju._id = jt.journey_unit_id where ba._id = ? group by b._id",
 			projectId).Scan(&wsConfigBuf)
 		if err != nil && err != sql.ErrNoRows {
 			return nil, fmt.Errorf("failed to load workspace config: %v", err)
@@ -242,6 +244,10 @@ func InitializeAgent(ctx context.Context, opts InitializeAgentOptions) (*agentsd
 			if err != nil {
 				return nil, fmt.Errorf("failed to load workspace config: %v", err)
 			}
+			b, _ := json.Marshal(gigoConfig)
+			opts.Logger.Infof("using custom config for the bytes workspace\n%s\n%s", string(wsConfigBuf), string(b))
+		} else {
+			opts.Logger.Infof("using default config for the bytes workspace")
 		}
 	} else if projectType == models.CodeSourceHH {
 		gigoConfig = constants.HhWorkspaceConfig
