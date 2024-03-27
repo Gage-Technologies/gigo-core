@@ -866,13 +866,6 @@ func (s *HTTPServer) CreateJourneyDetour(w http.ResponseWriter, r *http.Request)
 
 	callingId := strconv.FormatInt(callingUser.(*models.User).ID, 10)
 
-	// require that the user is admin
-	if callingUser.(*models.User).AuthRole != models.Admin {
-		s.handleError(w, "only admins can perform this action", r.URL.Path, "CreateJourneyDetour", r.Method, r.Context().Value(CtxKeyRequestID),
-			network.GetRequestIP(r), callingUser.(*models.User).UserName, callingId, http.StatusForbidden, "forbidden", nil)
-		return
-	}
-
 	var journeyDetourReq CreateJourneyDetourRequest
 	if ok := s.validateRequest(w, r, callingUser.(*models.User), r.Body, &journeyDetourReq); !ok {
 		return
